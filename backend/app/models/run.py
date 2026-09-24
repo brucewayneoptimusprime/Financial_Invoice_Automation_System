@@ -8,6 +8,7 @@ from app.engine.facts import RunFacts
 from app.enums import Decision, MatchStatus, StageStatus
 from app.models.audit import AuditEvent
 from app.models.extraction import ExtractedInvoice
+from app.models.extraction_meta import ExtractionMeta, IngestInfo
 from app.models.rules import RuleResult
 
 
@@ -43,7 +44,9 @@ class RunContext(BaseModel):
     source_file: str = Field(min_length=1)
     file_hash: str | None = None
     started_at: datetime | None = None
+    ingest: IngestInfo | None = None                    # set by the ingest stage (M2)
     extracted: ExtractedInvoice | None = None
+    extraction_meta: ExtractionMeta | None = None       # set by the extract stage (M2)
     facts: RunFacts | None = None  # read-only snapshot, taken once per run by engine/loader.py
     matched_vendor: VendorMatch | None = None
     matched_po: POCandidate | None = None

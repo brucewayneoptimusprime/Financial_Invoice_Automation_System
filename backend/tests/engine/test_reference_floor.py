@@ -124,9 +124,53 @@ def test_po_found_describes_how_the_po_was_actually_found(ref, fragment):
     assert fragment in res["r_po_found"].message
 
 
-def test_known_gap_a_stated_reference_that_matches_no_po_is_not_floored():
-    """DOCUMENTED GAP (see STATUS.md, decision 1): a reference resembling nothing, with the PO matched on
-    vendor + amount + lines alone, is neither floored nor flagged. Change this test if that is decided otherwise."""
+# ------------------------------------------------------------------------------ a stated reference that matches NO PO
+
+def test_a_stated_reference_matching_no_po_forces_review_even_when_other_signals_match():
+    """Vendor, amount and lines match PO-100001, but the invoice quotes PO ZZZ-9: never approve."""
     ctx, res, _ = pipeline(make_extracted(po_reference="ZZZ-9"), one_po())
-    assert ctx.matched_po.po_number == "PO-100001" and not applied(res)
-    assert ctx.candidates[0].reasons[0] == "reference:none"
+    assert ctx.matched_po.po_number == "PO-100001" and ctx.candidates[0].reasons[0] == "reference:none"
+    assert applied(res) and res[FLOOR].severity == 1 and ctx.decision is Decision.REVIEW
+    assert res[FLOOR].detail["reference_match"] == "reference:none"
+    assert "reference ZZZ-9 does not match PO PO-100001" in res[FLOOR].message
+
+
+def test_a_stated_reference_matching_no_po_at_all_is_floored_with_its_own_reason():
+    ex = make_extracted(po_reference="ZZZ-9", vendor_name="Nobody Known Trading", line_items=[], total="1.00",
+                        subtotal="1.00", tax="0.00")
+    ctx, res, _ = pipeline(ex, make_facts(pos=[make_po(id=1, po_number="PO-100001", vendor_id=9)]))
+    assert ctx.match_status is MatchStatus.NO_CANDIDATES and ctx.candidates == []
+    assert applied(res) and res[FLOOR].detail["reference_match"] == "no_candidates"
+    assert "reference ZZZ-9 matches no purchase order" in res[FLOOR].message
+
+
+def test_no_pos_at_all_and_a_stated_reference_is_floored():
+    _, res, _ = pipeline(make_extracted(po_reference="PO-100001"), make_facts(pos=[]))
+    assert applied(res) and res[FLOOR].detail["reference_match"] == "no_candidates"
+
+
+def test_an_inferred_reference_that_matches_nothing_is_exempt():
+    """explicit=False means the extractor never saw a stated PO number, so there is nothing to contradict."""
+    ex = make_extracted(po_reference={"value": "ZZZ-9", "explicit": False, "confidence": 0.9})
+    ctx, res, _ = pipeline(ex, one_po())
+    assert ctx.matched_po is not None and not applied(res) and ctx.decision is Decision.APPROVE
+
+
+def test_an_inferred_reference_that_only_resembles_a_po_is_still_floored():
+    ex = make_extracted(po_reference={"value": "PO-100009", "explicit": False, "confidence": 0.9})
+    _, res, _ = pipeline(ex, one_po())
+    assert applied(res) and res[FLOOR].detail["reference_match"].startswith("reference:fuzzy")
+
+
+def test_unknown_explicitness_counts_as_stated():
+    ex = make_extracted(po_reference={"value": "ZZZ-9", "explicit": None, "confidence": 0.9})
+    _, res, _ = pipeline(ex, one_po())
+    assert applied(res)
+
+
+def test_the_no_match_case_holds_with_every_builtin_rule_disabled_and_exact_references_still_pass():
+    off = [r.model_copy(update={"enabled": False}) for r in BUILTIN.values()]
+    ctx, res, (_, validate, _) = pipeline(make_extracted(po_reference="ZZZ-9"), one_po(), rules=off)
+    assert applied(res) and validate.outputs["final_severity"] >= 1
+    ctx, res, _ = pipeline(make_extracted(po_reference="PO-100001"), one_po(), rules=off)
+    assert not applied(res) and ctx.decision is Decision.APPROVE

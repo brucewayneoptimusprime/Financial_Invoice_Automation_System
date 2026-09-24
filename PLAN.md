@@ -1,6 +1,6 @@
 # PLAN: M2 — Ingest and Extraction
 
-Status: **awaiting approval. No M2 code has been written.**
+Status: **approved (2026-09-25) with the changes listed in §16. Build order: stages 1–3, then STOP for the owner's live checks; stage 4 starts only on the owner's word.**
 Project context: an invoice-processing agent. "The AI reads, the rules decide, the system acts" (SPEC.md §2). M0 (foundations) and M1 (rules engine, 602 tests) are done and approved. M2 turns one PDF/PNG/JPG into the `ExtractedInvoice` contract (SPEC §6.1) with per-field evidence and confidence, feeding the existing engine.
 
 ## 1. Scope
@@ -67,7 +67,7 @@ New dependencies: `anthropic>=1.8`, `pypdfium2>=5`, `Pillow>=12` (runtime); `rep
 | Prices | `llm_prices` = `{model: {input_per_mtok, output_per_mtok, cache_read_mult, cache_write_mult}}`; seeded with Sonnet 5 = 2.00 / 10.00 / 0.1 / 1.25. **Unknown model → `PriceNotConfigured` before any call** (a ceiling cannot be enforced without a price). |
 | Ceilings | `cost_ceiling_per_run_usd` (0.25); `cost_ceiling_per_session_usd` (5.00) — "session" = one process (API server or eval run) |
 | Ingest | `allowed_media_types` (pdf, png, jpeg); `max_file_bytes` (20 MB); `max_pages` (10); `runs_dir` (data/runs); `render_max_side_px` (1568); `render_dpi` (150) |
-| Extraction | `extraction_mode` (auto \| vision \| text_and_vision \| text); `text_min_chars_per_page` (40); `text_min_wordlike_ratio` (0.6); `text_max_chars_per_page` (15000); `grounding_caps` (below); `currency_symbol_map` ({"$":"USD","€":"EUR","£":"GBP"}); `injection_patterns` |
+| Extraction | `extraction_mode` (auto \| vision \| text_and_vision \| text); `text_min_chars_per_page` (40); `text_min_wordlike_ratio` (0.6); `text_max_chars_per_page` (15000); `grounding_caps` (below); `currency_symbol_map` ({"$":"USD","€":"EUR","£":"GBP","₹":"INR","Rs":"INR","Rs.":"INR"}); `injection_patterns` |
 
 ## 5. Contract changes (exact fields — for your approval)
 
@@ -77,9 +77,11 @@ New dependencies: `anthropic>=1.8`, `pypdfium2>=5`, `Pillow>=12` (runtime); `rep
 | `vendor_tax_id` | evidenced string | Strongest vendor identifier; matching currently relies on name only. |
 | `vendor_address` | evidenced string (one block) | Disambiguates look-alike vendors; shown to reviewers. |
 | `document_type` | evidenced enum: `invoice, credit_note, proforma, quote, statement, receipt, other` | Credit notes are out of scope (SPEC §11.4); a statement or quote must never be approved as an invoice. |
-| `adjustments[]` | `{kind: shipping\|discount\|fee\|rounding\|other, description, amount (signed), page, source_text, confidence}` | Shipping/discounts that sit outside line items otherwise make the arithmetic rule flag correct invoices. |
+| `adjustments[]` | `{kind: shipping\|discount\|credit\|fee\|rounding\|other, description, printed_amount, amount, page, source_text, confidence}` | Shipping/discounts outside line items otherwise make the arithmetic rule flag correct invoices. **The model returns the amount as printed (absolute); the system applies the sign by kind**: discount/credit subtract, shipping/fee add, rounding/other keep the printed sign. `printed_amount` keeps the model's value, `amount` is the signed value. |
 | `line_items[].item_code` | optional string | Stronger line matching than free-text descriptions. |
 | `document_quality.contains_reader_instructions` | optional bool | Model self-report of text addressed to an AI/reader (see §8). |
+
+`tax` is the **total** tax. If only component taxes are printed (CGST+SGST, state+county, …) the model sums them and says so in `extraction_notes`. Vendor tax IDs are compared after normalisation (case, spaces, hyphens, dots removed); the value itself stays as printed.
 
 Not proposed (YAGNI): due date, payment terms, bill-to, bank details.
 
@@ -122,7 +124,7 @@ Per document, mode `auto` (default):
 | `extraction_mode=text` (cost saver, optional) | `text_only` if usable, else vision | Text only |
 
 Why both when possible: the image gives layout (which number belongs to which label, stamps, handwriting, table structure); the text layer gives exact characters, which vision can misread (0/O, 1/l, 5/6). The prompt says: *transcribe exactly what is printed; use the text layer for exact characters and the image for layout and anything the text lacks; if they conflict, prefer the image when the page looks scanned and the text layer otherwise; report any conflict in `extraction_notes`.* The **grounding check (§9) then verifies the model's answer against the text layer independently**, which is the "compare" step SPEC §3 asks for. The path used is recorded in `ExtractionMeta.path`.
-`eval --compare-modes` runs vision-only and text+vision on the same files to measure the difference once real invoices exist (doubles cost; run once).
+(A `--compare-modes` eval option was considered and dropped for now.)
 
 ## 8. LLM client and prompt
 
@@ -135,6 +137,10 @@ Why both when possible: the image gives layout (which number belongs to which la
 | Numbers exactly as printed, even if the arithmetic is wrong | "Do not correct, recompute or round"; value must equal the digits in `source_text`; the arithmetic rule (M1) detects the error |
 | PO reference explicit vs inferred | `po_reference.explicit`: true only if printed with a PO label; otherwise false |
 | Invoice text is DATA, not instructions | System-prompt rule + page text inside delimiters (delimiter look-alikes in the text are neutralised) + output only through the schema (no free-form channel except `extraction_notes`) + deterministic scan (`injection.py`) + model self-report → floor to review. Even a successful injection cannot approve anything: **rules decide** |
+| Fields by MEANING, not label text | Label lists in the prompt are examples, never a closed set. `total` = the final amount payable for this invoice (after discounts, including tax and shipping), commonly labelled Total / Grand Total / Amount Due / Balance Due / Amount Payable, never the subtotal. If a separate Balance Due differs (payments applied), `total` is the invoice total and the difference goes in `extraction_notes` |
+| PO reference | Only a value printed with a purchase-order label counts (`explicit=true`); an "Order ID" / "Order No" is NOT a PO reference; otherwise `po_reference` is null. The model never infers a PO |
+| Total tax | `tax` is the total; component taxes are summed and the sum is reported in `extraction_notes` |
+| Adjustments | Amount as printed (absolute) plus a kind; the system applies the sign |
 | Report ambiguities | `extraction_notes`; ambiguous d/m dates, currency symbols and label conflicts must be described there |
 | Calibrated confidence | Written guidance: ≥0.95 crisp print, ≤0.6 blurry/ambiguous, 0 when null |
 | `source_text` | Verbatim snippet including the label, ≤200 chars, and the 1-based page |
@@ -149,10 +155,12 @@ Model confidence is one signal, not truth. For every non-null evidenced field (a
 |---|---|---|---|
 | G0 | `source_text` present | no | missing → `no_source`, cap **0.50** (principle 4: every claim has evidence) |
 | G1 | Value agrees with its own `source_text` (amounts: the exact `Decimal` appears among the numbers in the snippet, handling `1,234.56` / `1.234,56` / `(500.00)` / currency marks; dates: the ISO date is among the parsable dates in the snippet, both d/m and m/d readings; identifiers/strings: normalised value inside normalised snippet) | no | disagree → `value_mismatch`, cap **0.30** — catches a model that "repaired" a number |
-| G2 | `source_text` occurs in the page text | yes | verbatim → `exact`; after normalisation (case, whitespace, ligatures, Unicode minus, hyphenated line breaks) → `normalized`; close (edit similarity ≥ 0.90) → `fuzzy`, cap **0.75**; absent → `not_found`, cap **0.40** |
+| G2 | `source_text` occurs in the page text | yes | verbatim → `exact`; after normalisation (case, whitespace, ligatures, Unicode minus, hyphenated line breaks) → `normalized`; close (edit similarity ≥ 0.90) → `fuzzy`, cap **0.75** |
+| G2b | **Value fallback** (owner addition): many real PDFs have text layers whose reading order separates labels from values (all amounts in one block, then "Subtotal: Shipping: Total:"), so the full snippet often is not found even though the value is on the page. If the snippet is not found, check that the field's **value** is present in that page's text: amounts — the exact `Decimal` among the parsed numbers of the page (all plausible readings of `1,234.56` / `1.234,56` / Indian `1,00,000.00`); dates — the ISO date among the parsable dates; identifiers/strings — the normalised value | yes | value present → `value_present`, cap **0.85** (above the 0.8 review threshold); value absent from the page → `not_found`, cap **0.40** |
 | G3 | Page repair | yes | If the snippet is found on a different page, the page number is corrected and noted |
 
 `effective = min(model_confidence, cap_for_status)`; `exact`/`normalized` leave the model value untouched. With no usable text layer, G2 is `unavailable` (no penalty; G0/G1 still run). Caps are config values. Because the M1 floor already sends any required field below the confidence threshold (0.8) to review, an ungrounded total or invoice number can never be auto-approved. A summary line is appended to `extraction_notes` and the counts go to `ExtractionMeta` and the audit trail.
+Fixture requirement: a text layer that lists the values before the labels must yield `value_present`, not `not_found`.
 Not proposed: a second LLM "verification" pass (extra cost); revisit only if the eval shows grounding is not enough.
 
 ## 10. Failure modes
@@ -162,7 +170,8 @@ Principle: **never crash a run, never guess; degrade to an all-null extraction w
 | Situation | LLM called? | Outcome | `failure_kind` | Expected decision |
 |---|---|---|---|---|
 | Unsupported type / empty / oversize | no | rejected at ingest (no run) | – | clear error to the caller |
-| Password-protected, corrupt, zero pages, all pages blank | no ($0) | all-null + note + `document_quality.issues` | vendor_side | `request_info` (via required fields) |
+| **Password-protected**, **all pages blank** | no ($0) | all-null + note + `document_quality.issues` | vendor_side | `request_info` (via required fields) |
+| **Corrupt / unrenderable** (renderer error, zero pages) | no ($0) | all-null + note + issues | **system_side** (our renderer may be the cause) | `review` |
 | Page cap exceeded | yes (first N pages) | normal extraction, `truncated` + note | – | at least `review` (floor) |
 | API key missing/empty | no | all-null + "LLM not configured" | system_side | `review` |
 | Timeout, connection, 5xx, 429 after SDK retries | attempts logged | all-null + reason | system_side | `review` |
@@ -202,7 +211,7 @@ All non-live tests run offline, with the key blanked, using generated fixtures (
 Skipped by default (`addopts = -m "not live"`) and skipped automatically when no key is set; run with `pytest -m live`. Cases: generated native PDF; generated scanned-style PNG; a prompt-injection page; asserts schema-valid output, key fields grounded, cost under a tiny per-test ceiling; also confirms the API accepts `thinking=disabled` + `effort=low`.
 
 ### 12.3 Eval script and answer key
-`python -m app.extraction.eval [--dir data/invoices] [--manifest data/manifest.md] [--mode auto] [--replay DIR | --record DIR] [--max-cost USD] [--compare-modes] [--json out.json]`
+`python -m app.extraction.eval [--dir data/invoices] [--manifest data/manifest.md] [--mode auto] [--replay DIR | --record DIR] [--max-cost USD] [--draft-manifest]` (no `--compare-modes` / `--json` for now)
 - **Empty folder:** prints "0 invoices found in …" plus how to add files; exit 0. No key and no `--replay` → clear message before spending anything.
 - **`data/manifest.md`:** human notes plus, per file, a heading and one fenced JSON block of expected values:
   ````
@@ -213,10 +222,12 @@ Skipped by default (`addopts = -m "not live"`) and skipped automatically when no
    "line_items":[{"description":"Widgets","amount":"2000.00"}]}
   ```
   ````
-  Fields omitted are not scored; an explicit `null` means "must be null" (catches hallucination).
+  Fields omitted are not scored; an explicit `null` means "must be null" (catches hallucination). Each entry carries `"verified": true|false`; **only `verified: true` entries are scored** and the report states how many files are unverified. `--draft-manifest` runs extraction and writes draft `expected` blocks into `data/manifest.md` marked `"verified": false`; **nothing is ever marked verified automatically** — a human flips the flag after checking.
 - **Report:** per field — scored, correct, missed (null where a value existed), hallucinated (value where null expected), accuracy; money compared as exact `Decimal`, strings/identifiers after normalisation, dates exact; line items scored by exact amount + normalised description; mean confidence of correct vs wrong answers; grounding status counts; path counts; per-file failures; total tokens and cost. Unlabelled files are extracted but not scored; manifest entries without a file are warned about.
 
 ## 13. Build stages (each: tests run, committed, `STATUS.md` rewritten)
+
+**Sequencing (owner):** build stages 1–3, commit, rewrite `STATUS.md`, then **stop** — the owner runs live checks first. By then `python -m app.extraction.cli <file>` prints the extracted JSON, the path used, tokens, cost and whatever grounding information exists at that stage; `python -m app.llm.probe` makes one tiny call and reports whether the API accepts `thinking=disabled` together with `effort=low` (the client falls back to `effort=low` only, and says so). Stage 4 starts only when the owner says so.
 
 1. **LLM layer:** config, errors, client, pricing, budget, replay, key handling, test isolation fixture, live-test gating.
 2. **Ingest:** validate, store, hash, render, text layer, ingest stage, generated fixtures.
@@ -235,13 +246,13 @@ Skipped by default (`addopts = -m "not live"`) and skipped automatically when no
 
 Model `claude-sonnet-5`; thinking disabled + effort low; `max_output_tokens` 4096; SDK timeout 60 s / 2 retries; prompt caching off; structured outputs via `json_schema`; manifest as fenced JSON blocks; run folders `data/runs/<uuid>/`; page images PNG at ≤1568 px; max file 20 MB; grounding caps 0.50 / 0.30 / 0.75 / 0.40 (`no_source` / `value_mismatch` / `fuzzy` / `not_found`); reader-instruction scan on; test PDFs generated at test time (`reportlab`, dev-only).
 
-## 16. Decisions needed
+## 16. Decisions (resolved 2026-09-25)
 
-1. **PDF library.** pypdfium2 (permissive licence, renders + extracts text) vs PyMuPDF (faster, richer, but AGPL). *Recommend pypdfium2 + Pillow.*
-2. **Contract additions and the rule they enable** (§5.1–5.2, §5.5 items 4–6): `vendor_tax_id`, `vendor_address`, `document_type`, `adjustments`, `item_code`, `contains_reader_instructions`, system fields `model_confidence`/`grounding`; new rule `r_document_type`; tax-id vendor resolution; adjustments in the arithmetic rule. *Recommend approve all.*
-3. **Failure semantics** (§10, §5.5 items 1–3): system-side failures → `review`; vendor-side (unreadable/protected/blank) → `request_info`. Requires the small M1 engine changes listed. *Recommend approve.*
-4. **Text + vision combination** (§7): both when a usable text layer exists, vision-only otherwise. *Recommend approve; run `--compare-modes` once on real invoices.*
-5. **Over the page cap:** process the first N pages and force review, vs reject the file. *Recommend truncate + review (default 10 pages).*
-6. **Currency symbol `$`:** map to USD by config (assumption recorded in SPEC §11) vs treat as ambiguous (null + review). *Recommend map `$`→USD, `€`→EUR, `£`→GBP; `¥` and others stay ambiguous.*
-7. **Ambiguous dates (e.g. 03/04/2026):** return the best reading at confidence ≤ 0.5 with a note (→ review), vs `null` (→ request_info). *Recommend low-confidence reading; the printed text is preserved in `source_text`.*
-8. **Cost defaults:** $0.25 per run, $5.00 per session, 4096 max output tokens. *Recommend as stated; tune after the first live eval.*
+1. **Approved, extended:** any *explicitly stated* PO reference that is not an exact normalised match to the matched PO — including one that matches no PO at all — forces review (implemented; the known-gap test was replaced). A reference the extractor marked inferred (`explicit=false`) is exempt from the "matches nothing" cases.
+2. **pypdfium2 + Pillow.**
+3. **All contract additions and `r_document_type` approved**, with: adjustments returned as printed (absolute) + kind, sign applied by the system (discount/credit −, shipping/fee +, rounding/other as printed); `tax` = total tax (components summed, noted); ₹ and "Rs"/"Rs." → INR; the amount parser handles `1,234.56`, `1.234,56` and Indian `1,00,000.00`; tax IDs normalised (case, spaces, hyphens, dots) before comparison.
+4. **Approved with one change:** password-protected and blank documents are vendor_side (`request_info`); corrupt/unrenderable files are system_side (`review`).
+5. Approved (text + vision). 6. Approved (truncate at the page cap + review). 7. Approved (`$`→USD, plus ₹). 8. Approved (low-confidence reading for ambiguous dates). 9. Approved (cost defaults).
+10. **Prompt additions (owner):** identify fields by meaning, not label text; total definition; Balance Due handling; an Order ID/Order No is not a PO reference (§8).
+11. **Grounding addition (owner):** `value_present` fallback, cap 0.85 (§9).
+12. **Eval (owner):** no `--compare-modes`/`--json`; add `--draft-manifest`; only `verified: true` entries are scored (§12.3).

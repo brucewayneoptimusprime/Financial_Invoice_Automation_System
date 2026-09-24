@@ -39,29 +39,43 @@ _NON_EXACT_REFERENCE = ("reference:contained", "reference:fuzzy")
 
 
 def evaluate_reference_floor(ctx: RunContext, config: FloorConfig) -> RuleResult:
-    """A PO reached through a reference that is NOT an exact normalised match can never be approved.
+    """An explicitly stated PO reference that is not an exact normalised match to the PO can never be approved.
 
-    The target is the matched PO, or (if nothing was matched) the top candidate. Only `reference:contained`
-    and `reference:fuzzy` trigger it: an exact normalised reference (any formatting variant, explicit or not)
-    is unaffected. Like the main floor it is not a rule and cannot be disabled.
+    The target is the matched PO, or (if nothing was matched) the top candidate. Applies when the stated
+    reference (a) resembles the PO (`reference:contained` / `reference:fuzzy`), (b) does not match the PO at all
+    (`reference:none` - the PO was reached on vendor/amount/lines alone), or (c) matches no PO whatsoever.
+    An exact normalised reference (any formatting variant) is unaffected. A reference the extractor marked as
+    inferred (`explicit=False`) is exempt from (b) and (c), since it was never a stated PO number. Like the main
+    floor it is not a rule and cannot be disabled.
     """
     ref = ctx.extracted.po_reference if ctx.extracted is not None else None
     ref_value = None if ref is None else ref.value
+    stated = not is_missing(ref_value) and (ref is not None and ref.explicit is not False)
     target = ctx.matched_po or (ctx.candidates[0] if ctx.candidates else None)
-    detail = {"reference": ref_value, "po_number": None if target is None else target.po_number,
+    detail = {"reference": ref_value, "reference_explicit": None if ref is None else ref.explicit,
+              "po_number": None if target is None else target.po_number,
               "matched": ctx.matched_po is not None, "reference_reasons": [] if target is None else target.reasons[:2]}
-    reason = None
+
+    def applied(kind: str, message: str) -> RuleResult:
+        detail["reference_match"] = kind
+        return RuleResult(rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.FLAG, severity=config.floor_severity,
+                          outcome_key="reference_floor_applied", detail=detail,
+                          message="Engine floor (at least review): " + message)
+
     if not is_missing(ref_value) and target is not None:
-        reason = next((r for r in target.reasons if r.startswith(_NON_EXACT_REFERENCE)), None)
-    if reason is None:
-        return RuleResult(rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.PASS, severity=0, outcome_key="reference_floor_not_applied",
-                          detail=detail, message="Reference floor not applied: no PO was reached through an inexact PO reference.")
-    detail["reference_match"] = reason
-    return RuleResult(
-        rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.FLAG, severity=config.floor_severity,
-        outcome_key="reference_floor_applied", detail=detail,
-        message=f"Engine floor (at least review): reference {ref_value} resembles PO {target.po_number} but is not "
-                f"an exact match ({reason.split(':', 1)[1]}); an inexact reference is never approved automatically.")
+        if "reference:exact" not in target.reasons:
+            inexact = next((r for r in target.reasons if r.startswith(_NON_EXACT_REFERENCE)), None)
+            if inexact is not None:
+                return applied(inexact, f"reference {ref_value} resembles PO {target.po_number} but is not an exact match "
+                                        f"({inexact.split(':', 1)[1]}); an inexact reference is never approved automatically.")
+            if stated:
+                return applied("reference:none", f"reference {ref_value} does not match PO {target.po_number}; the PO was "
+                                                 "reached on vendor, amount and lines alone, and a stated PO reference "
+                                                 "must match exactly.")
+    elif stated and target is None:
+        return applied("no_candidates", f"reference {ref_value} matches no purchase order.")
+    return RuleResult(rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.PASS, severity=0, outcome_key="reference_floor_not_applied",
+                      detail=detail, message="Reference floor not applied: no stated PO reference conflicts with the PO.")
 
 
 def evaluate_floor(ctx: RunContext, config: FloorConfig) -> RuleResult:

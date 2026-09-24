@@ -12,6 +12,8 @@ from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.enums import GroundingStatus
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -39,7 +41,18 @@ class EvidencedField(LLMModel, Generic[T]):
     value: T | None = None
     page: int | None = Field(default=None, ge=1)
     source_text: str | None = None
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)   # EFFECTIVE confidence: the model's, capped by grounding
+    # Set by the system, never by the model (the wire schema does not include them):
+    model_confidence: float | None = Field(default=None, ge=0.0, le=1.0)   # the model's raw value
+    grounding: GroundingStatus | None = None
+
+
+DocumentType = Literal["invoice", "credit_note", "proforma", "quote", "statement", "receipt", "other"]
+AdjustmentKind = Literal["shipping", "discount", "credit", "fee", "rounding", "other"]
+
+
+class DocumentTypeField(EvidencedField[DocumentType]):
+    pass
 
 
 class CurrencyField(EvidencedField[str]):
@@ -73,14 +86,43 @@ class POReferenceField(EvidencedField[str]):
     explicit: bool | None = None
 
 
+class ExtractedAdjustment(LLMModel):
+    """A shipping / discount / credit / fee / rounding amount that is not a line item.
+
+    The model returns `amount` as printed (a positive magnitude for shipping, discount, credit and fee; signed
+    for rounding and other). The system then applies the sign by kind: discount and credit subtract, shipping
+    and fee add, rounding and other keep the printed sign. `printed_amount` keeps the model's value.
+    """
+
+    kind: AdjustmentKind | None = None
+    description: str | None = None
+    printed_amount: Decimal | None = None   # system: the model's value before the sign was applied
+    amount: Decimal | None = None           # signed by kind after post-processing
+    page: int | None = Field(default=None, ge=1)
+    source_text: str | None = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    model_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    grounding: GroundingStatus | None = None
+
+    @field_validator("printed_amount", "amount")
+    @classmethod
+    def _finite(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and not v.is_finite():
+            raise ValueError("number must be finite")
+        return v
+
+
 class ExtractedLineItem(LLMModel):
     description: str | None = None
+    item_code: str | None = None
     quantity: Decimal | None = None
     unit_price: Decimal | None = None
     amount: Decimal | None = None
     page: int | None = Field(default=None, ge=1)
     source_text: str | None = None
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    model_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    grounding: GroundingStatus | None = None
 
     @field_validator("quantity", "unit_price", "amount")
     @classmethod
@@ -93,6 +135,7 @@ class ExtractedLineItem(LLMModel):
 class DocumentQuality(LLMModel):
     type: Literal["scanned", "native"] | None = None
     issues: list[str] = Field(default_factory=list)
+    contains_reader_instructions: bool | None = None   # model self-report of text addressed to an AI / the reader
 
     @field_validator("issues", mode="before")
     @classmethod
@@ -102,6 +145,9 @@ class DocumentQuality(LLMModel):
 
 class ExtractedInvoice(LLMModel):
     vendor_name: EvidencedField[str] = Field(default_factory=EvidencedField[str])
+    vendor_tax_id: EvidencedField[str] = Field(default_factory=EvidencedField[str])
+    vendor_address: EvidencedField[str] = Field(default_factory=EvidencedField[str])
+    document_type: DocumentTypeField = Field(default_factory=DocumentTypeField)
     invoice_number: EvidencedField[str] = Field(default_factory=EvidencedField[str])
     invoice_date: EvidencedField[date] = Field(default_factory=EvidencedField[date])
     currency: CurrencyField = Field(default_factory=CurrencyField)
@@ -110,10 +156,11 @@ class ExtractedInvoice(LLMModel):
     tax: TaxField = Field(default_factory=TaxField)
     total: AmountField = Field(default_factory=AmountField)
     line_items: list[ExtractedLineItem] = Field(default_factory=list)
+    adjustments: list[ExtractedAdjustment] = Field(default_factory=list)
     document_quality: DocumentQuality = Field(default_factory=DocumentQuality)
     extraction_notes: str | None = None
 
-    @field_validator("line_items", mode="before")
+    @field_validator("line_items", "adjustments", mode="before")
     @classmethod
     def _none_to_empty(cls, v: Any) -> Any:
         return [] if v is None else v

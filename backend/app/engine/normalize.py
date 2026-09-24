@@ -41,6 +41,14 @@ def normalize_identifier(text: str) -> str:
     return _LEADING_ZEROS.sub("", compact)
 
 
+_TAX_ID_SEPARATORS = re.compile(r"[\s\-.]+")
+
+
+def normalize_tax_id(text: str) -> str:
+    """Tax IDs are compared ignoring case, spaces, hyphens and dots ('gb 123-456.789' == 'GB123456789')."""
+    return _TAX_ID_SEPARATORS.sub("", text).upper()
+
+
 def similarity(a: str, b: str) -> float:
     """0..1 edit-based similarity of two already-normalised strings (0.0 if either is empty)."""
     if not a or not b:

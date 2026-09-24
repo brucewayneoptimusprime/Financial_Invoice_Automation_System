@@ -65,6 +65,7 @@ def run_ingest_stage(ctx: RunContext, source_path: Path | str, settings: Setting
         pages_total=rendered.pages_total, pages_processed=len(rendered.pages), truncated=rendered.truncated,
         pages=rendered.pages, text_paths=text_paths, text_layer=layer, issues=issues,
         failure_kind=None if rendered.failure is None else rendered.failure.kind,
+        failure_code=None if rendered.failure is None else rendered.failure.code,
         failure_reason=None if rendered.failure is None else rendered.failure.message,
     )
     ctx.ingest = info
@@ -88,4 +89,4 @@ def run_ingest_stage(ctx: RunContext, source_path: Path | str, settings: Setting
     return StageResult(stage=INGEST_STAGE, status=status, events=events, outputs={
         "media_type": info.media_type, "sha256": info.sha256, "pages_total": info.pages_total,
         "pages_processed": info.pages_processed, "truncated": info.truncated, "text_layer_usable": layer.usable,
-        "failure_kind": info.failure_kind, "failure_reason": info.failure_reason, "run_dir": info.run_dir})
+        "failure_kind": info.failure_kind, "failure_code": info.failure_code, "failure_reason": info.failure_reason, "run_dir": info.run_dir})

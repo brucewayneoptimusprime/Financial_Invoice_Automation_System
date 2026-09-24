@@ -46,6 +46,7 @@ class IngestInfo(_Strict):
     text_layer: TextLayerInfo = Field(default_factory=TextLayerInfo)
     issues: list[str] = Field(default_factory=list)              # e.g. blank_page:2, password_protected
     failure_kind: FailureKind | None = None
+    failure_code: str | None = None      # stable: password_protected, blank_document, corrupt_pdf, ...
     failure_reason: str | None = None
 
 

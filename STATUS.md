@@ -4,27 +4,28 @@ Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0, M1 (+ follow-ups 1-3) complete and approved.
-- **M2 (ingest + extraction), approved plan: Stages 1-2 of 5 done** (LLM layer; ingest). Stage 3 (contract + extractor + CLI) is next; then I STOP for your live checks. Stages 4-5 wait for your word.
-- No live API call has been made; nothing built so far needs a key.
+- **M2 (ingest + extraction): Stages 1-3 of 5 done** (LLM layer, ingest, contract + extractor + CLI). **I have STOPPED as instructed**: Stage 4 (grounding, injection scan, engine touch points) and Stage 5 (eval, manifest, live tests) wait for your word.
+- Nothing has touched the live API. Everything is verified with mocks/recorded-style fixtures; the CLI and probe run for real but need your key.
 
 ## Test count and result
-**787 passed, 0 failed, 2 deselected** (`pytest -W error`, ~18 s). +91 this stage. The 2 deselected are `@pytest.mark.live` (skipped cleanly without a key). Mutation-checked: trusting any file as a PDF fails 9 tests; classifying password-protected as system-side fails 2.
+**1107 passed, 0 failed, 2 deselected** (`pytest -W error`, 30-70 s). +320 this stage. The 2 deselected are `@pytest.mark.live`. Mutation-checked: negating adjustment signs fails 7, skipping the null->0 rule fails 1, ignoring refusal/truncation fails 2, letting unreadable documents reach the model fails 4.
 
 ## What changed (this stage)
-- New `app/ingest/`: `validate` (type by MAGIC BYTES, never the extension; empty/oversize/spoofed files rejected with clear codes, no run created), `store` (SHA-256, copy to `data/runs/<run_id>/original.<ext>` with a generated name; hostile names/run ids cannot escape), `render` (pypdfium2 + Pillow: page PNGs <=1568 px, EXIF fix, CMYK/palette/alpha -> RGB, JPEG fallback under the API's 5 MB image limit, decompression-bomb guard), `textlayer` (per-page text, usable/garbled/too-little assessment), `stage`.
-- Failure kinds per your change: password-protected and blank -> `vendor_side`; corrupt/unrenderable -> `system_side`. They return a failed `IngestInfo` (run continues, $0 spent), not an exception.
-- Page cap (default 10): extra pages are not processed and the stage is flagged `pages_truncated`.
-- New system-side models `IngestInfo`, `ExtractionMeta` on `RunContext`; `meta.json` per run (no invoice text, no secrets).
-- Test documents are generated at test time (reportlab/Pillow); no binaries committed.
+- **Contract** (SPEC 38-40): tax ID, address, document type, adjustments (sign applied by kind), item code, reader-instruction flag, system fields `model_confidence`/`grounding`; wire schema + drift test; prompt module with your additions (meaning not labels, total definition, Balance Due, Order ID is not a PO, total tax, ambiguous dates) and a fingerprint test that forces a version bump.
+- **Parsers**: US / European / Indian digit grouping, brackets, `Rs.1,00,000/-`, dates, currency map incl. INR; tax-ID normalisation. Reused by grounding in Stage 4.
+- **Extractor + stage**: path selection (text+vision / vision-only / text-only), one repair retry, degrade-to-all-null on every failure route (SPEC 41), artefacts in `data/runs/<id>/` (extracted.json, raw replies, meta.json).
+- **CLI** `python -m app.extraction.cli <file>` prints extracted JSON, path used, tokens, cost, thinking/effort result, grounding status ("not run yet"). Exit codes 0/1/2/3. `--ingest-only`, `--replay`, `--record`, `--max-cost`, `--events`.
+- SPEC 38-43 added.
 
 ## Decisions I need from the user
-1. None blocking. After Stage 3 please run `python -m app.llm.probe` and then `python -m app.extraction.cli <file>`, and paste back the probe's result line.
+1. **Run the live checks** (Windows): put `ANTHROPIC_API_KEY=...` in `.env`; then `.venv\Scripts\python -m app.llm.probe` (about $0.0003) and `.venv\Scripts\python -m app.extraction.cli <invoice.pdf> --max-cost 0.10`. Please paste back the probe result line and the CLI summary block. Add `--record data\recordings` once to keep real responses for offline replay.
+2. **Say "go" for Stage 4** when ready. Recommendation: go after reviewing one real extraction, since Stage 4 tunes grounding against real text layers.
 
 ## Assumptions added to SPEC section 11
-None this stage (M2 assumptions are collected in Stage 5). Earlier: 8-20 (M0), 21-35 (M1), 36-37 (follow-ups).
+38-43 (this stage). Earlier: 8-20 (M0), 21-35 (M1), 36-37 (follow-ups).
 
 ## Known risks or gaps
-- pdfium reports a zero-page PDF as a format error, so it is classified `corrupt_pdf` (system_side); the separate `no_pages` branch is defensive and untested against a real file.
-- Blank-page detection is a pixel-variance threshold (stddev < 1.0); a near-blank page with faint content could be judged blank only if ALL pages are.
-- Rendering quality on real scans/photos is untested (only generated documents so far).
-- Some working-tree files have CRLF endings locally; git normalises to LF (cosmetic).
+- **Until Stage 4:** a system-side extraction failure (e.g. timeout) still yields `request_info` (all fields null -> completeness rule) instead of `review`; invoices with a shipping/discount adjustment are flagged by `r_arithmetic` (adjustments not yet in its formula); tax ID is extracted but not yet used in vendor matching; `r_document_type` and grounding do not exist yet.
+- Prompt accuracy and image-token cost are unmeasured until your live run; the `disabled` + `low` pair is unconfirmed (the client falls back automatically and says so).
+- The test suite got slower (rendering); no single slow test.
+- Some working-tree files have CRLF endings locally; git normalises to LF.

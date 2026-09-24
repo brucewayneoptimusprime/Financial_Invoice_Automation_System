@@ -84,6 +84,18 @@ class DraftStatus(StrEnum):
     MARKED_SENT = "marked_sent"
 
 
+class GroundingStatus(StrEnum):
+    """How well an extracted field is supported by the document's own text (set by the grounding check)."""
+    EXACT = "exact"                    # source_text found verbatim on the page
+    NORMALIZED = "normalized"          # found after case/whitespace/ligature/minus normalisation
+    FUZZY = "fuzzy"                    # a close (not identical) match
+    VALUE_PRESENT = "value_present"    # snippet not found, but the VALUE itself is on the page
+    NOT_FOUND = "not_found"            # neither snippet nor value found on the page
+    VALUE_MISMATCH = "value_mismatch"  # the value disagrees with its own source_text
+    NO_SOURCE = "no_source"            # a value with no source_text
+    UNAVAILABLE = "unavailable"        # no usable text layer to check against
+
+
 class MatchStatus(StrEnum):
     """Outcome of the PO matching step. Only MATCHED means a confident, unambiguous match."""
     MATCHED = "matched"

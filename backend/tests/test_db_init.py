@@ -53,7 +53,7 @@ def test_builtin_rules_and_settings_are_seeded_from_config(conn):
     assert all(r["source"] == "builtin" for r in rules.values())
     assert all(r["severity_on_trigger"] >= 1 for r in rules.values())
     tol = json.loads(rules["r_tolerance_pct"]["params"])
-    assert tol == {"pct": s.tolerance_pct, "abs": s.tolerance_abs}  # tolerance lives in rule params
+    assert (tol["pct"], tol["abs"]) == (s.tolerance_pct, s.tolerance_abs)  # tolerance lives in rule params
 
     settings = {r["key"]: json.loads(r["value"]) for r in conn.execute("SELECT * FROM settings")}
     assert settings["confidence_threshold"] == s.confidence_threshold

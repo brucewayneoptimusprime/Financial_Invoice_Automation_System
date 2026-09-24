@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     required_fields: list[str] = Field(default_factory=lambda: list(DEFAULT_REQUIRED_FIELDS))
     decision_severity: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_DECISION_SEVERITY))
 
+    # Rule param defaults (seeded into builtin rules; the DB rows are the source of truth afterwards)
+    tolerance_mode: Literal["lesser_of", "greater_of"] = "lesser_of"  # allowance = min / max of (pct of balance, abs)
+    arithmetic_rounding_per_term: float = Field(default=0.01, ge=0.0)  # rounding allowance per summed/multiplied term
+    duplicate_fuzzy_days: int = Field(default=7, ge=0)  # near-duplicate window between invoice dates
+    duplicate_fuzzy_amount_tolerance: float = Field(default=0.0, ge=0.0)  # abs amount difference still "same amount"
+    duplicate_counted_statuses: list[str] = Field(default_factory=lambda: ["approved", "in_review", "pending"])
+
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS
     engine_floor_severity: int = 1  # severity the engine floor forces (must be a non-approve severity)

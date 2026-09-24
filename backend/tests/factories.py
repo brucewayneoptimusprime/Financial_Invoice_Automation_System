@@ -105,9 +105,10 @@ def make_ctx(extracted: ExtractedInvoice | None | object = _UNSET, facts: RunFac
     if match_status is _UNSET:
         match_status = MatchStatus.MATCHED if matched else MatchStatus.NO_CANDIDATES
     po = facts.purchase_orders[0] if facts is not None and facts.purchase_orders else None
+    candidate = POCandidate(po_id=po.id, po_number=po.po_number, score=0.9,
+                            reasons=["reference:exact"]) if (matched and po) else None
     return RunContext(
         run_id=run_id, source_file="generic-invoice.pdf", file_hash=file_hash, extracted=extracted, facts=facts,
         matched_vendor=None if vendor_id is None else VendorMatch(vendor_id=vendor_id, score=1.0, method="exact_name"),
-        matched_po=POCandidate(po_id=po.id, po_number=po.po_number, score=0.9) if matched and po else None,
-        match_status=match_status,
+        matched_po=candidate, candidates=[candidate] if candidate else [], match_status=match_status,
     )

@@ -50,10 +50,11 @@ def test_invalid_severity_order_rejected(bad):
 
 def test_tolerance_defaults_flow_into_builtin_rule_params():
     rules = {r.id: r for r in builtin_rules(_settings(tolerance_pct=5.0, tolerance_abs=75.0))}
-    assert rules["r_tolerance_pct"].params == {"pct": 5.0, "abs": 75.0}
+    params = rules["r_tolerance_pct"].params
+    assert (params["pct"], params["abs"]) == (5.0, 75.0)
 
 
 def test_all_builtin_rules_are_valid_escalate_only_rules():
     rules = builtin_rules(_settings())
-    assert len(rules) == len({r.id for r in rules}) == 10
+    assert len(rules) == len({r.id for r in rules}) == 12
     assert all(r.source.value == "builtin" and r.severity_on_trigger >= 1 for r in rules)

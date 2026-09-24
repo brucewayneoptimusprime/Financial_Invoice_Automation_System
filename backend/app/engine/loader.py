@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.engine.facts import (
     POFact, POLineFact, PriorInvoiceFact, RunFacts, RuntimeSettings, VendorFact,
 )
+from app.models.rules import Rule
 from app.money import from_minor
 
 
@@ -20,6 +21,18 @@ def _date(value: str | None) -> date | None:
 
 def _money(minor: int | None):
     return None if minor is None else from_minor(minor)
+
+
+def load_rules(conn: sqlite3.Connection) -> list[Rule]:
+    """All rules from the `rules` table (enabled or not; the engine decides what to run)."""
+    return [
+        Rule(
+            id=r["id"], name=r["name"], type=r["type"], params=json.loads(r["params"]),
+            severity_on_trigger=r["severity_on_trigger"], source=r["source"], enabled=bool(r["enabled"]),
+            original_text=r["original_text"],
+        )
+        for r in conn.execute("SELECT * FROM rules ORDER BY id")
+    ]
 
 
 def load_facts(conn: sqlite3.Connection, current_run_id: str | None = None) -> RunFacts:

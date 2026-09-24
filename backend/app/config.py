@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.enums import Decision
@@ -35,6 +35,55 @@ DEFAULT_REQUIRED_FIELDS: list[str] = [
 # Rules whose `enabled=false` the engine ignores (it records an info event saying so). Their params
 # stay editable. Only a human via settings may edit builtin rules; nl / LLM paths may only ADD rules.
 LOCKED_RULE_IDS: frozenset[str] = frozenset({"r_duplicate_exact", "r_vendor_status"})
+
+
+DEFAULT_LEGAL_SUFFIXES: tuple[str, ...] = (
+    "ltd", "limited", "inc", "incorporated", "llc", "llp", "lp", "plc", "corp", "corporation", "co", "company",
+    "gmbh", "ag", "sa", "srl", "bv", "nv", "pty", "pvt", "pte",
+)
+
+
+class MatchConfig(BaseModel):
+    """Vendor resolution and PO candidate scoring. Starting values, tuned by tests on hand-written data -
+    never by a specific vendor or invoice. Everything here is a config value, not a code path."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # vendor resolution
+    legal_suffixes: tuple[str, ...] = DEFAULT_LEGAL_SUFFIXES  # generic filler tokens dropped before comparing names
+    vendor_fuzzy_min: float = Field(default=0.85, ge=0.0, le=1.0)      # min similarity for a fuzzy vendor match
+    vendor_ambiguity_margin: float = Field(default=0.05, ge=0.0, le=1.0)
+
+    # PO candidate score = sum of weight * signal (each signal is 0..1); weights sum to 1
+    weight_reference: float = Field(default=0.40, ge=0.0, le=1.0)
+    weight_vendor: float = Field(default=0.25, ge=0.0, le=1.0)
+    weight_amount: float = Field(default=0.20, ge=0.0, le=1.0)
+    weight_lines: float = Field(default=0.15, ge=0.0, le=1.0)
+
+    # reference signal
+    reference_fuzzy_min: float = Field(default=0.80, ge=0.0, le=1.0)
+    reference_fuzzy_factor: float = Field(default=0.6, ge=0.0, le=1.0)    # a fuzzy reference is worth at most this
+    reference_contained_score: float = Field(default=0.9, ge=0.0, le=1.0)  # 'PO-1001' vs '1001'
+    reference_contained_min_len: int = Field(default=3, ge=1)
+    inferred_reference_factor: float = Field(default=0.5, ge=0.0, le=1.0)  # reference not marked explicit
+
+    # line-overlap signal
+    line_desc_min: float = Field(default=0.6, ge=0.0, le=1.0)
+    line_desc_weight: float = Field(default=0.7, ge=0.0, le=1.0)          # rest of a line's score is unit-price agreement
+    candidate_line_min: float = Field(default=0.5, ge=0.0, le=1.0)        # line overlap that alone makes a PO a candidate
+
+    # decision thresholds
+    min_score: float = Field(default=0.5, ge=0.0, le=1.0)                  # top score needed for a confident match
+    ambiguity_margin: float = Field(default=0.10, ge=0.0, le=1.0)          # top-two gap below this is ambiguous...
+    ambiguity_min_score: float = Field(default=0.4, ge=0.0, le=1.0)        # ...if the runner-up scores at least this
+    max_candidates: int = Field(default=5, ge=1)
+
+    @model_validator(mode="after")
+    def _weights_sum_to_one(self) -> "MatchConfig":
+        total = self.weight_reference + self.weight_vendor + self.weight_amount + self.weight_lines
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(f"match weights must sum to 1.0, got {total}")
+        return self
 
 
 class Settings(BaseSettings):
@@ -65,6 +114,8 @@ class Settings(BaseSettings):
     duplicate_fuzzy_days: int = Field(default=7, ge=0)  # near-duplicate window between invoice dates
     duplicate_fuzzy_amount_tolerance: float = Field(default=0.0, ge=0.0)  # abs amount difference still "same amount"
     duplicate_counted_statuses: list[str] = Field(default_factory=lambda: ["approved", "in_review", "pending"])
+
+    match: MatchConfig = Field(default_factory=MatchConfig)
 
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS

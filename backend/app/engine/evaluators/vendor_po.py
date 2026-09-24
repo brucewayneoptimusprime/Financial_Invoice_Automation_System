@@ -51,7 +51,8 @@ def vendor_status(ctx: RunContext, params: dict[str, Any]):
 # ------------------------------------------------------------------------------------ po_found
 
 def _reference_hit(ctx: RunContext) -> bool:
-    return any(r.startswith(("reference:exact", "reference:fuzzy")) for c in ctx.candidates for r in c.reasons)
+    hits = ("reference:exact", "reference:contained", "reference:fuzzy")
+    return any(r.startswith(hits) for c in ctx.candidates for r in c.reasons)
 
 
 @register("po_found")

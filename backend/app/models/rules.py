@@ -35,13 +35,30 @@ class Rule(BaseModel):
         return self
 
 
+TRIGGERED_OUTCOMES = frozenset({Outcome.FLAG, Outcome.FAIL})
+
+
 class RuleResult(BaseModel):
-    """What one rule produced for one run. `detail` carries the numbers that drove the outcome."""
+    """What one rule produced for one run. `detail` carries the numbers that drove the outcome.
+
+    Triggered outcomes (flag, fail) carry a severity in 1..3; non-triggered ones (pass, info) carry 0.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     rule_id: str = Field(min_length=1)
     outcome: Outcome
-    severity: int = Field(ge=0)  # severity contributed (0 if the rule passed)
+    severity: int = Field(ge=0)
     message: str
     detail: dict[str, Any] = Field(default_factory=dict)
+    outcome_key: str | None = None  # which per-outcome severity key applied (e.g. "blocked")
+
+    @model_validator(mode="after")
+    def _severity_matches_outcome(self) -> "RuleResult":
+        if self.outcome in TRIGGERED_OUTCOMES:
+            allowed = {s for name, s in get_settings().decision_severity.items() if name != Decision.APPROVE.value}
+            if self.severity not in allowed:
+                raise ValueError(f"a {self.outcome.value} result needs severity in {sorted(allowed)}, got {self.severity}")
+        elif self.severity != 0:
+            raise ValueError(f"a {self.outcome.value} result must have severity 0, got {self.severity}")
+        return self

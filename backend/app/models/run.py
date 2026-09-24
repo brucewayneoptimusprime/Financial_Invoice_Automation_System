@@ -1,10 +1,11 @@
 """RunContext and StageResult (SPEC 6.2). Internal models: unknown keys are rejected."""
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.enums import Decision, StageStatus
+from app.engine.facts import RunFacts
+from app.enums import Decision, MatchStatus, StageStatus
 from app.models.audit import AuditEvent
 from app.models.extraction import ExtractedInvoice
 from app.models.rules import RuleResult
@@ -16,7 +17,20 @@ class POCandidate(BaseModel):
     po_id: int
     po_number: str = Field(min_length=1)
     score: float | None = Field(default=None, ge=0.0, le=1.0)
+    breakdown: dict[str, float] = Field(default_factory=dict)  # per-signal contribution to the score
     reasons: list[str] = Field(default_factory=list)
+
+
+class VendorMatch(BaseModel):
+    """Result of resolving the invoice's vendor name against known vendors."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vendor_id: int | None = None  # None = no vendor resolved
+    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    method: Literal["exact_name", "alias", "fuzzy", "none"] = "none"
+    ambiguous: bool = False
+    runner_up_score: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class RunContext(BaseModel):
@@ -29,7 +43,10 @@ class RunContext(BaseModel):
     file_hash: str | None = None
     started_at: datetime | None = None
     extracted: ExtractedInvoice | None = None
+    facts: RunFacts | None = None  # read-only snapshot, taken once per run by engine/loader.py
+    matched_vendor: VendorMatch | None = None
     matched_po: POCandidate | None = None
+    match_status: MatchStatus | None = None
     candidates: list[POCandidate] = Field(default_factory=list)
     rule_results: list[RuleResult] = Field(default_factory=list)
     decision: Decision | None = None

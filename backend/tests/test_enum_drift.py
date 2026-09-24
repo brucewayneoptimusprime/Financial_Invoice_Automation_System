@@ -29,7 +29,7 @@ CHECK_TO_ENUM = {
 }
 
 # Enums that intentionally have no DB column (they only exist on in-memory models).
-ENUMS_WITHOUT_DB_COLUMN = {"StageStatus"}
+ENUMS_WITHOUT_DB_COLUMN = {"StageStatus", "MatchStatus"}
 
 _IN_CLAUSE = re.compile(r'"?(\w+)"?\s+IN\s*\(([^)]*)\)', re.IGNORECASE)
 

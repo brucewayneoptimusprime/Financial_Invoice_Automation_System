@@ -82,3 +82,11 @@ class DraftKind(StrEnum):
 class DraftStatus(StrEnum):
     DRAFT = "draft"
     MARKED_SENT = "marked_sent"
+
+
+class MatchStatus(StrEnum):
+    """Outcome of the PO matching step. Only MATCHED means a confident, unambiguous match."""
+    MATCHED = "matched"
+    NO_CANDIDATES = "no_candidates"
+    LOW_SCORE = "low_score"
+    AMBIGUOUS = "ambiguous"

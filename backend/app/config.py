@@ -5,8 +5,9 @@ code paths. The Claude API key is only ever read from the ANTHROPIC_API_KEY envi
 """
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.enums import Decision
@@ -31,6 +32,10 @@ DEFAULT_REQUIRED_FIELDS: list[str] = [
     "total",
 ]
 
+# Rules whose `enabled=false` the engine ignores (it records an info event saying so). Their params
+# stay editable. Only a human via settings may edit builtin rules; nl / LLM paths may only ADD rules.
+LOCKED_RULE_IDS: frozenset[str] = frozenset({"r_duplicate_exact", "r_vendor_status"})
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -54,6 +59,11 @@ class Settings(BaseSettings):
     required_fields: list[str] = Field(default_factory=lambda: list(DEFAULT_REQUIRED_FIELDS))
     decision_severity: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_DECISION_SEVERITY))
 
+    # Engine
+    locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS
+    engine_floor_severity: int = 1  # severity the engine floor forces (must be a non-approve severity)
+    amount_compare_field: Literal["total", "subtotal"] = "total"  # which invoice amount is compared to the PO balance
+
     # Paths
     db_path: Path = ROOT_DIR / "data" / "app.db"
     seed_path: Path = ROOT_DIR / "data" / "seed.json"
@@ -67,7 +77,16 @@ class Settings(BaseSettings):
             raise ValueError("approve must have severity 0")
         if any(sev <= 0 for name, sev in v.items() if name != Decision.APPROVE.value):
             raise ValueError("every non-approve decision must have severity > 0")
+        if len(set(v.values())) != len(v):
+            raise ValueError("decision severities must be unique (severity -> decision must be unambiguous)")
         return v
+
+    @model_validator(mode="after")
+    def _check_floor_severity(self) -> "Settings":
+        allowed = {s for name, s in self.decision_severity.items() if name != Decision.APPROVE.value}
+        if self.engine_floor_severity not in allowed:
+            raise ValueError(f"engine_floor_severity must be one of {sorted(allowed)}")
+        return self
 
 
 @lru_cache

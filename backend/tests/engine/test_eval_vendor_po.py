@@ -54,8 +54,14 @@ def test_ambiguous_vendor_is_flagged():
 
 @pytest.mark.parametrize("name", [None, field(None, 0.99), "  "])
 def test_vendor_status_null_name_is_not_evaluable_whatever_the_confidence(name):
-    r = ev_builtin("r_vendor_status", make_ctx(extracted=make_extracted(vendor_name=name)))
+    r = ev_builtin("r_vendor_status", make_ctx(extracted=make_extracted(vendor_name=name), vendor_id=None))
     assert r.outcome is Outcome.INFO and r.detail["reason"] == "missing:vendor_name"
+
+
+def test_vendor_status_still_runs_without_a_name_when_the_tax_id_resolved_a_vendor():
+    ctx = make_ctx(extracted=make_extracted(vendor_name=None))                    # vendor 1 was resolved (by tax id)
+    r = ev_builtin("r_vendor_status", ctx)
+    assert r.outcome is Outcome.PASS and r.outcome_key == "approved"
 
 
 def test_vendor_status_overrides_are_applied_and_bounded():

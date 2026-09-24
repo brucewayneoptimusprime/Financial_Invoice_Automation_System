@@ -234,7 +234,7 @@ Skipped by default (`addopts = -m "not live"`) and skipped automatically when no
 1. **LLM layer:** config, errors, client, pricing, budget, replay, key handling, test isolation fixture, live-test gating.
 2. **Ingest:** validate, store, hash, render, text layer, ingest stage, generated fixtures.
 3. **Contract + extractor:** contract additions, wire schema, prompts, post-processing, extractor with repair retry and degradation, extract stage.
-4. **Grounding + injection + engine touch points** (§5.5).
+4. **Grounding + injection + engine touch points** (§5.5). **DONE (2026-09-25)**; deviations from this plan are SPEC section 11 items 46-53 (fuzzy yields to value_present; missing tax checked as zero; unit-price rounding allowance; `po_found` also stands down after a system-side failure).
 5. **Eval, manifest, CLI, live tests, SPEC §11 items.**
 
 ## 14. Risks

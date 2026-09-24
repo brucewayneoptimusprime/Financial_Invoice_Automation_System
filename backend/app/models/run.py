@@ -29,7 +29,7 @@ class VendorMatch(BaseModel):
 
     vendor_id: int | None = None  # None = no vendor resolved
     score: float = Field(default=0.0, ge=0.0, le=1.0)
-    method: Literal["exact_name", "alias", "fuzzy", "none"] = "none"
+    method: Literal["tax_id", "exact_name", "alias", "fuzzy", "none"] = "none"
     ambiguous: bool = False
     runner_up_score: float | None = Field(default=None, ge=0.0, le=1.0)
     candidate_vendor_ids: list[int] = Field(default_factory=list)  # the vendors tied with the top one (only when ambiguous)

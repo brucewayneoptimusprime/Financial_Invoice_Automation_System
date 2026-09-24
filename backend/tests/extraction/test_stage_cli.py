@@ -101,11 +101,8 @@ def pipeline(ctx, client, tmp_path, facts):
 
 
 def test_a_clean_native_invoice_flows_from_file_to_approval(tmp_path):
-    reply = load_reply("us_native_invoice")
-    reply["adjustments"] = []
-    set_field(reply, "total", value="1080.00", source_text="Total Due: 1,080.00")
-    ctx = ingest_ctx(tmp_path)
-    res = pipeline(ctx, FakeLLMClient(ok_response(reply_text(reply))), tmp_path, facts_for_northwind())
+    ctx = ingest_ctx(tmp_path)                       # subtotal 1,000 + shipping 25 + tax 80 = 1,105 (adjustments count)
+    res = pipeline(ctx, FakeLLMClient(ok_response(GOOD)), tmp_path, facts_for_northwind())
     triggered = {k: v.outcome_key for k, v in res.items() if v.outcome.value in ("flag", "fail")}
     assert ctx.decision is Decision.APPROVE and triggered == {}, triggered
     assert ctx.matched_po.po_number == "PO-5001" and ctx.file_hash == ctx.ingest.sha256
@@ -157,7 +154,7 @@ def test_cli_replay_prints_json_path_tokens_cost_and_grounding_status(cli_env, c
     assert split_json(out)["total"]["value"] == "1105.00"
     assert "path used:   text_and_vision" in out and "tokens:      in=4200 out=650" in out
     assert "cost:        $0.014900" in out                                        # 4200*2/1e6 + 650*10/1e6
-    assert "thinking:    not exercised" in out and "grounding:   not run yet" in out
+    assert "thinking:    not exercised" in out and "grounding:   " in out and "item(s) checked:" in out and "exact" in out
     assert "=== ingest ===" in out and "text layer:  usable" in out and "run folder:" in out
     assert (cli_env / "cli-runs" / "cli-run" / "extracted.json").is_file()
 
@@ -244,3 +241,13 @@ def test_thinking_line_covers_every_situation():
     line = cli._thinking_line(ExtractionMeta(thinking_mode="omit", effort="low", param_fallback="thinking_omitted"))
     assert "REJECTED" in line and "effort=low only" in line and "LLM_THINKING=omit" in line
     assert "as configured" in cli._thinking_line(ExtractionMeta(thinking_mode="omit", effort="low"))
+
+
+def test_cli_shows_grounding_counts_and_a_reader_instruction_warning(cli_env, capsys):
+    source = make_source(cli_env / "docs", "native")
+    reply = load_reply("us_native_invoice")
+    reply["document_quality"]["contains_reader_instructions"] = "yes"
+    rec = record_replay(cli_env, source, reply)
+    assert cli.main([str(source), "--replay", str(rec)]) == 0
+    out = capsys.readouterr().out
+    assert "grounding:   " in out and "READER INSTRUCTIONS SUSPECTED: the model reported text addressed to the reader" in out

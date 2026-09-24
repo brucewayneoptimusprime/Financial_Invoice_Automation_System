@@ -26,7 +26,7 @@ def builtin_rules(settings: Settings) -> list[Rule]:
          {"pct": s.tolerance_pct, "abs": s.tolerance_abs, "mode": s.tolerance_mode, "compare_field": s.amount_compare_field,
           "severity_by_outcome": {"over_tolerance": 1, "non_positive_total": 1, "invalid_amount": 1}}),
         ("r_arithmetic", "Lines, tax and totals are consistent", "arithmetic_consistency", 1,
-         {"rounding_per_term": s.arithmetic_rounding_per_term}),
+         {"rounding_per_term": s.arithmetic_rounding_per_term, "unit_price_rounding": s.arithmetic_unit_price_rounding}),
         ("r_duplicate_exact", "Not an exact duplicate of a prior invoice", "duplicate_exact", 3,
          {"counted_statuses": list(s.duplicate_counted_statuses),
           "severity_by_outcome": {"same_file_hash": 3, "same_vendor_number_same_total": 3,
@@ -38,6 +38,8 @@ def builtin_rules(settings: Settings) -> list[Rule]:
          {"fields": list(s.required_fields)}),
         ("r_extraction_confidence", "Extraction confidence is sufficient", "extraction_confidence", 1,
          {"fields": list(s.required_fields)}),
+        ("r_document_type", "The document is an invoice", "document_type", 1,
+         {"allowed": ["invoice"], "severity_by_outcome": {"not_an_invoice": 1}}),
         ("r_po_status", "PO is not already fully billed", "po_status", 1,
          {"severity_by_outcome": {"fully_billed": 1, "closed": 3}}),
     ]

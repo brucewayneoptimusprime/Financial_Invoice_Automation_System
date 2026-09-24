@@ -4,7 +4,7 @@
                                         [--replay DIR | --record DIR] [--ingest-only] [--events] [-v]
 
 Runs ingest then extract and prints: the extracted JSON, the path used (text_and_vision / vision_only), tokens,
-cost, whether the API accepted thinking=disabled with effort=low, and the grounding status available at this
+cost, whether the API accepted thinking=disabled with effort=low, and the grounding counts and reader-instruction scan result, at this
 stage. Exit codes: 0 ok, 1 degraded extraction, 2 file rejected / bad usage, 3 API key not configured, 4 the API rejected
 the extraction schema (a configuration problem: the message names LLM_STRUCTURED_OUTPUT).
 """
@@ -126,7 +126,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"tokens:      in={meta.tokens_in} out={meta.tokens_out}")
     print(f"cost:        ${meta.cost_usd:.6f} this run" + (f"   (session total ${client.tracker.session_spent:.6f})" if client else ""))
     print(f"latency:     {meta.latency_ms} ms")
-    print("grounding:   not run yet (arrives in Stage 4); per-field model confidence is in the JSON above")
+    if meta.grounding:
+        counts = ", ".join(f"{n} {name}" for name, n in sorted(meta.grounding.items(), key=lambda kv: (-kv[1], kv[0])))
+        print(f"grounding:   {sum(meta.grounding.values())} item(s) checked: {counts}")
+    else:
+        print("grounding:   none (nothing to check)")
+    if meta.injection_suspected:
+        print(f"READER INSTRUCTIONS SUSPECTED: {'; '.join(meta.injection_evidence[:3])}")
     if meta.degraded:
         print(f"RESULT:      DEGRADED [{meta.failure_kind}/{meta.failure_code}] {meta.failure_reason}")
     else:

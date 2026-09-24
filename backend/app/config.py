@@ -64,6 +64,35 @@ DEFAULT_CURRENCY_SYMBOL_MAP: dict[str, str] = {
 }
 
 
+class GroundingCaps(BaseModel):
+    """Confidence ceilings applied by the grounding check (effective = min(current confidence, cap); never raised)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    no_source: float = Field(default=0.50, ge=0.0, le=1.0)        # a value with no source_text
+    value_mismatch: float = Field(default=0.30, ge=0.0, le=1.0)   # the value disagrees with its own source_text
+    fuzzy: float = Field(default=0.75, ge=0.0, le=1.0)            # source_text only approximately on the page
+    value_present: float = Field(default=0.85, ge=0.0, le=1.0)    # snippet not found but the VALUE is on the page
+    not_found: float = Field(default=0.40, ge=0.0, le=1.0)        # neither snippet nor value on the page
+    fuzzy_min_similarity: float = Field(default=0.90, ge=0.0, le=1.0)
+
+
+# Deterministic scan for text addressed to an AI reader rather than to the accounts-payable clerk.
+DEFAULT_INJECTION_PATTERNS: tuple[str, ...] = (
+    r"ignore\s+(?:all\s+|any\s+|the\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|prompts?|rules?|messages?)",
+    r"disregard\s+(?:all\s+|any\s+|the\s+)?(?:previous|prior|above|earlier|your)\s+(?:instructions?|prompts?|rules?)",
+    r"forget\s+(?:all\s+|everything\s+|your\s+)?(?:previous|prior|above|earlier)?\s*(?:instructions?|rules?)",
+    r"you\s+are\s+now\s+(?:a|an|the|in)\b",
+    r"\bsystem\s*(?:prompt|message|instruction)s?\b",
+    r"\b(?:as|to)\s+(?:an?\s+)?(?:ai|llm|language\s+model|assistant|chatbot)\b.{0,40}\b(?:must|should|please|approve|ignore)\b",
+    r"\b(?:auto[-\s]?)?approve\s+(?:this|the)\s+(?:invoice|payment|document)\b",
+    r"\b(?:mark|set|treat)\s+(?:this|the)\s+(?:invoice|document)\s+as\s+(?:approved|paid|verified|valid)\b",
+    r"\bdo\s+not\s+(?:flag|escalate|report|mention)\b",
+    r"\b(?:override|bypass)\s+(?:the\s+)?(?:rules?|checks?|validation|controls?)\b",
+    r"<\s*/?\s*(?:page_text|system|instructions?)\b",
+)
+
+
 class MatchConfig(BaseModel):
     """Vendor resolution and PO candidate scoring. Starting values, tuned by tests on hand-written data -
     never by a specific vendor or invoice. Everything here is a config value, not a code path."""
@@ -132,6 +161,9 @@ class Settings(BaseSettings):
     # Rule param defaults (seeded into builtin rules; the DB rows are the source of truth afterwards)
     tolerance_mode: Literal["lesser_of", "greater_of"] = "lesser_of"  # allowance = min / max of (pct of balance, abs)
     arithmetic_rounding_per_term: float = Field(default=0.01, ge=0.0)  # rounding allowance per summed/multiplied term
+    # A printed unit price is rounded to the cent, so quantity x unit price can differ from the amount by up to half a
+    # cent PER UNIT (4 x 461.48 = 1845.92 for a printed 1845.94). Extra allowance per unit on the line-math check only.
+    arithmetic_unit_price_rounding: float = Field(default=0.005, ge=0.0)
     duplicate_fuzzy_days: int = Field(default=7, ge=0)  # near-duplicate window between invoice dates
     duplicate_fuzzy_amount_tolerance: float = Field(default=0.0, ge=0.0)  # abs amount difference still "same amount"
     duplicate_counted_statuses: list[str] = Field(default_factory=lambda: ["approved", "in_review", "pending"])
@@ -167,6 +199,11 @@ class Settings(BaseSettings):
     # Extraction (M2)
     extraction_mode: Literal["auto", "vision", "text_and_vision", "text"] = "auto"
     currency_symbol_map: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_CURRENCY_SYMBOL_MAP))
+    # A currency read from a bare symbol ($, EUR sign...) is a mapping, not a reading: its effective confidence is this
+    # value whatever the model said (the model's raw score is kept in model_confidence). See SPEC section 11.
+    currency_symbol_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    grounding: GroundingCaps = Field(default_factory=GroundingCaps)
+    injection_patterns: tuple[str, ...] = DEFAULT_INJECTION_PATTERNS
 
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS

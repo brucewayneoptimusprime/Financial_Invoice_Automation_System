@@ -85,4 +85,5 @@ class ExtractionMeta(_Strict):
     calls: list[LLMCallRecord] = Field(default_factory=list)
     grounding: dict[str, int] = Field(default_factory=dict)      # status -> count (filled by the grounding check)
     injection_suspected: bool = False
+    injection_evidence: list[str] = Field(default_factory=list)   # 'model self-report' and/or scan hits ('page 1: ...')
     text_layer_usable: bool = False

@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import Field, field_validator
 
 from app.config import get_settings
-from app.engine.evaluators.base import flag, not_evaluable, ok
+from app.engine.evaluators.base import flag, not_evaluable, ok, system_side_failure
 from app.engine.evaluators.registry import BaseParams, register
 from app.engine.normalize import is_missing
 from app.models.run import RunContext
@@ -35,6 +35,12 @@ def _is_missing_field(ctx: RunContext, name: str) -> bool:
 
 @register("required_fields", FieldListParams)
 def required_fields(ctx: RunContext, params: dict[str, Any]):
+    if (code := system_side_failure(ctx)) is not None:
+        # A failure of OURS is not the vendor's omission: do not ask the vendor to resend. The engine floor
+        # (extraction_degraded) sends the run to a human instead.
+        return not_evaluable("extraction_failed_system_side",
+                             f"the extraction failed on our side ({code}); the fields are unknown, not missing",
+                             {"failure_code": code})
     fields = params["fields"]
     missing = [f for f in fields if _is_missing_field(ctx, f)]
     detail = {"required": fields, "missing": missing, "present": [f for f in fields if f not in missing]}
@@ -68,3 +74,22 @@ def extraction_confidence(ctx: RunContext, params: dict[str, Any]):
         parts = ", ".join(f"{x['field']} ({x['confidence']:.2f} < {threshold:.2f})" for x in low)
         return flag(params, "low_confidence", f"Low extraction confidence on: {parts}.", detail)
     return ok(f"All {len(checked)} checked fields meet the confidence threshold ({threshold:.2f}).", detail, "confident")
+
+
+class DocumentTypeParams(BaseParams):
+    allowed: list[str] = Field(default_factory=lambda: ["invoice"], min_length=1)
+
+
+@register("document_type", DocumentTypeParams)
+def document_type(ctx: RunContext, params: dict[str, Any]):
+    """Only the allowed document types (default: invoice) go on; a credit note, quote, statement... needs a human.
+    A missing type is not evaluable (the completeness and confidence rules deal with missing data)."""
+    if ctx.extracted is None:
+        return not_evaluable("no_extraction", "no extracted invoice is available")
+    value = ctx.extracted.document_type.value
+    if is_missing(value):
+        return not_evaluable("missing:document_type", "the document type could not be determined")
+    detail = {"document_type": value, "allowed": params["allowed"]}
+    if value in params["allowed"]:
+        return ok(f"The document is a {value.replace('_', ' ')}.", detail, "allowed")
+    return flag(params, "not_an_invoice", f"The document looks like a {value.replace('_', ' ')}, not an invoice.", detail)

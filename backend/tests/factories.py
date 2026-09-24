@@ -36,6 +36,7 @@ def make_extracted(**overrides: Any) -> ExtractedInvoice:
     """
     raw: dict[str, Any] = {
         "vendor_name": field("Vendor Alpha Ltd"),
+        "document_type": field("invoice"),
         "invoice_number": field("INV-1001"),
         "invoice_date": field("2026-03-14"),
         "currency": field("USD"),
@@ -48,7 +49,7 @@ def make_extracted(**overrides: Any) -> ExtractedInvoice:
         "extraction_notes": None,
     }
     for key, value in overrides.items():
-        if key in ("line_items", "document_quality", "extraction_notes"):
+        if key in ("line_items", "adjustments", "document_quality", "extraction_notes"):
             raw[key] = value
         elif isinstance(value, dict):
             raw[key] = value

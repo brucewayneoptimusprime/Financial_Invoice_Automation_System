@@ -43,7 +43,7 @@ def test_native_pdf_extracts_via_text_and_vision(tmp_path):
     assert not out.meta.degraded and out.meta.path == "text_and_vision" and out.meta.attempts == 1
     assert out.invoice.total.value == D("1105.00") and out.invoice.vendor_name.value == "Northwind Trading Co"
     assert (out.meta.tokens_in, out.meta.tokens_out, out.meta.prompt_version, out.meta.model) == (5000, 900, PROMPT_VERSION, "claude-sonnet-5")
-    assert [e.event_type for e in out.events] == ["path_selected", "llm_call", "extraction_complete"]
+    assert [e.event_type for e in out.events] == ["path_selected", "llm_call", "grounding", "extraction_complete"]
     assert out.events[-1].outcome is Outcome.PASS and out.raw_replies == [GOOD]
 
 
@@ -151,7 +151,7 @@ def test_invalid_json_gets_exactly_one_repair_retry_that_can_succeed(tmp_path):
     assert "not valid JSON" in second.parts[-1].text and "this is not json" not in second.parts[-1].text
     assert (out.meta.tokens_in, out.meta.tokens_out) == (2100, 810) and len(out.meta.calls) == 2
     assert out.meta.calls[0].error_code == "schema_invalid" and out.meta.calls[1].error_code is None
-    assert [e.event_type for e in out.events] == ["path_selected", "llm_call", "schema_repair", "llm_call", "extraction_complete"]
+    assert [e.event_type for e in out.events] == ["path_selected", "llm_call", "schema_repair", "llm_call", "grounding", "extraction_complete"]
 
 
 def test_a_schema_violation_names_the_field_in_the_correction(tmp_path):

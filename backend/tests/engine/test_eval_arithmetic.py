@@ -68,9 +68,29 @@ def test_rounding_allowance_scales_with_the_number_of_summed_lines():
 def test_rounding_allowance_is_configurable():
     lines = [line(qty=3, price="33.33", amount="100.00")]
     kw = dict(line_items=lines, subtotal="100.00", tax="0.00", total="100.00")
-    assert ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw)), rounding_per_term=0.0).outcome is Outcome.FLAG
-    assert ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw)), rounding_per_term=0.05).outcome is Outcome.PASS
+    strict = dict(unit_price_rounding=0.0)
+    assert ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw)), rounding_per_term=0.0, **strict).outcome is Outcome.FLAG
+    assert ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw)), rounding_per_term=0.05, **strict).outcome is Outcome.PASS
     assert ev("arithmetic_consistency", make_ctx(), {"rounding_per_term": -1}).outcome_key == "invalid_params"
+    assert ev("arithmetic_consistency", make_ctx(), {"unit_price_rounding": -1}).outcome_key == "invalid_params"
+
+
+def test_a_unit_price_rounded_to_the_cent_is_not_an_arithmetic_error():
+    """The real invoice 24429: 4 x 461.48 = 1845.92 but the printed amount is 1845.94 (the true unit price is 461.485)."""
+    kw = dict(line_items=[line(qty=4, price="461.48", amount="1845.94")], subtotal="1845.94", tax="0.00", total="1845.94")
+    ok = run(**kw)
+    assert ok.outcome is Outcome.PASS
+    c = checks(ok, "line_math")[0]
+    assert (c["expected"], c["actual"], c["difference"], c["allowance"], c["ok"]) == ("1845.92", "1845.94", "0.02", "0.030", True)
+    strict = ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw)), unit_price_rounding=0.0)
+    assert strict.outcome is Outcome.FLAG                                     # the tolerance is what lets it through
+    assert ev_builtin("r_arithmetic", make_ctx(extracted=make_extracted(**kw))).detail["unit_price_rounding"] == "0.005"
+
+
+def test_the_unit_price_allowance_scales_with_quantity_and_still_catches_real_errors():
+    assert run(line_items=[line(qty=100, price="0.33", amount="33.40")], subtotal="33.40", tax="0.00", total="33.40").outcome is Outcome.PASS
+    off = run(line_items=[line(qty=4, price="461.48", amount="1846.10")], subtotal="1846.10", tax="0.00", total="1846.10")
+    assert off.outcome is Outcome.FLAG and off.detail["failed"] == ["line_math"]          # 18 cents out, allowance 3
 
 
 def test_tax_included_in_total_compares_subtotal_to_total():
@@ -87,8 +107,6 @@ def test_unknown_tax_inclusion_flag_is_treated_as_excluded_and_recorded():
 
 
 @pytest.mark.parametrize("over,skipped_check,reason", [
-    (dict(tax=None), "subtotal_tax_total", "missing:tax"),
-    (dict(tax=field(None, 0.99)), "subtotal_tax_total", "missing:tax"),      # null is missing whatever the confidence
     (dict(subtotal=field(None, 0.99)), "lines_vs_subtotal", "missing:subtotal"),
     (dict(total=field(None, 0.99)), "subtotal_tax_total", "missing:total"),
 ])
@@ -96,6 +114,17 @@ def test_null_inputs_skip_only_the_checks_that_need_them(over, skipped_check, re
     r = run(**over)
     assert r.outcome is Outcome.PASS                                        # the checks that could run all agree
     assert {"check": skipped_check, "reason": reason} in r.detail["skipped"]
+
+
+@pytest.mark.parametrize("tax", [None, field(None, 0.99)])                 # null is missing whatever the confidence
+def test_a_missing_tax_line_is_checked_as_no_tax_printed(tax):
+    ok = run(tax=tax, total="1000.00")                                       # subtotal 1000, no tax printed, total 1000
+    assert ok.outcome is Outcome.PASS
+    c = checks(ok, "subtotal_plus_adjustments_equals_total")[0]
+    assert c["tax_assumed_zero"] is True and c["expected"] == "1000.00" and c["ok"]
+    hidden = run(tax=tax)                                                    # total 1100 but no tax line found: unexplained 100
+    assert hidden.outcome is Outcome.FLAG and hidden.detail["failed"] == ["subtotal_plus_adjustments_equals_total"]
+    assert checks(hidden, "subtotal_plus_adjustments_equals_total")[0]["difference"] == "100.00"
 
 
 def test_null_line_values_skip_that_line_and_the_lines_sum():

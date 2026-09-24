@@ -2,7 +2,7 @@
 vendor_status, po_found, po_ambiguity, vendor_po_mismatch, currency_mismatch, po_status."""
 from typing import Any
 
-from app.engine.evaluators.base import extracted_value, flag, money, not_evaluable, ok
+from app.engine.evaluators.base import extracted_value, flag, money, not_evaluable, ok, system_side_failure
 from app.engine.evaluators.registry import BaseParams, register
 from app.engine.normalize import is_missing
 from app.engine.po_status import derive_po_status
@@ -27,9 +27,11 @@ def _matched_po_fact(ctx: RunContext):
 @register("vendor_status")
 def vendor_status(ctx: RunContext, params: dict[str, Any]):
     name = extracted_value(ctx, "vendor_name")
-    if is_missing(name):
-        return not_evaluable("missing:vendor_name", "the invoice has no vendor name")
     vm = ctx.matched_vendor
+    if is_missing(name) and (vm is None or vm.vendor_id is None):
+        return not_evaluable("missing:vendor_name", "the invoice has no vendor name")
+    if is_missing(name):
+        name = "(no name printed; identified by tax id)"
     detail = {"vendor_name": name,
               "match": None if vm is None else vm.model_dump(mode="json")}
     if vm is None:
@@ -86,6 +88,9 @@ def po_found(ctx: RunContext, params: dict[str, Any]):
         detail["top_score"] = None if top is None else top.score
         return ok(f"A purchase order was found ({top.po_number if top else 'n/a'}) {how}.", detail, "found")
     # NO_CANDIDATES / LOW_SCORE
+    if (code := system_side_failure(ctx)) is not None:
+        return not_evaluable("extraction_failed_system_side",
+                             f"the extraction failed on our side ({code}); the PO reference is unknown, not absent", detail)
     if is_missing(ref_value):
         return flag(params, "no_reference", "The invoice has no PO reference and no purchase order matches on other signals.", detail)
     if status == MatchStatus.NO_CANDIDATES or not _reference_hit(ctx):

@@ -49,3 +49,13 @@ def extracted_value(ctx: RunContext, name: str) -> Any:
         return None
     field = getattr(ctx.extracted, name, None)
     return getattr(field, "value", None)
+
+
+def system_side_failure(ctx: RunContext) -> str | None:
+    """The failure code when the extraction failed on OUR side (renderer, config, API, schema, cost ceiling), else None.
+    Then every field is unknown, not missing: rules that would ask the vendor to fix the invoice stand down and the
+    engine floor (`extraction_degraded`) sends the run to a human."""
+    meta = ctx.extraction_meta
+    if meta is not None and meta.degraded and meta.failure_kind == "system_side":
+        return meta.failure_code or "unknown"
+    return None

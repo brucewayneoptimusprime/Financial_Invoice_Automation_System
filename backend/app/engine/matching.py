@@ -184,7 +184,8 @@ def run_match_stage(ctx: RunContext, cfg: MatchConfig | None = None, compare_fie
                            outputs={"match_status": ctx.match_status.value, "matched_po": None}, events=events)
 
     name = None if ctx.extracted is None else ctx.extracted.vendor_name.value
-    vm = resolve_vendor(name, ctx.facts.vendors, cfg)
+    tax_id = None if ctx.extracted is None else ctx.extracted.vendor_tax_id.value
+    vm = resolve_vendor(name, ctx.facts.vendors, cfg, tax_id=tax_id)
     vendor = ctx.facts.vendor_by_id(vm.vendor_id) if vm.vendor_id is not None else None
     ctx.matched_vendor = vm
     events.append(_event(

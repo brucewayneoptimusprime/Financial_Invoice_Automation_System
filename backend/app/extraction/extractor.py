@@ -18,6 +18,8 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.enums import Outcome
+from app.extraction.grounding import ground_invoice
+from app.extraction.injection import scan_pages
 from app.extraction.postprocess import postprocess
 from app.extraction.prompts import PROMPT_VERSION, PagePayload, build_user_parts, repair_part, system_prompt_for
 from app.extraction.wire import from_wire, wire_schema
@@ -200,6 +202,11 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
         else:
             meta.schema_repair_used = attempt > 1
             outcome.invoice = result.invoice
+            try:
+                _check_against_document(outcome, ingest, settings)
+            except Exception as exc:                            # a bug here must not pass unchecked values as confident
+                logger.exception("grounding failed run=%s", run_id)
+                return degrade("system_side", "grounding_error", f"The grounding check failed ({type(exc).__name__}).")
             outcome.events.append(_event(
                 "extraction_complete", Outcome.PASS,
                 f"Extraction complete via {path} in {attempt} attempt(s); cost ${meta.cost_usd:.6f}.",
@@ -213,6 +220,43 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
                                          {"attempt": attempt, "error": last_error}))
     return degrade("system_side", "schema_invalid",
                    f"The model's reply was still not valid after {attempts_allowed} attempt(s): {last_error}")
+
+
+def read_page_texts(ingest: IngestInfo) -> dict[int, str | None]:
+    """page number -> stored text layer (None = no text, or the file could not be read)."""
+    texts: dict[int, str | None] = {}
+    for index, page in enumerate(ingest.pages):
+        path = ingest.text_paths[index] if index < len(ingest.text_paths) else None
+        try:
+            texts[page.number] = Path(path).read_text(encoding="utf-8") if path else None
+        except OSError:
+            texts[page.number] = None
+    return texts
+
+
+def _check_against_document(outcome: ExtractionOutcome, ingest: IngestInfo, settings: Settings) -> None:
+    """Grounding (caps confidences the document does not support) and the reader-instruction scan."""
+    invoice, meta = outcome.invoice, outcome.meta
+    texts = read_page_texts(ingest)
+    grounded = ground_invoice(invoice, texts, ingest.text_layer.usable, settings)
+    meta.grounding = dict(grounded.counts)
+    problems = [n for n in grounded.notes[1:]]
+    outcome.events.append(_event(
+        "grounding", Outcome.FLAG if problems else Outcome.INFO,
+        grounded.notes[0] if grounded.notes else "grounding: nothing to check.",
+        {"counts": grounded.counts, "text_layer_usable": ingest.text_layer.usable, "problems": problems}))
+
+    evidence: list[str] = []
+    if invoice.document_quality.contains_reader_instructions is True:
+        evidence.append("the model reported text addressed to the reader")
+    evidence.extend(f"page {hit.page}: ...{hit.snippet}..." for hit in scan_pages(
+        {n: t for n, t in texts.items() if t}, settings.injection_patterns))
+    if evidence:
+        meta.injection_suspected, meta.injection_evidence = True, evidence[:10]
+        note = "[system] The document appears to contain text addressed to an AI reader; treated as data and sent to review."
+        invoice.extraction_notes = f"{invoice.extraction_notes}\n{note}" if invoice.extraction_notes else note
+        outcome.events.append(_event("reader_instructions_detected", Outcome.FLAG,
+                                     "The document contains text addressed to an AI reader.", {"evidence": meta.injection_evidence}))
 
 
 def _record_call(meta: ExtractionMeta, attempt: int, response: LLMResponse) -> None:

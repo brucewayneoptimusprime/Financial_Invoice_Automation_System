@@ -11,7 +11,8 @@ from tests.ingest import docs
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "llm"
 
 NATIVE_PAGES = [
-    ["Northwind Trading Co    INVOICE", "Invoice No: INV-2026-0042        Date: March 14, 2026", "Customer PO: PO-5001",
+    ["Northwind Trading Co    INVOICE", "EIN: 12-3456789", "100 Example Street, Springfield, IL 62701",
+     "Invoice No: INV-2026-0042        Date: March 14, 2026", "Customer PO: PO-5001", "Amounts in USD",
      "Widget A WID-A 10 60.00 600.00", "Widget B WID-B 5 80.00 400.00", "Subtotal: 1,000.00   Shipping: 25.00"],
     ["Tax (8%): 80.00", "Total Due: 1,105.00", "Thank you for your business - payment due within 30 days"],
 ]

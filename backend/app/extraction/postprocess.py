@@ -1,7 +1,8 @@
 """Turn the model's JSON (already parsed) into a validated ExtractedInvoice, applying the deterministic fixes the
 contract promises:
 
-  * currency symbols mapped to ISO codes by config (ambiguous symbols stay unmapped -> null + note)
+  * currency symbols mapped to ISO codes by config (ambiguous symbols stay unmapped -> null + note); a symbol-derived
+    currency gets its effective confidence from config (currency_symbol_confidence), the model's score is kept
   * amounts cleaned into exact decimal strings (US / European / Indian digit grouping, brackets, currency marks)
   * dates normalised to ISO when unambiguous; an ambiguous day/month order caps that field's confidence at 0.5
   * adjustment signs applied by kind (discount/credit subtract, shipping/fee add, rounding/other keep the sign)
@@ -58,6 +59,22 @@ def _normalise_currency(data: dict, settings: Settings, notes: list[str]) -> Non
         cur["value"] = code
     if note:
         notes.append(note)
+    if code is not None and note:                        # mapped from a symbol, not read as a code
+        _set_symbol_confidence(cur, settings, notes)
+
+
+def _set_symbol_confidence(cur: dict, settings: Settings, notes: list[str]) -> None:
+    """A symbol-derived currency is a MAPPING (config), not a reading, so the model's doubt about a bare '$' says little:
+    its effective confidence comes from config. The model's raw score stays in model_confidence. A model that reported
+    0 (or omitted the score) said it does not trust the value, and that is respected."""
+    raw = cur.get("confidence")
+    raw = float(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else 0.0
+    cur["model_confidence"] = raw
+    if raw <= 0:
+        return
+    cur["confidence"] = settings.currency_symbol_confidence
+    notes.append(f"currency confidence set to {settings.currency_symbol_confidence:g} from configuration "
+                 f"(symbol-derived; the model reported {raw:g})")
 
 
 def _normalise_money(data: dict) -> None:

@@ -4,7 +4,8 @@ Final severity is at least `floor_severity` (1 = review) unless ALL of these hol
   * a PO was confidently and unambiguously matched,
   * the amount check was actually evaluable,
   * every configured required field is present, and
-  * every present required field meets the confidence threshold.
+  * every present required field meets the confidence threshold, and
+  * the extraction did not degrade, no pages were dropped, and the document does not talk to its reader.
 It is computed straight from the context (not from rule results), so it holds even when r_po_found,
 the tolerance rule, the completeness rule or the confidence rule are disabled. It always appears in
 the trail as an `engine_floor` result carrying the reasons.
@@ -116,6 +117,23 @@ def evaluate_floor(ctx: RunContext, config: FloorConfig) -> RuleResult:
         names = ", ".join(f["field"] for f in low_confidence)
         reasons.append({"code": "required_fields_low_confidence",
                         "message": f"required fields below the confidence threshold: {names}", "fields": low_confidence})
+
+    # 5. The extraction itself must be trustworthy and complete.
+    meta = ctx.extraction_meta
+    if meta is not None and meta.degraded:
+        reasons.append({"code": "extraction_degraded", "failure_kind": meta.failure_kind, "failure_code": meta.failure_code,
+                        "message": f"the extraction failed ({meta.failure_kind or 'unknown'}: {meta.failure_code or 'unknown'})"})
+    truncated = (ctx.ingest is not None and ctx.ingest.truncated) or (meta is not None and meta.truncated)
+    if truncated:
+        processed = ctx.ingest.pages_processed if ctx.ingest is not None else None
+        total = ctx.ingest.pages_total if ctx.ingest is not None else None
+        reasons.append({"code": "pages_truncated", "pages_processed": processed, "pages_total": total,
+                        "message": "the document has more pages than were processed"
+                                   + (f" ({processed} of {total})" if processed and total else "")})
+    self_reported = ctx.extracted is not None and ctx.extracted.document_quality.contains_reader_instructions is True
+    if (meta is not None and meta.injection_suspected) or self_reported:
+        reasons.append({"code": "reader_instructions_detected", "evidence": [] if meta is None else meta.injection_evidence[:3],
+                        "message": "the document contains text addressed to an AI reader"})
 
     detail = {
         "match_status": ctx.match_status.value if ctx.match_status else None,

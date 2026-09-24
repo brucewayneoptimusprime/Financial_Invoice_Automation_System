@@ -1,83 +1,105 @@
 {
-  "vendor_name": {
-    "found": true,
-    "value": "Shady Supplies Ltd",
-    "page": 1,
-    "source_text": "Shady Supplies Ltd",
-    "confidence": 0.97
-  },
-  "vendor_tax_id": {
-    "found": false,
-    "value": "",
-    "page": 0,
-    "source_text": "",
-    "confidence": 0.0
-  },
-  "vendor_address": {
-    "found": false,
-    "value": "",
-    "page": 0,
-    "source_text": "",
-    "confidence": 0.0
-  },
-  "document_type": {
-    "found": true,
-    "value": "invoice",
-    "page": 1,
-    "source_text": "INVOICE",
-    "confidence": 0.9
-  },
-  "invoice_number": {
-    "found": true,
-    "value": "S-9",
-    "page": 1,
-    "source_text": "Invoice S-9",
-    "confidence": 0.95
-  },
-  "invoice_date": {
-    "found": true,
-    "value": "2026-03-14",
-    "page": 1,
-    "source_text": "2026-03-14",
-    "confidence": 0.95
-  },
-  "currency": {
-    "found": true,
-    "value": "USD",
-    "page": 1,
-    "source_text": "USD",
-    "confidence": 0.9
-  },
-  "po_reference": {
-    "found": false,
-    "value": "",
-    "page": 0,
-    "source_text": "",
-    "confidence": 0.0,
-    "explicit": "unknown"
-  },
-  "subtotal": {
-    "found": true,
-    "value": "500.00",
-    "page": 1,
-    "source_text": "Subtotal 500.00",
-    "confidence": 0.95
-  },
-  "tax": {
-    "found": true,
-    "value": "0.00",
-    "page": 1,
-    "source_text": "Tax 0.00",
-    "confidence": 0.9,
-    "included_in_total": "unknown"
-  },
-  "total": {
-    "found": true,
-    "value": "500.00",
-    "page": 1,
-    "source_text": "Total 500.00",
-    "confidence": 0.95
-  },
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "Shady Supplies Ltd",
+      "page": 1,
+      "source_text": "Shady Supplies Ltd",
+      "confidence": 0.97,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0.0,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0.0,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "INVOICE",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "S-9",
+      "page": 1,
+      "source_text": "Invoice S-9",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2026-03-14",
+      "page": 1,
+      "source_text": "2026-03-14",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "USD",
+      "page": 1,
+      "source_text": "USD",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0.0,
+      "flag": "unknown"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "500.00",
+      "page": 1,
+      "source_text": "Subtotal 500.00",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": true,
+      "value": "0.00",
+      "page": 1,
+      "source_text": "Tax 0.00",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "500.00",
+      "page": 1,
+      "source_text": "Total 500.00",
+      "confidence": 0.95,
+      "flag": "unknown"
+    }
+  ],
   "line_items": [],
   "adjustments": [],
   "document_quality": {

@@ -1,10 +1,11 @@
-"""Test-only inverse of app.extraction.wire.from_wire: a contract-shaped dict -> the wire format the model returns.
-Used to build recorded-style fixtures and to prove the round trip."""
+"""Test-only inverse of app.extraction.wire.from_wire: a contract-shaped dict -> the wire format the model returns
+(header fields as ONE array of entries). Used to build recorded-style fixtures and to prove the round trip."""
 from typing import Any
 
 from app.extraction.wire import EVIDENCED_FIELDS
 
 _TRI = {True: "yes", False: "no", None: "unknown"}
+_FLAG_KEY = {"po_reference": "explicit", "tax": "included_in_total"}
 
 
 def _s(value: Any) -> str:
@@ -12,22 +13,21 @@ def _s(value: Any) -> str:
 
 
 def to_wire(contract: dict[str, Any]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
+    entries = []
     for name in EVIDENCED_FIELDS:
         f = contract.get(name) or {}
         found = f.get("value") is not None
-        field = {
+        flag_key = _FLAG_KEY.get(name)
+        entries.append({
+            "name": name,
             "found": found,
             "value": _s(f.get("value")) if found else ("unknown" if name == "document_type" else ""),
             "page": (f.get("page") or 0) if found else 0,
             "source_text": _s(f.get("source_text")) if found else "",
             "confidence": float(f.get("confidence") or 0.0) if found else 0.0,
-        }
-        if name == "po_reference":
-            field["explicit"] = _TRI[f.get("explicit")] if found else "unknown"
-        if name == "tax":
-            field["included_in_total"] = _TRI[f.get("included_in_total")] if found else "unknown"
-        out[name] = field
+            "flag": _TRI[f.get(flag_key)] if (found and flag_key) else "unknown",
+        })
+    out: dict[str, Any] = {"fields": entries}
     out["line_items"] = [{
         "description": _s(i.get("description")), "item_code": _s(i.get("item_code")), "quantity": _s(i.get("quantity")),
         "unit_price": _s(i.get("unit_price")), "amount": _s(i.get("amount")), "page": i.get("page") or 0,
@@ -42,3 +42,20 @@ def to_wire(contract: dict[str, Any]) -> dict[str, Any]:
                                "contains_reader_instructions": _TRI[q.get("contains_reader_instructions")]}
     out["extraction_notes"] = _s(contract.get("extraction_notes"))
     return out
+
+
+# ------------------------------------------------------------------------------ helpers for editing wire replies
+
+def entry(reply: dict[str, Any], name: str) -> dict[str, Any]:
+    """The entry for `name` in a wire reply (mutable)."""
+    return next(e for e in reply["fields"] if e["name"] == name)
+
+
+def set_field(reply: dict[str, Any], name: str, **changes: Any) -> dict[str, Any]:
+    entry(reply, name).update(changes)
+    return reply
+
+
+def drop_field(reply: dict[str, Any], name: str) -> dict[str, Any]:
+    reply["fields"] = [e for e in reply["fields"] if e["name"] != name]
+    return reply

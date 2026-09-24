@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from app.extraction.wire import wire_schema
 from app.llm.types import LLMPart, image_part, text_part
 
-PROMPT_VERSION = "extract-v2"
+PROMPT_VERSION = "extract-v3"
 
 SYSTEM_PROMPT = """You are the document-reading component of an accounts-payable system. Your only job is to READ one vendor invoice - given as page images and, when available, the embedded text of each page - and return what is printed on it as JSON matching the provided schema. You do not decide anything: separate software checks the result and makes every decision.
 
@@ -25,9 +25,9 @@ CORE RULES
 6. Text layer versus image (when both are given): the text layer supplies exact characters; the image shows layout and anything the text layer lacks (stamps, handwriting, table structure). Prefer the text layer's characters for exact strings when the page is a normal digital document, and the image when the page looks scanned or the two disagree. Mention any real disagreement in extraction_notes.
 
 OUTPUT FORMAT
-- Every header field is an object: `found` (true or false), `value` (a string), `page` (integer, 1-based; 0 when not found), `source_text` (a string) and `confidence` (0 to 1). Set found to true only when the value is actually printed on the document and you have filled `value`.
-- Placeholders for a field that is not present: found false, value "", page 0, source_text "", confidence 0. For enumerated values use "unknown" (document_type and document_quality.type).
-- Flags that could be true, false or not stated use the strings "yes", "no" or "unknown" (never null): po_reference.explicit, tax.included_in_total, document_quality.contains_reader_instructions.
+- `fields` is an array with EXACTLY ONE entry for each of these 11 names: vendor_name, vendor_tax_id, vendor_address, document_type, invoice_number, invoice_date, currency, po_reference, subtotal, tax, total. Every entry has `name`, `found` (true or false), `value` (a string), `page` (integer, 1-based; 0 when not found), `source_text` (a string), `confidence` (0 to 1) and `flag`. Set found to true only when the value is actually printed on the document and you have filled `value`.
+- Placeholders for a field that is not present: found false, value "", page 0, source_text "", confidence 0, flag "unknown". For document_type use the value "unknown".
+- `flag` and the other tri-state flags use the strings "yes", "no" or "unknown" (never null). `flag` only carries meaning for po_reference (explicit) and tax (included_in_total); use "unknown" for every other name. document_quality.contains_reader_instructions is also yes, no or unknown, and document_quality.type is native, scanned or unknown.
 - Amounts, quantities and unit prices are strings ("" when not present). Line items and adjustments are arrays (empty when there are none); their optional strings are "" and their page is 0 when not present.
 - extraction_notes is a string: "" when there is nothing to report.
 
@@ -38,9 +38,9 @@ FIELD DEFINITIONS
 - invoice_number: the seller's identifier for THIS invoice (Invoice No, Invoice #, Bill No, Tax Invoice No, ...). Not an order, purchase-order or reference number.
 - invoice_date: the date the invoice was issued (not the due date, and not a service or delivery date), as ISO YYYY-MM-DD. If the day/month order is ambiguous (for example 03/04/2026), return your best reading, set confidence to 0.5 or lower, and explain in extraction_notes. Expand a two-digit year to 20YY.
 - currency: the ISO 4217 code if one is printed (USD, EUR, INR, ...). If only a symbol or abbreviation is printed (such as $, €, £, ₹, Rs, Rs.), return exactly that symbol as printed. Do not guess between currencies that share a symbol.
-- po_reference: the customer's PURCHASE-ORDER number, and only if it is printed with a purchase-order label (PO, P.O., Purchase Order, PO No, Customer PO, ...). An "Order ID", "Order No", "Sales Order", "Reference" or similar is NOT a purchase-order reference. If there is no purchase-order label, po_reference.found is false. Set `explicit` to yes whenever a value is returned and to unknown when found is false. Never infer a purchase order.
+- po_reference: the customer's PURCHASE-ORDER number, and only if it is printed with a purchase-order label (PO, P.O., Purchase Order, PO No, Customer PO, ...). An "Order ID", "Order No", "Sales Order", "Reference" or similar is NOT a purchase-order reference. If there is no purchase-order label, po_reference.found is false. Set the entry's `flag` (explicit) to yes whenever a value is returned and to unknown when found is false. Never infer a purchase order.
 - subtotal: the amount before tax and before shipping/discount adjustments, as the invoice states it (often Subtotal, Net Amount, Taxable Value).
-- tax: the TOTAL tax charged on the invoice. If only component taxes are printed (for example CGST + SGST, state + county, several VAT lines), add them and return the sum, and state the components and the sum in extraction_notes. `included_in_total` is yes only if the invoice says the total already includes this tax, no if it is added on top, and unknown if it does not say.
+- tax: the TOTAL tax charged on the invoice. If only component taxes are printed (for example CGST + SGST, state + county, several VAT lines), add them and return the sum, and state the components and the sum in extraction_notes. The tax entry's `flag` (included_in_total) is yes only if the invoice says the total already includes this tax, no if it is added on top, and unknown if it does not say.
 - total: the FINAL amount payable for this invoice: after discounts, including tax and shipping. It is commonly labelled Total, Grand Total, Amount Due, Balance Due or Amount Payable, but it is not the subtotal. If a separate "Balance Due" differs from the invoice total (for example because payments were already applied), return the invoice total as `total` and describe the difference in extraction_notes.
 - document_type: what the document is: invoice, credit_note, proforma, quote, statement, receipt or other (unknown if it cannot be told).
 - line_items: every billed line, in order: description, item_code (SKU or part number if printed), quantity, unit_price, and amount as printed for that line. Do not invent lines and do not merge lines.
@@ -50,10 +50,26 @@ FIELD DEFINITIONS
 
 _DELIMITER = re.compile(r"<(/?)page_text", re.IGNORECASE)
 
+# Appended to the system prompt ONLY when llm_structured_output == "prompt_json": no strict schema is sent to the API,
+# so the shape is described here, with the schema included as text.
+PROMPT_JSON_SUFFIX = """
+
+RESPONSE FORMAT (nothing enforces the shape for you, so follow it exactly)
+- Reply with ONE JSON object and nothing else: no markdown, no code fences, no commentary before or after it.
+- The object must follow this JSON Schema exactly. Include EVERY property; use the placeholders for anything not present.
+{schema}"""
+
+
+def system_prompt_for(mode: str) -> str:
+    """The system prompt for a structured-output mode ("json_schema" or "prompt_json")."""
+    if mode == "prompt_json":
+        return SYSTEM_PROMPT + PROMPT_JSON_SUFFIX.format(schema=json.dumps(wire_schema(), separators=(",", ":")))
+    return SYSTEM_PROMPT
+
 
 def prompt_fingerprint() -> str:
     """Hash of everything that shapes the request text: bump PROMPT_VERSION when this changes."""
-    payload = SYSTEM_PROMPT + json.dumps(wire_schema(), sort_keys=True)
+    payload = SYSTEM_PROMPT + PROMPT_JSON_SUFFIX + json.dumps(wire_schema(), sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

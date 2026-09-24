@@ -5,7 +5,8 @@
 
 Runs ingest then extract and prints: the extracted JSON, the path used (text_and_vision / vision_only), tokens,
 cost, whether the API accepted thinking=disabled with effort=low, and the grounding status available at this
-stage. Exit codes: 0 ok, 1 degraded extraction, 2 file rejected / bad usage, 3 API key not configured.
+stage. Exit codes: 0 ok, 1 degraded extraction, 2 file rejected / bad usage, 3 API key not configured, 4 the API rejected
+the extraction schema (a configuration problem: the message names LLM_STRUCTURED_OUTPUT).
 """
 import argparse
 import json
@@ -15,6 +16,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.config import get_settings
+from app.extraction.preflight import SCHEMA_EXIT_CODE, is_schema_rejection, schema_rejection_message
 from app.extraction.stage import run_extract_stage
 from app.ingest.stage import run_ingest_stage
 from app.ingest.store import new_run_id
@@ -108,13 +110,17 @@ def main(argv: list[str] | None = None) -> int:
 
     stage = run_extract_stage(ctx, client, settings)
     meta = ctx.extraction_meta
+    if is_schema_rejection(meta):                       # a config problem, not a bad invoice: say so instead of a degraded run
+        print()
+        print(schema_rejection_message(meta))
+        return SCHEMA_EXIT_CODE
 
     _section("extracted invoice (JSON)")
     print(json.dumps(ctx.extracted.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
     _section("summary")
     print(f"path used:   {meta.path}   (mode requested: {meta.mode_requested}; text layer usable: {meta.text_layer_usable})")
-    print(f"model:       {meta.model}   prompt: {meta.prompt_version}")
+    print(f"model:       {meta.model}   prompt: {meta.prompt_version}   structured output: {meta.structured_output}")
     print(f"thinking:    {_thinking_line(meta)}")
     print(f"attempts:    {meta.attempts}   (schema repair used: {'yes' if meta.schema_repair_used else 'no'})")
     print(f"tokens:      in={meta.tokens_in} out={meta.tokens_out}")

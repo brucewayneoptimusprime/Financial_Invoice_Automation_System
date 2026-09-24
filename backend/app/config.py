@@ -145,6 +145,9 @@ class Settings(BaseSettings):
     llm_thinking: Literal["disabled", "omit"] = "disabled"   # on Sonnet 5, omitting `thinking` means adaptive thinking
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     llm_cache_system_prompt: bool = False
+    # "json_schema": send a strict JSON schema (grammar-constrained output). "prompt_json": send NO schema to the
+    # API; the prompt describes the JSON shape (schema included as text) and the reply is parsed and validated here.
+    llm_structured_output: Literal["json_schema", "prompt_json"] = "json_schema"
     schema_repair_retries: int = Field(default=1, ge=0)
     llm_prices: dict[str, ModelPrice] = Field(default_factory=lambda: dict(DEFAULT_LLM_PRICES))
     cost_ceiling_per_run_usd: Decimal = Field(default=Decimal("0.25"), ge=0)

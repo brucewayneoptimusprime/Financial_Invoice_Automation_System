@@ -3,29 +3,29 @@
 Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0, M1 (+ follow-ups) complete. M2 Stages 1-3 done; **hotfix for the live-check failure done** (wire schema redesigned). **Stopped as instructed: Stage 4 is NOT started.**
-- Live check result you reported: the API rejected the wire schema (HTTP 400, 49 union-typed parameters, limit 16). Nothing was spent; the degrade path worked.
-- The fix is verified offline only. **Whether the API now accepts the schema is unproven until you run `python -m app.llm.probe --schema`.**
+- M0, M1 (+ follow-ups) complete. M2 Stages 1-3 done plus two live-check hotfixes. **Stopped as instructed: Stage 4 is NOT started.**
+- **The second live failure ("compiled grammar too large") is fixed and proven live**: the new array-of-entries schema was ACCEPTED by the API on the first probe (1 of your 3 allowed attempts). `prompt_json` was not needed, so `json_schema` stays the default.
+- **Disclosure:** I ran `python -m app.llm.probe --schema --all` believing no key existed; your `.env` was present, so it made 2 real calls (**about $0.017 total**). I never opened or printed `.env`; the key was read only through settings. Nothing else in this session has called the API (all tests blank the key).
 
 ## Test count and result
-**1195 passed, 0 failed, 2 deselected** (`pytest -W error`, ~30 s). +88 this hotfix. Mutation-checked: reintroducing a nullable field fails 5 tests, ignoring found=false fails 3, making one property optional fails 4. No M1 engine or contract file changed.
+**1290 passed, 0 failed, 2 deselected** (`pytest -W error`, ~35 s). +95 this fix. Mutation-checked: dropping schema-error detection fails 7, prompt_json still sending a schema fails 2, truncation guard removed fails 3, duplicate names overwriting fails 3. No M1 engine or contract file changed.
 
 ## What changed (this fix)
-- **Wire schema (only what the API sees) has ZERO unions, nulls and optional properties**: each field is `{found, value, page, source_text, confidence}` with placeholders when absent; nullable booleans are enums yes/no/unknown; line items, adjustments, notes use ""/0. Now 15 objects, 89 properties, 5.3 KB (SPEC 44).
-- **`from_wire` converts back** to the unchanged nullable contract (found=false -> null/None/0; found=true with empty value -> not found + system note). Bad structure -> the single repair retry. Prompt is `extract-v2` ("if a field is not present, set found=false and leave placeholders; do not guess").
-- **API limits, read again from the docs:** the documentation lists only unsupported keywords (no recursion, no numeric/string constraints, minItems 0/1, additionalProperties:false) and states **no numeric limits**; the only hard number known is the API's own "16 unions". `test_wire_limits.py` enforces 0 unions/nulls/optionals plus my own conservative budgets for unpublished limits.
-- **Probe:** `python -m app.llm.probe --schema` sends the REAL wire schema with a text-only prompt (about a cent or less, capped at 1500 output tokens) and reports accepted/rejected, tokens, cost, and whether the reply converts to an all-null invoice.
-- Fixtures regenerated in wire format; SPEC item 44; PLAN 5.3 annotated.
+- **Attempt A (built and passed live):** header fields = ONE array of entries `{name, found, value, page, source_text, confidence, flag}`; line items/adjustments stay small flat arrays. 5 objects / 29 properties / 1.9 KB (was 15 / 89 / 5.3 KB). Converter: missing names -> not found, duplicates keep the first + note, unknown names ignored + logged. Prompt `extract-v3` (only OUTPUT FORMAT + flag wording changed).
+- **Fallback B (built, behind `LLM_STRUCTURED_OUTPUT=json_schema|prompt_json`):** prompt_json sends no schema, puts it in the prompt as text, parses tolerantly (fences, text around the JSON; truncated replies reported as invalid JSON), validates, same repair retry. The eval-script half of your item 5 does not exist yet (Stage 5); the reusable message helper does.
+- **Pre-flight/clear failure:** the client maps schema/grammar 400s to `LLMSchemaError`; the extraction CLI prints a banner naming the switch and exits 4 instead of a "degraded" run.
+- **Probe:** `--schema` (configured mode), `--structured MODE`, `--all` (both modes + a recommendation line).
+- **Live evidence (exact):** `json_schema` ACCEPTED (in=1399 out=590, $0.008698, 8.3 s); `prompt_json` works (in=929 out=687, $0.008728); `thinking=disabled` + `effort=low` ACCEPTED, no fallback; the reply converted to an all-null invoice in both modes.
 
 ## Decisions I need from the user
-1. **Run `.venv\Scripts\python -m app.llm.probe --schema` and paste the output.** If the API rejects something else (e.g. total property count), the message will say what; I will trim the schema (recommended fallback: split extraction into two calls, header fields then line items).
-2. Then the earlier live checks: `.venv\Scripts\python -m app.llm.probe` and the CLI on one invoice. Say "go" for Stage 4 after one clean real extraction.
+1. **Now run one real invoice**: `.venv\Scripts\python -m app.extraction.cli <invoice.pdf> --max-cost 0.10` (add `--record data\recordings` to keep the real response), and paste the summary block. I did not run an invoice myself, per your instruction to iterate only with the probe.
+2. **Say "go" for Stage 4** after that. Recommendation: go once one real extraction looks sane, since Stage 4 tunes grounding on real text layers.
 
 ## Assumptions added to SPEC section 11
-44 (this fix). Earlier: 8-20 (M0), 21-35 (M1), 36-37, 38-43 (M2 stages 1-3).
+45 (this fix; item 44 was the intermediate shape). Earlier: 8-20 (M0), 21-35 (M1), 36-37, 38-44 (M2).
 
 ## Known risks or gaps
-- 89 properties / 15 objects is my judgement of "small"; the API's real ceiling for those is unpublished, so the probe is the only authority.
-- Structured output still cannot express "a missing value" as null; correctness now rests on the model honouring found=false (the converter ignores placeholder content when found=false, and the prompt forbids guessing).
+- The probe proves the schema compiles and a blank document round-trips; it does not prove extraction QUALITY or that a full-size invoice reply stays under the 4096-token output cap (a long invoice is a truncation risk: it would degrade after one repair).
+- Grammar-constrained output still cannot express "missing" as null; correctness relies on the model honouring found=false (the converter ignores placeholder content when found=false).
 - Carried over: system-side extraction failures still yield `request_info` until Stage 4; adjustments not yet in the arithmetic rule; grounding, `r_document_type`, tax-ID vendor matching not built.
 - Some working-tree files have CRLF endings locally; git normalises to LF.

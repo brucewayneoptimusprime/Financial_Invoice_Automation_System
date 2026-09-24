@@ -26,6 +26,11 @@ class LLMBadRequestError(LLMError):
     code = "bad_request"
 
 
+class LLMSchemaError(LLMBadRequestError):
+    """The API refused the structured-output schema (e.g. "compiled grammar is too large", "too many union types")."""
+    code = "schema_rejected"
+
+
 class LLMTimeoutError(LLMError):
     """The request timed out (after the SDK's own retries)."""
     code = "timeout"

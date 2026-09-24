@@ -19,7 +19,7 @@ from pydantic import ValidationError
 from app.config import Settings, get_settings
 from app.enums import Outcome
 from app.extraction.postprocess import postprocess
-from app.extraction.prompts import PROMPT_VERSION, SYSTEM_PROMPT, PagePayload, build_user_parts, repair_part
+from app.extraction.prompts import PROMPT_VERSION, PagePayload, build_user_parts, repair_part, system_prompt_for
 from app.extraction.wire import from_wire, wire_schema
 from app.llm.client import build_llm_client
 from app.llm.errors import LLMConfigError, LLMError, LLMRefusedError, LLMTruncatedError
@@ -31,6 +31,8 @@ from app.models.extraction_meta import ExtractionMeta, ExtractionPath, IngestInf
 logger = logging.getLogger("app.extraction")
 EXTRACT_STAGE = "extract"
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+_MAX_BRACE_TRIES = 50
+_BOM = "\ufeff"
 
 
 @dataclass
@@ -77,10 +79,26 @@ def load_pages(ingest: IngestInfo, path: ExtractionPath) -> list[PagePayload]:
     return pages
 
 
-def parse_reply(text: str) -> Any:
-    """json.loads, tolerating a stray code fence or BOM around an otherwise valid JSON reply."""
-    cleaned = _FENCE.sub("", text.strip().lstrip("﻿")).strip()
-    return json.loads(cleaned)
+def parse_reply(text: str, expect_key: str | None = None) -> Any:
+    """Parse the model's JSON object. Tolerates a BOM, a ```json code fence, and stray text before or after the
+    object (needed when the reply was not grammar-constrained). When the whole text is not JSON, the first embedded
+    object that (if `expect_key` is given) contains that key is returned, so a TRUNCATED reply is not mistaken for one of
+    its own inner objects. Raises json.JSONDecodeError if no suitable object is found."""
+    cleaned = _FENCE.sub("", text.strip().lstrip(_BOM)).strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as first:
+        decoder = json.JSONDecoder()
+        for tries, match in enumerate(re.finditer(r"\{", cleaned)):
+            if tries >= _MAX_BRACE_TRIES:
+                break
+            try:
+                obj, _ = decoder.raw_decode(cleaned[match.start():])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and (expect_key is None or expect_key in obj):
+                return obj
+        raise first
 
 
 def _summarise(exc: Exception) -> str:
@@ -119,6 +137,8 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
     # 2. Path selection.
     path, path_note = choose_path(settings.extraction_mode, ingest.text_layer.usable)
     meta.path = path
+    mode = settings.llm_structured_output
+    meta.structured_output = mode
     outcome.events.append(_event("path_selected", Outcome.INFO,
                                  f"Extraction path: {path} (text layer: {ingest.text_layer.reason}; mode: {settings.extraction_mode})."
                                  + (f" {path_note}." if path_note else ""),
@@ -138,14 +158,15 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
     except OSError as exc:
         return degrade("system_side", "page_read_failed", f"Could not read the stored page files ({type(exc).__name__}).")
     base_parts = build_user_parts(pages, ingest.pages_processed, ingest.pages_total if ingest.truncated else None)
-    schema = wire_schema()
+    system = system_prompt_for(mode)                          # prompt_json: the schema travels as prompt text
+    schema = wire_schema() if mode == "json_schema" else None  # prompt_json: NO strict schema is sent to the API
 
     # 5. Call, validate, repair once.
     attempts_allowed = 1 + settings.schema_repair_retries
     last_error = ""
     for attempt in range(1, attempts_allowed + 1):
         parts = base_parts + ((repair_part(last_error),) if attempt > 1 else ())
-        request = LLMRequest(system=SYSTEM_PROMPT, parts=parts, model=settings.model_name,
+        request = LLMRequest(system=system, parts=parts, model=settings.model_name,
                              max_output_tokens=settings.llm_max_output_tokens, schema=schema, run_id=run_id,
                              purpose="extract", cache_system=settings.llm_cache_system_prompt)
         meta.attempts = attempt
@@ -166,7 +187,7 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
         outcome.raw_replies.append(response.text)
         try:
             response.ensure_usable()
-            contract, wire_notes = from_wire(parse_reply(response.text))       # wire format -> internal contract
+            contract, wire_notes = from_wire(parse_reply(response.text, expect_key="fields"))       # wire format -> internal contract
             result = postprocess(contract, settings, wire_notes)
         except LLMRefusedError as exc:
             return degrade("system_side", exc.code, exc.message)

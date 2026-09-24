@@ -17,6 +17,7 @@ from app.models import RunContext
 from app.models.extraction_meta import ExtractionMeta
 from tests.engine.real import BUILTIN
 from tests.extraction.helpers import load_reply, make_source, reply_text, settings
+from tests.extraction.wire_convert import set_field
 from tests.factories import make_facts, make_po, make_vendor
 from tests.llm.fakes import FakeLLMClient, ok_response
 
@@ -101,7 +102,8 @@ def pipeline(ctx, client, tmp_path, facts):
 
 def test_a_clean_native_invoice_flows_from_file_to_approval(tmp_path):
     reply = load_reply("us_native_invoice")
-    reply["adjustments"], reply["total"]["value"], reply["total"]["source_text"] = [], "1080.00", "Total Due: 1,080.00"
+    reply["adjustments"] = []
+    set_field(reply, "total", value="1080.00", source_text="Total Due: 1,080.00")
     ctx = ingest_ctx(tmp_path)
     res = pipeline(ctx, FakeLLMClient(ok_response(reply_text(reply))), tmp_path, facts_for_northwind())
     triggered = {k: v.outcome_key for k, v in res.items() if v.outcome.value in ("flag", "fail")}
@@ -162,7 +164,7 @@ def test_cli_replay_prints_json_path_tokens_cost_and_grounding_status(cli_env, c
 
 def test_cli_prints_non_ascii_characters_without_crashing(cli_env, capsys):
     reply = load_reply("us_native_invoice")
-    reply["vendor_address"]["value"] = "Frankfurter Straße 1, Köln € ₹"
+    set_field(reply, "vendor_address", value="Frankfurter Straße 1, Köln € ₹")
     source = make_source(cli_env / "docs", "native")
     code = cli.main([str(source), "--replay", str(record_replay(cli_env, source, reply))])
     assert code == 0 and "Frankfurter Straße 1, Köln € ₹" in capsys.readouterr().out

@@ -5,8 +5,10 @@ WHAT IS KNOWN (2026-09, checked against the API documentation):
     no recursive schemas; no numeric constraints (minimum, maximum, multipleOf); no string constraints
     (minLength, maxLength); array minItems only 0 or 1; enums of strings/numbers/bools/nulls only; external $ref
     unsupported; `allOf` with `$ref` unsupported.
-  * OBSERVED (the API's own 400 on a live call): "too many parameters with union types (49 parameters with type
-    arrays or anyOf) ... limit: 16".
+  * OBSERVED (the API's own 400s on live calls): (1) "too many parameters with union types (49 parameters with type
+    arrays or anyOf) ... limit: 16" for the nullable design; (2) "The compiled grammar is too large" for the
+    per-field-object design (15 objects, 89 properties, 5.3 KB). The current array-of-entries design (5 objects,
+    29 properties, 1.9 KB) was ACCEPTED by the API on its first probe (`llm-probe --schema`).
   * NOT PUBLISHED: the documentation states no numeric limit for optional parameters, properties, depth, enum size
     or schema size. The budgets below for those are OUR conservative self-imposed ceilings (well under anything
     plausible), not API facts. `python -m app.llm.probe --schema` is the authoritative check: the API compiles the
@@ -18,7 +20,7 @@ import json
 
 import pytest
 
-from app.extraction.wire import wire_schema
+from app.extraction.wire import EVIDENCED_FIELDS, wire_schema
 
 # Observed API limit, and the margin we demand on top of it (we require none at all).
 API_UNION_LIMIT = 16
@@ -27,7 +29,7 @@ UNION_BUDGET = 0
 MAX_PROPERTIES = 120
 MAX_OBJECTS = 25
 MAX_DEPTH = 5            # nesting of object/array SCHEMAS (properties/items levels), not dict levels
-MAX_ENUM_VALUES = 10
+MAX_ENUM_VALUES = 16
 MAX_SCHEMA_BYTES = 12_000
 
 DOCUMENTED_UNSUPPORTED = {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength",
@@ -142,9 +144,9 @@ def test_the_schema_leaves_real_headroom_under_every_budget():
 
 def test_the_measured_shape_is_what_the_design_says():
     """Documents the current numbers so an accidental growth shows up in review."""
-    assert (FOUND["objects"], FOUND["properties"]) == (15, 89)
-    assert FOUND["max_depth"] == 3          # top object -> line_items array -> item object -> scalar properties
-    assert sorted(FOUND["enum_sizes"]) == [3, 3, 3, 3, 6, 8]
+    assert (FOUND["objects"], FOUND["properties"]) == (5, 29)
+    assert FOUND["max_depth"] == 3          # top object -> fields / line_items array -> item object -> scalar properties
+    assert sorted(FOUND["enum_sizes"]) == [3, 3, 3, 6, 11]
 
 
 def test_the_top_level_is_a_closed_object_with_all_properties_required():
@@ -152,19 +154,34 @@ def test_the_top_level_is_a_closed_object_with_all_properties_required():
     assert SCHEMA["required"] == list(SCHEMA["properties"])
 
 
-@pytest.mark.parametrize("name", ["vendor_name", "total", "po_reference", "tax", "document_type"])
-def test_every_evidenced_field_uses_found_and_placeholders_not_nullable_values(name):
-    node = SCHEMA["properties"][name]
-    assert node["properties"]["found"] == {"type": "boolean"}
-    assert node["properties"]["value"]["type"] == "string"
-    assert node["properties"]["page"] == {"type": "integer"} and node["properties"]["confidence"] == {"type": "number"}
+def test_header_fields_are_one_array_of_entries_using_found_and_placeholders():
+    fields = SCHEMA["properties"]["fields"]
+    assert fields["type"] == "array"
+    entry = fields["items"]
+    assert list(entry["properties"]) == ["name", "found", "value", "page", "source_text", "confidence", "flag"]
+    assert entry["properties"]["found"] == {"type": "boolean"} and entry["properties"]["value"] == {"type": "string"}
+    assert entry["properties"]["page"] == {"type": "integer"} and entry["properties"]["confidence"] == {"type": "number"}
+    assert entry["properties"]["name"]["enum"] == list(EVIDENCED_FIELDS) and len(EVIDENCED_FIELDS) == 11
+
+
+def test_the_evidence_block_is_defined_once_not_once_per_field():
+    text = json.dumps(SCHEMA)
+    assert text.count('"found": {') == 1                                       # one entry definition for all 11 fields
+    assert text.count('"confidence": {') == 3                                  # entry + line item + adjustment
+    assert not any(name in SCHEMA["properties"] for name in EVIDENCED_FIELDS)  # no per-field properties at the top level
 
 
 def test_tri_state_flags_are_enums_not_nullable_booleans():
     props = SCHEMA["properties"]
-    for node in (props["po_reference"]["properties"]["explicit"], props["tax"]["properties"]["included_in_total"],
-                 props["document_quality"]["properties"]["contains_reader_instructions"]):
+    for node in (props["fields"]["items"]["properties"]["flag"], props["document_quality"]["properties"]["contains_reader_instructions"]):
         assert node == {"type": "string", "enum": ["yes", "no", "unknown"]}
+
+
+def test_the_schema_is_much_smaller_than_the_design_the_api_rejected():
+    rejected = {"objects": 15, "properties": 89, "bytes": 5308}
+    size = len(json.dumps(SCHEMA, separators=(",", ":")).encode("utf-8"))
+    assert FOUND["objects"] <= 0.4 * rejected["objects"] and FOUND["properties"] <= 0.4 * rejected["properties"]
+    assert size <= 0.4 * rejected["bytes"]
 
 
 def test_the_checker_would_catch_a_regression_to_unions():

@@ -18,7 +18,7 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.llm.budget import CostTracker, get_session_tracker
 from app.llm.errors import (
-    LLMAuthError, LLMBadRequestError, LLMConfigError, LLMError, LLMTimeoutError, LLMTransientError,
+    LLMAuthError, LLMBadRequestError, LLMConfigError, LLMError, LLMSchemaError, LLMTimeoutError, LLMTransientError,
 )
 from app.llm.pricing import cost_usd, price_for, worst_case_cost
 from app.llm.types import (  # noqa: F401 - re-exported
@@ -31,6 +31,13 @@ _KEY_PATTERN = re.compile(r"sk-ant-[A-Za-z0-9_\-]+")
 
 
 # ----------------------------------------------------------------------------------------- real client
+
+_SCHEMA_ERROR_HINTS = ("grammar", "schema", "union types", "structured output", "output_config")
+
+SCHEMA_REJECTED_ADVICE = (
+    "Fix: set LLM_STRUCTURED_OUTPUT=prompt_json in the .env file (the schema is then sent as prompt text instead of a "
+    "strict grammar), or run `python -m app.llm.probe --schema --all` to test both modes.")
+
 
 MISSING_KEY_MESSAGE = (
     "ANTHROPIC_API_KEY is not set. Add it to the .env file in the project root (ANTHROPIC_API_KEY=...) or export it "
@@ -105,6 +112,8 @@ class AnthropicClient:
             detail = self._scrub(getattr(exc, "message", "") or str(exc))
             if status >= 500:
                 return LLMTransientError(f"The API returned a server error (HTTP {status}) after retries.")
+            if status == 400 and any(h in detail.lower() for h in _SCHEMA_ERROR_HINTS):
+                return LLMSchemaError(f"The API rejected the structured-output schema (HTTP 400): {detail} {SCHEMA_REJECTED_ADVICE}")
             return LLMBadRequestError(f"The API rejected the request (HTTP {status}): {detail}")
         return None
 

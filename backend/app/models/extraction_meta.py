@@ -66,6 +66,7 @@ class ExtractionMeta(_Strict):
     mode_requested: str = "auto"
     model: str | None = None
     prompt_version: str = ""
+    structured_output: str | None = None   # json_schema | prompt_json
     pages_processed: int = 0
     truncated: bool = False
     attempts: int = 0

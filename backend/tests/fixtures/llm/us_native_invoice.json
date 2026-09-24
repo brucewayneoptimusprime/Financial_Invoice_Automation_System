@@ -1,83 +1,105 @@
 {
-  "vendor_name": {
-    "found": true,
-    "value": "Northwind Trading Co",
-    "page": 1,
-    "source_text": "Northwind Trading Co",
-    "confidence": 0.98
-  },
-  "vendor_tax_id": {
-    "found": true,
-    "value": "EIN 12-3456789",
-    "page": 1,
-    "source_text": "EIN: 12-3456789",
-    "confidence": 0.96
-  },
-  "vendor_address": {
-    "found": true,
-    "value": "100 Example Street, Springfield, IL 62701",
-    "page": 1,
-    "source_text": "100 Example Street, Springfield, IL 62701",
-    "confidence": 0.9
-  },
-  "document_type": {
-    "found": true,
-    "value": "invoice",
-    "page": 1,
-    "source_text": "INVOICE",
-    "confidence": 0.99
-  },
-  "invoice_number": {
-    "found": true,
-    "value": "INV-2026-0042",
-    "page": 1,
-    "source_text": "Invoice No: INV-2026-0042",
-    "confidence": 0.98
-  },
-  "invoice_date": {
-    "found": true,
-    "value": "2026-03-14",
-    "page": 1,
-    "source_text": "Date: March 14, 2026",
-    "confidence": 0.97
-  },
-  "currency": {
-    "found": true,
-    "value": "USD",
-    "page": 1,
-    "source_text": "Amounts in USD",
-    "confidence": 0.95
-  },
-  "po_reference": {
-    "found": true,
-    "value": "PO-5001",
-    "page": 1,
-    "source_text": "Customer PO: PO-5001",
-    "confidence": 0.97,
-    "explicit": "yes"
-  },
-  "subtotal": {
-    "found": true,
-    "value": "1000.00",
-    "page": 1,
-    "source_text": "Subtotal: 1,000.00",
-    "confidence": 0.97
-  },
-  "tax": {
-    "found": true,
-    "value": "80.00",
-    "page": 1,
-    "source_text": "Tax (8%): 80.00",
-    "confidence": 0.96,
-    "included_in_total": "no"
-  },
-  "total": {
-    "found": true,
-    "value": "1105.00",
-    "page": 1,
-    "source_text": "Total Due: 1,105.00",
-    "confidence": 0.98
-  },
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "Northwind Trading Co",
+      "page": 1,
+      "source_text": "Northwind Trading Co",
+      "confidence": 0.98,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": true,
+      "value": "EIN 12-3456789",
+      "page": 1,
+      "source_text": "EIN: 12-3456789",
+      "confidence": 0.96,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": true,
+      "value": "100 Example Street, Springfield, IL 62701",
+      "page": 1,
+      "source_text": "100 Example Street, Springfield, IL 62701",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "INVOICE",
+      "confidence": 0.99,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "INV-2026-0042",
+      "page": 1,
+      "source_text": "Invoice No: INV-2026-0042",
+      "confidence": 0.98,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2026-03-14",
+      "page": 1,
+      "source_text": "Date: March 14, 2026",
+      "confidence": 0.97,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "USD",
+      "page": 1,
+      "source_text": "Amounts in USD",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": true,
+      "value": "PO-5001",
+      "page": 1,
+      "source_text": "Customer PO: PO-5001",
+      "confidence": 0.97,
+      "flag": "yes"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "1000.00",
+      "page": 1,
+      "source_text": "Subtotal: 1,000.00",
+      "confidence": 0.97,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": true,
+      "value": "80.00",
+      "page": 1,
+      "source_text": "Tax (8%): 80.00",
+      "confidence": 0.96,
+      "flag": "no"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "1105.00",
+      "page": 1,
+      "source_text": "Total Due: 1,105.00",
+      "confidence": 0.98,
+      "flag": "unknown"
+    }
+  ],
   "line_items": [
     {
       "description": "Widget A",

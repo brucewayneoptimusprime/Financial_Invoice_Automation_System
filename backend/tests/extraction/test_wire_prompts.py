@@ -7,13 +7,13 @@ from app.extraction import prompts
 from app.extraction.prompts import (
     PROMPT_VERSION, SYSTEM_PROMPT, PagePayload, build_user_parts, neutralise_delimiters, prompt_fingerprint, repair_part,
 )
-from app.extraction.wire import ADJUSTMENT_KINDS, DOCUMENT_TYPES, wire_schema
+from app.extraction.wire import ADJUSTMENT_KINDS, DOCUMENT_TYPES, EVIDENCED_FIELDS, wire_schema
 from app.models import ExtractedInvoice
-from app.models.extraction import AdjustmentKind, DocumentQuality, DocumentType, ExtractedAdjustment, ExtractedLineItem
+from app.models.extraction import AdjustmentKind, DocumentQuality, DocumentType, EvidencedField, ExtractedAdjustment, ExtractedLineItem
 from tests.extraction.helpers import load_reply
 
 # Update this table ONLY together with a new PROMPT_VERSION whenever the prompt text or the schema changes.
-FINGERPRINTS = {"extract-v2": "e74233258bae16f23db519dc025cac0f4f41da3550503f00f18a015d23f635d2"}
+FINGERPRINTS = {"extract-v3": "8a177b5618bf588353c90b928ac414520111759a2e53389dd00512f1ffa2dbf3"}
 SYSTEM_FIELDS = {"model_confidence", "grounding"}
 
 
@@ -68,7 +68,7 @@ def test_every_object_forbids_extra_keys_and_requires_all_properties():
             assert node["additionalProperties"] is False and node["required"] == list(node["properties"])
 
     walk(wire_schema(), visit)
-    assert len(seen) == 15                       # top level + 11 evidenced fields + line item + adjustment + document_quality
+    assert len(seen) == 5                        # top level + field entry + line item + adjustment + document_quality
 
 
 def test_no_construct_the_api_rejects_appears_in_the_schema():
@@ -82,21 +82,27 @@ def test_no_construct_the_api_rejects_appears_in_the_schema():
 def test_the_schema_is_json_serialisable_and_a_fresh_copy_each_time():
     a = wire_schema()
     json.dumps(a)
-    a["properties"].pop("total")
-    assert "total" in wire_schema()["properties"]
+    a["properties"].pop("fields")
+    assert "fields" in wire_schema()["properties"]
 
 
-def test_top_level_wire_fields_match_the_contract_exactly():
-    assert set(wire_schema()["properties"]) == set(ExtractedInvoice.model_fields)
+def test_top_level_wire_fields_are_the_array_plus_the_non_header_contract_fields():
+    header = set(EVIDENCED_FIELDS)
+    assert set(wire_schema()["properties"]) == (set(ExtractedInvoice.model_fields) - header) | {"fields"}
 
 
 def test_nested_wire_shapes_match_the_contract_minus_system_fields():
     props = wire_schema()["properties"]
-    for name, info in ExtractedInvoice.model_fields.items():
-        node = props[name]
-        if node.get("type") == "object" and "found" in node["properties"]:
-            model_cls = info.annotation
-            assert set(node["properties"]) == (set(model_cls.model_fields) - SYSTEM_FIELDS) | {"found"}, name
+    entry = props["fields"]["items"]["properties"]
+    # every contract header field is a NAMED entry; the entry carries the union of the evidenced-field keys plus a flag
+    header = [n for n, info in ExtractedInvoice.model_fields.items()
+              if hasattr(info.annotation, "model_fields") and "confidence" in info.annotation.model_fields and "value" in info.annotation.model_fields]
+    assert set(header) == set(entry["name"]["enum"])
+    common = set(EvidencedField.model_fields) - SYSTEM_FIELDS
+    assert set(entry) == common - {"value", "page", "source_text", "confidence"} | {"name", "found", "value", "page", "source_text", "confidence", "flag"}
+    flags = {"explicit", "included_in_total"}
+    assert flags <= (set(ExtractedInvoice.model_fields["po_reference"].annotation.model_fields)
+                     | set(ExtractedInvoice.model_fields["tax"].annotation.model_fields))       # the two contract flags `flag` carries
     assert set(props["line_items"]["items"]["properties"]) == set(ExtractedLineItem.model_fields) - SYSTEM_FIELDS
     assert set(props["adjustments"]["items"]["properties"]) == set(ExtractedAdjustment.model_fields) - SYSTEM_FIELDS - {"printed_amount"}
     assert set(props["document_quality"]["properties"]) == set(DocumentQuality.model_fields)
@@ -110,14 +116,14 @@ def test_system_only_fields_are_never_requested_from_the_model():
 
 def test_enums_in_the_schema_match_the_contract_literals():
     assert DOCUMENT_TYPES == list(get_args(DocumentType)) and ADJUSTMENT_KINDS == list(get_args(AdjustmentKind))
-    doc_type = wire_schema()["properties"]["document_type"]["properties"]["value"]
-    assert doc_type["enum"] == [*DOCUMENT_TYPES, "unknown"]
+    assert wire_schema()["properties"]["fields"]["items"]["properties"]["name"]["enum"] == list(EVIDENCED_FIELDS)
+    assert wire_schema()["properties"]["adjustments"]["items"]["properties"]["kind"]["enum"] == ADJUSTMENT_KINDS
+    assert "invoice" in DOCUMENT_TYPES and len(DOCUMENT_TYPES) == 7        # document_type values are validated by Pydantic
 
 
 def test_money_is_requested_as_strings_never_floats():
     props = wire_schema()["properties"]
-    for name in ("subtotal", "tax", "total"):
-        assert props[name]["properties"]["value"] == {"type": "string"}
+    assert props["fields"]["items"]["properties"]["value"] == {"type": "string"}      # amounts, dates, ids: all strings
     for name in ("quantity", "unit_price", "amount"):
         assert props["line_items"]["items"]["properties"][name] == {"type": "string"}
     assert props["adjustments"]["items"]["properties"]["amount"] == {"type": "string"}
@@ -131,9 +137,11 @@ def test_recorded_style_fixtures_conform_to_the_wire_schema(fixture):
 def test_the_checker_itself_catches_problems():
     good = load_reply("us_native_invoice")
     assert schema_errors(wire_schema(), {**good, "surprise": 1})
-    assert schema_errors(wire_schema(), {k: v for k, v in good.items() if k != "total"})
-    assert schema_errors(wire_schema(), {**good, "document_type": {**good["document_type"], "value": "memo"}})
-    assert schema_errors(wire_schema(), {**good, "total": {**good["total"], "value": 1105.0}})
+    assert schema_errors(wire_schema(), {k: v for k, v in good.items() if k != "fields"})
+    bad_name = {**good, "fields": [{**good["fields"][0], "name": "shoe_size"}]}
+    assert schema_errors(wire_schema(), bad_name)
+    bad_value = {**good, "fields": [{**good["fields"][0], "value": 1105.0}]}
+    assert schema_errors(wire_schema(), bad_value)
 
 
 # ------------------------------------------------------------------------------ prompt content
@@ -155,6 +163,9 @@ def test_the_checker_itself_catches_problems():
     "\"Order ID\", \"Order No\"",
     "is NOT a purchase-order reference",
     "po_reference.found is false",
+    "EXACTLY ONE entry",
+    "`flag` (explicit)",
+    "`flag` (included_in_total)",
     "Never infer a purchase order",
     "TOTAL tax charged on the invoice",
     "only component taxes are printed",

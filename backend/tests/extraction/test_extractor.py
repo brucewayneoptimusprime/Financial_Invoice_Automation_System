@@ -14,6 +14,7 @@ from app.llm.errors import (
     CostCeilingExceeded, LLMAuthError, LLMBadRequestError, LLMConfigError, LLMTimeoutError, LLMTransientError, PriceNotConfigured,
 )
 from tests.extraction.helpers import ingest_of, load_reply, reply_text, settings
+from tests.extraction.wire_convert import set_field
 from tests.llm.fakes import FakeLLMClient, ok_response
 
 D = Decimal
@@ -155,7 +156,7 @@ def test_invalid_json_gets_exactly_one_repair_retry_that_can_succeed(tmp_path):
 
 def test_a_schema_violation_names_the_field_in_the_correction(tmp_path):
     bad = load_reply("us_native_invoice")
-    bad["total"]["value"] = "abc"
+    set_field(bad, "total", value="abc")
     fake = FakeLLMClient(ok_response(reply_text(bad)), ok_response(GOOD))
     out, _ = run(tmp_path, client=fake)
     assert out.meta.schema_repair_used and "total.value" in fake.requests[1].parts[-1].text

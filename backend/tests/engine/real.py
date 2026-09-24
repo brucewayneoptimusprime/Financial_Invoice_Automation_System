@@ -18,6 +18,17 @@ def ev(rule_type: str, ctx: RunContext, params: dict | None = None, severity: in
     return evaluate_rule(ctx, rule, CONFIG, REGISTRY)
 
 
+def pipeline(extracted, facts, file_hash: str | None = "hash-current", run_id: str = "run-e2e", rules=None):
+    """match -> validate -> decide with the real engine. Returns (ctx, results_by_rule_id, (match, validate, decide))."""
+    from app.engine.engine import run_decide_stage, run_validate_stage
+    from app.engine.matching import run_match_stage
+    ctx = RunContext(run_id=run_id, source_file="generic-invoice.pdf", file_hash=file_hash, extracted=extracted, facts=facts)
+    match = run_match_stage(ctx)
+    validate = run_validate_stage(ctx, list(BUILTIN.values()) if rules is None else rules)
+    decide = run_decide_stage(ctx)
+    return ctx, {r.rule_id: r for r in ctx.rule_results}, (match, validate, decide)
+
+
 def ev_builtin(rule_id: str, ctx: RunContext, **param_overrides) -> RuleResult:
     """Evaluate a seeded builtin rule (its real severity and params), optionally overriding params."""
     base = BUILTIN[rule_id]

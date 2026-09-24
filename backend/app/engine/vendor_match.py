@@ -49,9 +49,14 @@ def resolve_vendor(name: str | None, vendors: Iterable[VendorFact], cfg: MatchCo
     top = scored[0]
     runner = scored[1] if len(scored) > 1 else None
     ambiguous = False
+    tied: list[int] = []
     if runner is not None:
         both_exact = top[0] == 1.0 and runner[0] == 1.0
         near_tie = top[0] < 1.0 and (top[0] - runner[0]) < cfg.vendor_ambiguity_margin
         ambiguous = both_exact or near_tie
+        if both_exact:
+            tied = sorted(vid for score, vid, _ in scored if score == 1.0)
+        elif near_tie:
+            tied = sorted(vid for score, vid, _ in scored if (top[0] - score) < cfg.vendor_ambiguity_margin)
     return VendorMatch(vendor_id=top[1], score=top[0], method=top[2], ambiguous=ambiguous,
-                       runner_up_score=None if runner is None else runner[0])
+                       runner_up_score=None if runner is None else runner[0], candidate_vendor_ids=tied)

@@ -10,17 +10,8 @@ from app.engine.engine import run_decide_stage, run_validate_stage
 from app.engine.matching import run_match_stage
 from app.enums import Decision, InvoiceStatus, MatchStatus, Outcome, POStatus, VendorStatus
 from app.models import RunContext
-from tests.engine.real import BUILTIN
+from tests.engine.real import BUILTIN, pipeline
 from tests.factories import field, make_extracted, make_facts, make_po, make_prior, make_vendor
-
-
-def pipeline(extracted, facts, file_hash="hash-current", run_id="run-e2e"):
-    ctx = RunContext(run_id=run_id, source_file="generic-invoice.pdf", file_hash=file_hash, extracted=extracted, facts=facts)
-    match = run_match_stage(ctx)
-    validate = run_validate_stage(ctx, list(BUILTIN.values()))
-    decide = run_decide_stage(ctx)
-    res = {r.rule_id: r for r in ctx.rule_results}
-    return ctx, res, (match, validate, decide)
 
 
 def triggered(res):
@@ -30,7 +21,7 @@ def triggered(res):
 def test_clean_invoice_is_approved_with_a_complete_trail():
     ctx, res, (match, validate, decide) = pipeline(make_extracted(), make_facts())
     assert ctx.decision is Decision.APPROVE and ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-A-1"
-    assert triggered(res) == {} and len(ctx.rule_results) == 13
+    assert triggered(res) == {} and len(ctx.rule_results) == 14
     assert [e.event_type for e in match.events] == ["vendor_resolved", "po_candidates_ranked", "po_match_decision"]
     assert match.outputs["matched_po"] == "PO-A-1" and validate.outputs["final_severity"] == 0 and decide.outputs["decision"] == "approve"
 

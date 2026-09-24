@@ -34,6 +34,36 @@ class FloorConfig:
     amount_compare_field: str = "total"
 
 
+REFERENCE_FLOOR_RULE_ID = "engine_floor_reference"
+_NON_EXACT_REFERENCE = ("reference:contained", "reference:fuzzy")
+
+
+def evaluate_reference_floor(ctx: RunContext, config: FloorConfig) -> RuleResult:
+    """A PO reached through a reference that is NOT an exact normalised match can never be approved.
+
+    The target is the matched PO, or (if nothing was matched) the top candidate. Only `reference:contained`
+    and `reference:fuzzy` trigger it: an exact normalised reference (any formatting variant, explicit or not)
+    is unaffected. Like the main floor it is not a rule and cannot be disabled.
+    """
+    ref = ctx.extracted.po_reference if ctx.extracted is not None else None
+    ref_value = None if ref is None else ref.value
+    target = ctx.matched_po or (ctx.candidates[0] if ctx.candidates else None)
+    detail = {"reference": ref_value, "po_number": None if target is None else target.po_number,
+              "matched": ctx.matched_po is not None, "reference_reasons": [] if target is None else target.reasons[:2]}
+    reason = None
+    if not is_missing(ref_value) and target is not None:
+        reason = next((r for r in target.reasons if r.startswith(_NON_EXACT_REFERENCE)), None)
+    if reason is None:
+        return RuleResult(rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.PASS, severity=0, outcome_key="reference_floor_not_applied",
+                          detail=detail, message="Reference floor not applied: no PO was reached through an inexact PO reference.")
+    detail["reference_match"] = reason
+    return RuleResult(
+        rule_id=REFERENCE_FLOOR_RULE_ID, outcome=Outcome.FLAG, severity=config.floor_severity,
+        outcome_key="reference_floor_applied", detail=detail,
+        message=f"Engine floor (at least review): reference {ref_value} resembles PO {target.po_number} but is not "
+                f"an exact match ({reason.split(':', 1)[1]}); an inexact reference is never approved automatically.")
+
+
 def evaluate_floor(ctx: RunContext, config: FloorConfig) -> RuleResult:
     reasons: list[dict] = []
 

@@ -211,3 +211,57 @@ def test_closed_po_is_severity_3():
 
 def test_po_status_not_evaluable_without_a_po():
     assert ev_builtin("r_po_status", make_ctx(matched=False)).outcome is Outcome.INFO
+
+
+# ------------------------------------------------------------------------------ ambiguity involving a blocked vendor
+
+def _ambiguous_ctx(*vendors, tied=None):
+    ctx = make_ctx(facts=make_facts(vendors=list(vendors)))
+    ids = tied if tied is not None else [v.id for v in vendors]
+    ctx.matched_vendor = VendorMatch(vendor_id=ids[0], score=0.93, method="fuzzy", ambiguous=True, runner_up_score=0.91,
+                                     candidate_vendor_ids=ids)
+    return ctx
+
+
+def test_ambiguity_with_a_blocked_candidate_stays_severity_1_but_names_it_and_sets_the_flag():
+    ctx = _ambiguous_ctx(make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co", status=VendorStatus.BLOCKED))
+    r = ev_builtin("r_vendor_status", ctx)
+    assert (r.outcome, r.severity, r.outcome_key) == (Outcome.FLAG, 1, "ambiguous")           # a human decides: NOT 3
+    assert r.detail["blocked_candidate"] is True
+    assert "BLOCKED vendor 'Acme Tradings Co'" in r.message
+    assert [(v["id"], v["status"]) for v in r.detail["candidate_vendors"]] == [(1, "approved"), (2, "blocked")]
+
+
+def test_ambiguity_without_a_blocked_candidate_says_so():
+    ctx = _ambiguous_ctx(make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co", status=VendorStatus.NEW))
+    r = ev_builtin("r_vendor_status", ctx)
+    assert (r.severity, r.outcome_key) == (1, "ambiguous") and r.detail["blocked_candidate"] is False
+    assert "BLOCKED" not in r.message
+
+
+def test_a_blocked_vendor_outside_the_tie_does_not_set_the_flag():
+    ctx = _ambiguous_ctx(make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co"),
+                         make_vendor(3, "Unrelated Blocked Co", status=VendorStatus.BLOCKED), tied=[1, 2])
+    assert ev_builtin("r_vendor_status", ctx).detail["blocked_candidate"] is False
+
+
+def test_every_blocked_candidate_is_named():
+    ctx = _ambiguous_ctx(make_vendor(1, "Acme Trading Co", status=VendorStatus.BLOCKED),
+                         make_vendor(2, "Acme Tradings Co", status=VendorStatus.BLOCKED))
+    r = ev_builtin("r_vendor_status", ctx)
+    assert "'Acme Trading Co' and 'Acme Tradings Co'" in r.message and r.detail["blocked_candidate"] is True
+
+
+def test_blocked_candidate_severity_still_follows_the_ambiguous_override():
+    ctx = _ambiguous_ctx(make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co", status=VendorStatus.BLOCKED))
+    assert ev("vendor_status", ctx, {"severity_by_outcome": {"ambiguous": 2}}).severity == 2
+
+
+def test_end_to_end_blocked_near_tie_goes_to_review_with_the_risk_spelled_out():
+    from tests.engine.real import pipeline
+    from app.enums import Decision
+    facts = make_facts(vendors=[make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co", status=VendorStatus.BLOCKED)],
+                       pos=[make_po(vendor_id=1)])
+    ctx, res, _ = pipeline(make_extracted(vendor_name="Acme Tradin"), facts)
+    assert ctx.matched_vendor.ambiguous and ctx.matched_vendor.candidate_vendor_ids == [1, 2]
+    assert res["r_vendor_status"].detail["blocked_candidate"] is True and ctx.decision is Decision.REVIEW

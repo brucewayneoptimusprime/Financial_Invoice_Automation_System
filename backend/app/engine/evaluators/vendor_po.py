@@ -35,8 +35,16 @@ def vendor_status(ctx: RunContext, params: dict[str, Any]):
     if vm is None:
         return flag(params, "unknown", f"Vendor '{name}' has not been resolved against known vendors.", detail)
     if vm.ambiguous:
-        return flag(params, "ambiguous", f"Vendor '{name}' matches more than one known vendor (scores {vm.score:.2f} "
-                    f"and {vm.runner_up_score if vm.runner_up_score is not None else 'n/a'}).", detail)
+        tied = [v for v in (ctx.facts.vendor_by_id(i) for i in vm.candidate_vendor_ids) if v is not None] \
+            if ctx.facts is not None else []
+        blocked = [v for v in tied if v.status == VendorStatus.BLOCKED]
+        detail.update(blocked_candidate=bool(blocked),
+                      candidate_vendors=[{"id": v.id, "name": v.name, "status": v.status.value} for v in tied])
+        text = (f"Vendor '{name}' matches more than one known vendor (scores {vm.score:.2f} and "
+                f"{vm.runner_up_score if vm.runner_up_score is not None else 'n/a'})")
+        if blocked:                                      # stays severity 1 (a human decides), but the risk is spelled out
+            text += ", including BLOCKED vendor " + " and ".join(f"'{v.name}'" for v in blocked)
+        return flag(params, "ambiguous", text + ".", detail)
     vendor = ctx.facts.vendor_by_id(vm.vendor_id) if (ctx.facts is not None and vm.vendor_id is not None) else None
     if vendor is None:
         return flag(params, "unknown", f"Vendor '{name}' is not a known vendor.", detail)
@@ -66,8 +74,15 @@ def po_found(ctx: RunContext, params: dict[str, Any]):
         return not_evaluable("match_not_run", "PO matching has not been run", detail)
     if status in (MatchStatus.MATCHED, MatchStatus.AMBIGUOUS):
         top = ctx.candidates[0] if ctx.candidates else None
-        how = "by its explicit reference" if (ref_value and ref is not None and ref.explicit) else \
-              "by other signals (no explicit PO reference)" if is_missing(ref_value) else "by an inferred reference"
+        reasons = [] if top is None else top.reasons
+        if is_missing(ref_value):
+            how = "by other signals (no PO reference on the invoice)"
+        elif "reference:exact" in reasons:
+            how = "by its explicit reference" if ref.explicit else "by an inferred reference"
+        elif any(r.startswith(("reference:contained", "reference:fuzzy")) for r in reasons):
+            how = f"by a reference that only resembles it ('{ref_value}')"
+        else:
+            how = f"by other signals (the stated reference '{ref_value}' matches no PO)"
         detail["top_score"] = None if top is None else top.score
         return ok(f"A purchase order was found ({top.po_number if top else 'n/a'}) {how}.", detail, "found")
     # NO_CANDIDATES / LOW_SCORE

@@ -93,3 +93,17 @@ def test_result_does_not_depend_on_vendor_order():
         shuffled = vendors[:]
         random.Random(seed).shuffle(shuffled)
         assert resolve_vendor("Supplier Alphx", shuffled) == expected
+
+
+def test_ambiguous_matches_report_which_vendors_are_tied():
+    vendors = [make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co"), make_vendor(3, "Zeta Holdings")]
+    m = resolve_vendor("Acme Tradin", vendors)
+    assert m.ambiguous and m.candidate_vendor_ids == [1, 2]
+    shared = [make_vendor(7, "Seven Ltd", aliases=("Shared",)), make_vendor(3, "Three Ltd", aliases=("Shared",))]
+    assert resolve_vendor("shared", shared).candidate_vendor_ids == [3, 7]
+
+
+def test_unambiguous_matches_report_no_tied_vendors():
+    vendors = [make_vendor(1, "Acme Trading Co"), make_vendor(2, "Acme Tradings Co")]
+    assert resolve_vendor("Acme Trading", vendors).candidate_vendor_ids == []      # exact beats near miss
+    assert resolve_vendor("Nothing Alike", vendors).candidate_vendor_ids == []

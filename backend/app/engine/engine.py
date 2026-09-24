@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from app.config import Settings, get_settings
 from app.engine.evaluators import registry as _registry
-from app.engine.floor import FloorConfig, evaluate_floor
+from app.engine.floor import FloorConfig, evaluate_floor, evaluate_reference_floor
 from app.engine.severity import aggregate, decision_for, is_triggered
 from app.enums import Decision, Outcome, RuleSource, StageStatus
 from app.models.audit import AuditEvent
@@ -158,9 +158,9 @@ def run_validate_stage(
         results.append(result)
         events.append(_event(result))
 
-    floor = evaluate_floor(ctx, config.floor)
-    results.append(floor)
-    events.append(_event(floor, event_type="engine_floor"))
+    for floor in (evaluate_floor(ctx, config.floor), evaluate_reference_floor(ctx, config.floor)):
+        results.append(floor)
+        events.append(_event(floor, event_type="engine_floor"))
 
     final_severity = aggregate(results)
     decision = decision_for(final_severity, config.decision_severity)

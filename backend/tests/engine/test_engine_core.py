@@ -27,7 +27,7 @@ def test_all_enabled_rules_run_even_after_a_severity_3_result():
     ctx = make_ctx()
     rules = [rule("a", "fake_fail", 3), rule("b", "fake_flag", 1), rule("c", "fake_pass"), rule("d", "fake_info")]
     stage = run(ctx, rules)
-    assert set(results_by_id(ctx)) == {"a", "b", "c", "d", "engine_floor"}
+    assert set(results_by_id(ctx)) == {"a", "b", "c", "d", "engine_floor", "engine_floor_reference"}
     assert stage.outputs["final_severity"] == 3 and stage.outputs["decision"] == "reject"
     assert stage.status is StageStatus.FLAGGED
     assert sorted(stage.outputs["triggered_rule_ids"]) == ["a", "b"]
@@ -65,7 +65,7 @@ def test_every_result_has_exactly_one_audit_event_with_its_numbers():
     ctx = make_ctx()
     stage = run(ctx, [rule("a", "fake_flag", 2), rule("b", "fake_pass")])
     rule_events = [e for e in stage.events if e.event_type in ("rule_evaluated", "engine_floor")]
-    assert [e.rule_id for e in rule_events] == ["a", "b", "engine_floor"]
+    assert [e.rule_id for e in rule_events] == ["a", "b", "engine_floor", "engine_floor_reference"]
     assert len(rule_events) == len(ctx.rule_results)
     for event, result in zip(rule_events, ctx.rule_results):
         assert event.outcome is result.outcome and event.message == result.message
@@ -74,9 +74,9 @@ def test_every_result_has_exactly_one_audit_event_with_its_numbers():
     assert events_of(stage, "severity_aggregated")[0].detail["final_severity"] == 2
 
 
-def test_event_order_is_rules_then_floor_then_aggregate():
+def test_event_order_is_rules_then_floors_then_aggregate():
     stage = run(make_ctx(), [rule("a", "fake_flag"), rule("b", "fake_pass")])
-    assert [e.event_type for e in stage.events] == ["rule_evaluated", "rule_evaluated", "engine_floor", "severity_aggregated"]
+    assert [e.event_type for e in stage.events] == ["rule_evaluated", "rule_evaluated", "engine_floor", "engine_floor", "severity_aggregated"]
 
 
 def test_stage_result_and_results_serialise_to_json():

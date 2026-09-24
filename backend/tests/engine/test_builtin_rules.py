@@ -79,14 +79,14 @@ def test_rules_are_data_edits_in_the_db_change_engine_behaviour(conn):
     assert "u_custom" in stage.outputs["triggered_rule_ids"] and stage.outputs["final_severity"] == 3
 
 
-def test_clean_invoice_runs_all_twelve_rules_plus_the_floor_and_is_approved():
+def test_clean_invoice_runs_all_twelve_rules_plus_both_floors_and_is_approved():
     ctx = make_ctx()
     stage, res = run_all(ctx)
-    assert set(res) == set(ALL_IDS) | {"engine_floor"} and len(ctx.rule_results) == 13
+    assert set(res) == set(ALL_IDS) | {"engine_floor", "engine_floor_reference"} and len(ctx.rule_results) == 14
     assert all(r.outcome is Outcome.PASS for r in res.values()), {k: v.message for k, v in res.items() if v.outcome is not Outcome.PASS}
     assert stage.outputs["final_severity"] == 0 and stage.outputs["decision"] == "approve"
     assert run_decide_stage(ctx).outputs["decision"] == "approve" and ctx.decision is Decision.APPROVE
-    assert len([e for e in stage.events if e.rule_id]) == 13
+    assert len([e for e in stage.events if e.rule_id]) == 14
 
 
 def test_a_messy_invoice_shows_every_problem_not_just_the_first():
@@ -107,7 +107,7 @@ def test_all_builtin_rules_disabled_still_runs_locked_rules_and_the_floor():
     rules = [r.model_copy(update={"enabled": False}) for r in BUILTIN.values()]
     ctx = make_ctx(matched=False, facts=make_facts(vendors=[make_vendor(status=VendorStatus.BLOCKED)]))
     stage, res = run_all(ctx, rules)
-    assert set(res) == {"r_vendor_status", "r_duplicate_exact", "engine_floor"}
+    assert set(res) == {"r_vendor_status", "r_duplicate_exact", "engine_floor", "engine_floor_reference"}
     assert res["r_vendor_status"].severity == 3 and stage.outputs["decision"] == "reject"
     assert sorted(stage.outputs["skipped_rule_ids"]) == sorted(set(ALL_IDS) - {"r_vendor_status", "r_duplicate_exact"})
     assert len([e for e in stage.events if e.event_type == "locked_rule_enabled"]) == 2

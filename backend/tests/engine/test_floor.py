@@ -127,8 +127,8 @@ def test_matched_po_missing_from_the_snapshot_floors():
 def test_floor_is_always_in_the_trail_with_its_reasons():
     stage, floor = floor_of(make_ctx(matched=False))
     ev = [e for e in stage.events if e.event_type == "engine_floor"]
-    assert len(ev) == 1 and ev[0].rule_id == "engine_floor" and ev[0].detail["reasons"] == floor.detail["reasons"]
-    assert floor_of(make_ctx())[0].events[-2].detail["reasons"] == []
+    assert len(ev) == 2 and ev[0].rule_id == "engine_floor" and ev[1].rule_id == "engine_floor_reference" and ev[0].detail["reasons"] == floor.detail["reasons"]
+    assert floor_of(make_ctx())[0].events[-3].detail["reasons"] == []
 
 
 def test_floor_never_lowers_a_higher_severity():

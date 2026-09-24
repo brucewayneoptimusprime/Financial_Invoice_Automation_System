@@ -88,7 +88,9 @@ Not proposed (YAGNI): due date, payment terms, bill-to, bank details.
 ### 5.2 Evidenced-field additions (**set by the system, never by the model**)
 `model_confidence: float | None` (the model's raw value) and `grounding: exact | normalized | fuzzy | not_found | value_mismatch | no_source | unavailable | None`. `confidence` becomes the **effective** confidence (raw, capped by grounding), so every existing rule and floor keeps working unchanged. These keys are not in the wire schema; if a model sends them anyway they are ignored and overwritten.
 
-### 5.3 Wire format (what the model returns)
+### 5.3 Wire format (what the model returns) - REVISED 2026-09-25
+**The first design (nullable values via `anyOf`) was rejected by the API (49 union-typed parameters, limit 16). The wire schema now has zero unions/nulls/optionals: a `found` boolean per field with placeholders, and yes/no/unknown enums; it is converted back to the unchanged nullable contract. See SPEC section 11, item 44. The text below describes the original intent (money as strings, ISO dates).**
+
 Money as **decimal strings** exactly as printed after separator normalisation (`"2160.00"`, never a float), dates as ISO strings, plus verbatim `source_text`. A schema-drift test asserts every `ExtractedInvoice` field exists in the wire schema and vice-versa.
 
 ### 5.4 `ExtractionMeta` / `IngestInfo` (system-side, `extra="forbid"`, on `RunContext`, in `meta.json` and audit events)

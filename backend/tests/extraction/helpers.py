@@ -18,7 +18,15 @@ NATIVE_PAGES = [
 
 
 def load_reply(name: str) -> dict:
+    """A recorded-style model reply, in WIRE format (found / placeholders / yes-no-unknown)."""
     return json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def load_contract(name: str) -> dict:
+    """The same reply converted to the internal contract shape (nullable values)."""
+    from app.extraction.wire import from_wire
+
+    return from_wire(load_reply(name))[0]
 
 
 def reply_text(reply: dict | str) -> str:

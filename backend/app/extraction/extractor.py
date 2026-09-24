@@ -20,7 +20,7 @@ from app.config import Settings, get_settings
 from app.enums import Outcome
 from app.extraction.postprocess import postprocess
 from app.extraction.prompts import PROMPT_VERSION, SYSTEM_PROMPT, PagePayload, build_user_parts, repair_part
-from app.extraction.wire import wire_schema
+from app.extraction.wire import from_wire, wire_schema
 from app.llm.client import build_llm_client
 from app.llm.errors import LLMConfigError, LLMError, LLMRefusedError, LLMTruncatedError
 from app.llm.types import LLMClient, LLMRequest, LLMResponse
@@ -166,7 +166,8 @@ def extract_invoice(ingest: IngestInfo, *, client: LLMClient | None = None, sett
         outcome.raw_replies.append(response.text)
         try:
             response.ensure_usable()
-            result = postprocess(parse_reply(response.text), settings)
+            contract, wire_notes = from_wire(parse_reply(response.text))       # wire format -> internal contract
+            result = postprocess(contract, settings, wire_notes)
         except LLMRefusedError as exc:
             return degrade("system_side", exc.code, exc.message)
         except LLMTruncatedError as exc:

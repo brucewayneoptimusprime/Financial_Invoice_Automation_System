@@ -6,14 +6,14 @@ from pydantic import ValidationError
 
 from app.config import Settings
 from app.extraction.postprocess import AMBIGUOUS_DATE_CAP, postprocess
-from tests.extraction.helpers import load_reply
+from tests.extraction.helpers import load_contract
 
 D = Decimal
 S = Settings(_env_file=None)
 
 
 def us(**patch):
-    reply = load_reply("us_native_invoice")
+    reply = load_contract("us_native_invoice")
     for key, value in patch.items():
         reply[key] = {**reply[key], **value} if isinstance(value, dict) else value
     return reply
@@ -26,7 +26,7 @@ def adjustment(kind, amount):
 # ------------------------------------------------------------------------------ the happy path
 
 def test_a_clean_us_reply_validates_with_exact_decimals():
-    r = postprocess(load_reply("us_native_invoice"), S)
+    r = postprocess(load_contract("us_native_invoice"), S)
     inv = r.invoice
     assert (inv.subtotal.value, inv.tax.value, inv.total.value) == (D("1000.00"), D("80.00"), D("1105.00"))
     assert inv.currency.value == "USD" and inv.invoice_date.value.isoformat() == "2026-03-14"
@@ -37,12 +37,12 @@ def test_a_clean_us_reply_validates_with_exact_decimals():
 
 
 def test_arithmetic_of_the_fixture_is_consistent_including_the_adjustment():
-    inv = postprocess(load_reply("us_native_invoice"), S).invoice
+    inv = postprocess(load_contract("us_native_invoice"), S).invoice
     assert inv.subtotal.value + sum(a.amount for a in inv.adjustments) + inv.tax.value == inv.total.value
 
 
 def test_model_confidence_is_recorded_and_effective_confidence_starts_equal():
-    inv = postprocess(load_reply("us_native_invoice"), S).invoice
+    inv = postprocess(load_contract("us_native_invoice"), S).invoice
     for name in ("vendor_name", "invoice_number", "invoice_date", "currency", "total"):
         f = getattr(inv, name)
         assert f.model_confidence == f.confidence and f.grounding is None
@@ -50,12 +50,12 @@ def test_model_confidence_is_recorded_and_effective_confidence_starts_equal():
 
 
 def test_source_text_is_kept_verbatim():
-    inv = postprocess(load_reply("us_native_invoice"), S).invoice
+    inv = postprocess(load_contract("us_native_invoice"), S).invoice
     assert inv.total.source_text == "Total Due: 1,105.00" and inv.line_items[0].source_text == "Widget A WID-A 10 60.00 600.00"
 
 
 def test_the_input_dict_is_not_mutated():
-    raw = load_reply("indian_gst_invoice")
+    raw = load_contract("indian_gst_invoice")
     before = deepcopy(raw)
     postprocess(raw, S)
     assert raw == before
@@ -64,7 +64,7 @@ def test_the_input_dict_is_not_mutated():
 # ------------------------------------------------------------------------------ Indian format
 
 def test_indian_reply_currency_symbol_and_digit_grouping():
-    r = postprocess(load_reply("indian_gst_invoice"), S)
+    r = postprocess(load_contract("indian_gst_invoice"), S)
     inv = r.invoice
     assert inv.currency.value == "INR" and any("mapped to INR" in n for n in r.notes)
     assert inv.subtotal.value == D("100000.00") and inv.tax.value == D("18000.00") and inv.total.value == D("116000.00")
@@ -74,13 +74,13 @@ def test_indian_reply_currency_symbol_and_digit_grouping():
 
 
 def test_indian_reply_keeps_the_models_component_tax_note_and_adds_system_notes():
-    inv = postprocess(load_reply("indian_gst_invoice"), S).invoice
+    inv = postprocess(load_contract("indian_gst_invoice"), S).invoice
     assert inv.extraction_notes.startswith("Tax is the sum of CGST 9,000.00 and SGST 9,000.00 = 18,000.00.")
     assert "[system] currency '₹' was mapped to INR by configuration" in inv.extraction_notes
 
 
 def test_indian_discount_is_applied_with_a_minus_sign_and_the_arithmetic_closes():
-    inv = postprocess(load_reply("indian_gst_invoice"), S).invoice
+    inv = postprocess(load_contract("indian_gst_invoice"), S).invoice
     a = inv.adjustments[0]
     assert (a.kind, a.printed_amount, a.amount) == ("discount", D("2000.00"), D("-2000.00"))
     assert inv.subtotal.value + a.amount + inv.tax.value == inv.total.value          # 100000 - 2000 + 18000 = 116000
@@ -94,7 +94,7 @@ def test_every_rupee_form_becomes_inr(symbol):
 # ------------------------------------------------------------------------------ European format
 
 def test_european_reply_amounts_date_and_currency():
-    inv = postprocess(load_reply("eu_format_invoice"), S).invoice
+    inv = postprocess(load_contract("eu_format_invoice"), S).invoice
     assert (inv.subtotal.value, inv.tax.value, inv.total.value) == (D("1234.56"), D("234.57"), D("1469.13"))
     assert inv.subtotal.value + inv.tax.value == inv.total.value
     assert inv.invoice_date.value.isoformat() == "2026-03-14" and inv.currency.value == "EUR"
@@ -126,7 +126,7 @@ def test_adjustment_with_no_amount_stays_null():
 
 
 def test_signs_are_idempotent_when_the_result_is_processed_again():
-    first = postprocess(load_reply("indian_gst_invoice"), S).invoice
+    first = postprocess(load_contract("indian_gst_invoice"), S).invoice
     again = postprocess(first.model_dump(mode="json"), S).invoice
     assert [a.amount for a in again.adjustments] == [a.amount for a in first.adjustments]
     assert [a.printed_amount for a in again.adjustments] == [a.printed_amount for a in first.adjustments]
@@ -237,6 +237,6 @@ def test_unknown_keys_from_the_model_are_ignored():
 
 
 def test_reader_instruction_flag_and_notes_pass_through_untouched():
-    inv = postprocess(load_reply("injection_attempt"), S).invoice
+    inv = postprocess(load_contract("injection_attempt"), S).invoice
     assert inv.document_quality.contains_reader_instructions is True and "IGNORE ALL PREVIOUS INSTRUCTIONS" in inv.extraction_notes
     assert inv.total.value == D("500.00")                                             # the instruction changed nothing

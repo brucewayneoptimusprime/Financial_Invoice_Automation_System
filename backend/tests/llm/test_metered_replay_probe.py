@@ -176,7 +176,7 @@ def test_probe_reports_the_omit_configuration():
 
 
 def test_probe_main_without_a_key_prints_a_clear_message_and_exits_2(capsys):
-    assert probe_module.main() == 2
+    assert probe_module.main([]) == 2
     out = capsys.readouterr().out
     assert "NOT CONFIGURED" in out and "ANTHROPIC_API_KEY" in out
 
@@ -186,7 +186,7 @@ def test_probe_main_prints_the_report(monkeypatch, capsys):
     monkeypatch.setattr(probe_module, "get_settings", lambda: s)
     monkeypatch.setattr(probe_module, "build_llm_client",
                         lambda st: metered(AnthropicClient(st, sdk_client=FakeSDK(sdk_message('{"ok": true}', input_tokens=80, output_tokens=9)))))
-    assert probe_module.main() == 0
+    assert probe_module.main([]) == 0
     out = capsys.readouterr().out
     assert "ACCEPTED" in out and "in=80 out=9" in out and "cost:       $0.000250" in out and CANARY not in out
 
@@ -196,5 +196,5 @@ def test_probe_main_reports_an_llm_failure_and_exits_1(monkeypatch, capsys):
     monkeypatch.setattr(probe_module, "get_settings", lambda: s)
     monkeypatch.setattr(probe_module, "build_llm_client",
                         lambda st: metered(AnthropicClient(st, sdk_client=FakeSDK(sdk_error("auth")))))
-    assert probe_module.main() == 1
+    assert probe_module.main([]) == 1
     assert "PROBE FAILED [auth]" in capsys.readouterr().out

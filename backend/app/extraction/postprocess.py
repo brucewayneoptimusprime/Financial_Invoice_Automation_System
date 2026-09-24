@@ -118,12 +118,12 @@ def _cap_ambiguous_date(invoice: ExtractedInvoice, notes: list[str]) -> None:
                      f"(confidence capped at {AMBIGUOUS_DATE_CAP})")
 
 
-def postprocess(raw: Any, settings: Settings | None = None) -> PostprocessResult:
+def postprocess(raw: Any, settings: Settings | None = None, extra_notes: list[str] | None = None) -> PostprocessResult:
     settings = settings or get_settings()
     if not isinstance(raw, dict):
         raise ValueError("the reply is not a JSON object")
     data = deepcopy(raw)
-    notes: list[str] = []
+    notes: list[str] = list(extra_notes or [])            # e.g. notes from the wire converter
     _normalise_currency(data, settings, notes)
     _normalise_money(data)
     _normalise_date(data)

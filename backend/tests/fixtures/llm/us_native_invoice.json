@@ -1,22 +1,119 @@
 {
-  "vendor_name": {"value": "Northwind Trading Co", "page": 1, "source_text": "Northwind Trading Co", "confidence": 0.98},
-  "vendor_tax_id": {"value": "EIN 12-3456789", "page": 1, "source_text": "EIN: 12-3456789", "confidence": 0.96},
-  "vendor_address": {"value": "100 Example Street, Springfield, IL 62701", "page": 1, "source_text": "100 Example Street, Springfield, IL 62701", "confidence": 0.9},
-  "document_type": {"value": "invoice", "page": 1, "source_text": "INVOICE", "confidence": 0.99},
-  "invoice_number": {"value": "INV-2026-0042", "page": 1, "source_text": "Invoice No: INV-2026-0042", "confidence": 0.98},
-  "invoice_date": {"value": "2026-03-14", "page": 1, "source_text": "Date: March 14, 2026", "confidence": 0.97},
-  "currency": {"value": "USD", "page": 1, "source_text": "Amounts in USD", "confidence": 0.95},
-  "po_reference": {"value": "PO-5001", "explicit": true, "page": 1, "source_text": "Customer PO: PO-5001", "confidence": 0.97},
-  "subtotal": {"value": "1000.00", "page": 1, "source_text": "Subtotal: 1,000.00", "confidence": 0.97},
-  "tax": {"value": "80.00", "included_in_total": false, "page": 1, "source_text": "Tax (8%): 80.00", "confidence": 0.96},
-  "total": {"value": "1105.00", "page": 1, "source_text": "Total Due: 1,105.00", "confidence": 0.98},
+  "vendor_name": {
+    "found": true,
+    "value": "Northwind Trading Co",
+    "page": 1,
+    "source_text": "Northwind Trading Co",
+    "confidence": 0.98
+  },
+  "vendor_tax_id": {
+    "found": true,
+    "value": "EIN 12-3456789",
+    "page": 1,
+    "source_text": "EIN: 12-3456789",
+    "confidence": 0.96
+  },
+  "vendor_address": {
+    "found": true,
+    "value": "100 Example Street, Springfield, IL 62701",
+    "page": 1,
+    "source_text": "100 Example Street, Springfield, IL 62701",
+    "confidence": 0.9
+  },
+  "document_type": {
+    "found": true,
+    "value": "invoice",
+    "page": 1,
+    "source_text": "INVOICE",
+    "confidence": 0.99
+  },
+  "invoice_number": {
+    "found": true,
+    "value": "INV-2026-0042",
+    "page": 1,
+    "source_text": "Invoice No: INV-2026-0042",
+    "confidence": 0.98
+  },
+  "invoice_date": {
+    "found": true,
+    "value": "2026-03-14",
+    "page": 1,
+    "source_text": "Date: March 14, 2026",
+    "confidence": 0.97
+  },
+  "currency": {
+    "found": true,
+    "value": "USD",
+    "page": 1,
+    "source_text": "Amounts in USD",
+    "confidence": 0.95
+  },
+  "po_reference": {
+    "found": true,
+    "value": "PO-5001",
+    "page": 1,
+    "source_text": "Customer PO: PO-5001",
+    "confidence": 0.97,
+    "explicit": "yes"
+  },
+  "subtotal": {
+    "found": true,
+    "value": "1000.00",
+    "page": 1,
+    "source_text": "Subtotal: 1,000.00",
+    "confidence": 0.97
+  },
+  "tax": {
+    "found": true,
+    "value": "80.00",
+    "page": 1,
+    "source_text": "Tax (8%): 80.00",
+    "confidence": 0.96,
+    "included_in_total": "no"
+  },
+  "total": {
+    "found": true,
+    "value": "1105.00",
+    "page": 1,
+    "source_text": "Total Due: 1,105.00",
+    "confidence": 0.98
+  },
   "line_items": [
-    {"description": "Widget A", "item_code": "WID-A", "quantity": "10", "unit_price": "60.00", "amount": "600.00", "page": 1, "source_text": "Widget A WID-A 10 60.00 600.00", "confidence": 0.95},
-    {"description": "Widget B", "item_code": "WID-B", "quantity": "5", "unit_price": "80.00", "amount": "400.00", "page": 1, "source_text": "Widget B WID-B 5 80.00 400.00", "confidence": 0.95}
+    {
+      "description": "Widget A",
+      "item_code": "WID-A",
+      "quantity": "10",
+      "unit_price": "60.00",
+      "amount": "600.00",
+      "page": 1,
+      "source_text": "Widget A WID-A 10 60.00 600.00",
+      "confidence": 0.95
+    },
+    {
+      "description": "Widget B",
+      "item_code": "WID-B",
+      "quantity": "5",
+      "unit_price": "80.00",
+      "amount": "400.00",
+      "page": 1,
+      "source_text": "Widget B WID-B 5 80.00 400.00",
+      "confidence": 0.95
+    }
   ],
   "adjustments": [
-    {"kind": "shipping", "description": "Freight", "amount": "25.00", "page": 1, "source_text": "Shipping: 25.00", "confidence": 0.93}
+    {
+      "kind": "shipping",
+      "description": "Freight",
+      "amount": "25.00",
+      "page": 1,
+      "source_text": "Shipping: 25.00",
+      "confidence": 0.93
+    }
   ],
-  "document_quality": {"type": "native", "issues": [], "contains_reader_instructions": false},
-  "extraction_notes": null
+  "document_quality": {
+    "type": "native",
+    "issues": [],
+    "contains_reader_instructions": "no"
+  },
+  "extraction_notes": ""
 }

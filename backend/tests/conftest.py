@@ -29,3 +29,32 @@ def seeded_conn(conn):
 @pytest.fixture
 def seed_path():
     return get_settings().seed_path
+
+
+# --------------------------------------------------------------------------- LLM isolation (M2)
+
+@pytest.fixture(autouse=True)
+def _isolate_llm(request, monkeypatch):
+    """No test except a `live` one can ever see a real API key (e.g. one in the developer's .env), so a
+    mocked test can never spend money by accident. Also resets cached settings and the session cost tracker."""
+    from app.llm.budget import reset_session_tracker
+
+    get_settings.cache_clear()
+    reset_session_tracker()
+    if request.node.get_closest_marker("live") is None:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")     # shadows .env; blank means "not set"
+    yield
+    get_settings.cache_clear()
+    reset_session_tracker()
+
+
+def pytest_collection_modifyitems(config, items):
+    """Live tests are skipped automatically when no API key is configured (they are also deselected by default)."""
+    from app.config import Settings
+
+    if Settings().api_key_value():
+        return
+    skip = pytest.mark.skip(reason="live test: ANTHROPIC_API_KEY is not set")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip)

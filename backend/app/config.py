@@ -5,6 +5,7 @@ code paths. The Claude API key is only ever read from the ANTHROPIC_API_KEY envi
 """
 from functools import lru_cache
 from pathlib import Path
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
@@ -41,6 +42,26 @@ DEFAULT_LEGAL_SUFFIXES: tuple[str, ...] = (
     "ltd", "limited", "inc", "incorporated", "llc", "llp", "lp", "plc", "corp", "corporation", "co", "company",
     "gmbh", "ag", "sa", "srl", "bv", "nv", "pty", "pvt", "pte",
 )
+
+
+class ModelPrice(BaseModel):
+    """USD per million tokens for one model, plus prompt-cache multipliers. Prices live in config, never in code."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    input_per_mtok: Decimal = Field(ge=0)
+    output_per_mtok: Decimal = Field(ge=0)
+    cache_read_mult: Decimal = Field(default=Decimal("0.1"), ge=0)    # cache reads bill at this multiple of input
+    cache_write_mult: Decimal = Field(default=Decimal("1.25"), ge=0)  # cache writes bill at this multiple of input
+
+
+DEFAULT_LLM_PRICES: dict[str, ModelPrice] = {
+    "claude-sonnet-5": ModelPrice(input_per_mtok=Decimal("2.00"), output_per_mtok=Decimal("10.00")),
+}
+
+DEFAULT_CURRENCY_SYMBOL_MAP: dict[str, str] = {
+    "$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "Rs": "INR", "Rs.": "INR",
+}
 
 
 class MatchConfig(BaseModel):
@@ -117,6 +138,33 @@ class Settings(BaseSettings):
 
     match: MatchConfig = Field(default_factory=MatchConfig)
 
+    # LLM (M2). The API key is read ONLY from ANTHROPIC_API_KEY (above); an empty value counts as unset.
+    llm_timeout_s: float = Field(default=60.0, gt=0)
+    llm_max_retries: int = Field(default=2, ge=0)            # SDK-level retries (429/5xx/timeouts/connection)
+    llm_max_output_tokens: int = Field(default=4096, ge=1)
+    llm_thinking: Literal["disabled", "omit"] = "disabled"   # on Sonnet 5, omitting `thinking` means adaptive thinking
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    llm_cache_system_prompt: bool = False
+    schema_repair_retries: int = Field(default=1, ge=0)
+    llm_prices: dict[str, ModelPrice] = Field(default_factory=lambda: dict(DEFAULT_LLM_PRICES))
+    cost_ceiling_per_run_usd: Decimal = Field(default=Decimal("0.25"), ge=0)
+    cost_ceiling_per_session_usd: Decimal = Field(default=Decimal("5.00"), ge=0)  # "session" = one process
+
+    # Ingest (M2)
+    allowed_media_types: tuple[str, ...] = ("application/pdf", "image/png", "image/jpeg")
+    max_file_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
+    max_pages: int = Field(default=10, ge=1)
+    runs_dir: Path = ROOT_DIR / "data" / "runs"
+    render_max_side_px: int = Field(default=1568, ge=64)
+    render_dpi: int = Field(default=150, ge=36)
+    text_min_chars_per_page: int = Field(default=40, ge=0)
+    text_min_wordlike_ratio: float = Field(default=0.6, ge=0.0, le=1.0)
+    text_max_chars_per_page: int = Field(default=15000, ge=100)
+
+    # Extraction (M2)
+    extraction_mode: Literal["auto", "vision", "text_and_vision", "text"] = "auto"
+    currency_symbol_map: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_CURRENCY_SYMBOL_MAP))
+
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS
     engine_floor_severity: int = 1  # severity the engine floor forces (must be a non-approve severity)
@@ -138,6 +186,13 @@ class Settings(BaseSettings):
         if len(set(v.values())) != len(v):
             raise ValueError("decision severities must be unique (severity -> decision must be unambiguous)")
         return v
+
+    def api_key_value(self) -> str | None:
+        """The API key, or None if unset/blank. The only place the secret is unwrapped; never log the result."""
+        if self.anthropic_api_key is None:
+            return None
+        value = self.anthropic_api_key.get_secret_value().strip()
+        return value or None
 
     @model_validator(mode="after")
     def _check_floor_severity(self) -> "Settings":

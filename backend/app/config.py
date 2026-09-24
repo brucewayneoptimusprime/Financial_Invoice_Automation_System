@@ -1,0 +1,75 @@
+"""Central configuration. Values here are defaults; environment / .env override them.
+
+Model name, confidence threshold, tolerance defaults and the severity order live here, not in
+code paths. The Claude API key is only ever read from the ANTHROPIC_API_KEY environment variable.
+"""
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.enums import Decision
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+# The one place the decision ordering lives (SPEC section 4). Whether request_info should
+# outrank reject is an open question: change the numbers here and nowhere else.
+DEFAULT_DECISION_SEVERITY: dict[str, int] = {
+    Decision.APPROVE.value: 0,
+    Decision.REVIEW.value: 1,
+    Decision.REQUEST_INFO.value: 2,
+    Decision.REJECT.value: 3,
+}
+
+# Fields that must be present for an invoice to be processable (drives the completeness rule).
+DEFAULT_REQUIRED_FIELDS: list[str] = [
+    "vendor_name",
+    "invoice_number",
+    "invoice_date",
+    "currency",
+    "total",
+]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=ROOT_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        protected_namespaces=("settings_",),
+    )
+
+    # LLM
+    anthropic_api_key: SecretStr | None = None
+    model_name: str = "claude-sonnet-5"
+
+    # Defaults for the runtime `settings` table (non-rule values only)
+    confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+
+    # Defaults used to seed the builtin amount-tolerance rule's params
+    tolerance_pct: float = Field(default=2.0, ge=0.0)
+    tolerance_abs: float = Field(default=50.0, ge=0.0)
+
+    required_fields: list[str] = Field(default_factory=lambda: list(DEFAULT_REQUIRED_FIELDS))
+    decision_severity: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_DECISION_SEVERITY))
+
+    # Paths
+    db_path: Path = ROOT_DIR / "data" / "app.db"
+    seed_path: Path = ROOT_DIR / "data" / "seed.json"
+
+    @field_validator("decision_severity")
+    @classmethod
+    def _check_severity(cls, v: dict[str, int]) -> dict[str, int]:
+        if set(v) != {d.value for d in Decision}:
+            raise ValueError("decision_severity must define exactly the four decisions")
+        if v[Decision.APPROVE.value] != 0:
+            raise ValueError("approve must have severity 0")
+        if any(sev <= 0 for name, sev in v.items() if name != Decision.APPROVE.value):
+            raise ValueError("every non-approve decision must have severity > 0")
+        return v
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

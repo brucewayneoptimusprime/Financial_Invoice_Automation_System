@@ -1,0 +1,64 @@
+{
+  "_PLACEHOLDER": "PLACEHOLDER DATA - NOT REAL. Exists only to verify the schema and PO balance logic in M0. Real invoice-derived seed data replaces this later (SPEC section 10). Do not design anything around it.",
+
+  "vendors": [
+    {"id": 1, "name": "Placeholder Supplies Ltd", "aliases": ["Placeholder Supplies", "PSL"], "tax_id": "PH-TAX-0001", "country": "US", "status": "approved", "created_at": "2026-01-01T00:00:00Z"},
+    {"id": 2, "name": "Placeholder Widgets Inc", "aliases": [], "tax_id": "PH-TAX-0002", "country": "US", "status": "new", "created_at": "2026-01-02T00:00:00Z"},
+    {"id": 3, "name": "Placeholder Blocked Co", "aliases": [], "tax_id": null, "country": "GB", "status": "blocked", "created_at": "2026-01-03T00:00:00Z"}
+  ],
+
+  "purchase_orders": [
+    {
+      "id": 1, "po_number": "PH-PO-0001", "vendor_id": 1, "currency": "USD", "total_amount": 5000.00,
+      "issued_date": "2026-01-10", "status": "partially_billed", "meta": {"placeholder": true},
+      "lines": [
+        {"line_no": 1, "description": "Placeholder item A", "quantity": 40, "unit_price": 50.00, "amount": 2000.00},
+        {"line_no": 2, "description": "Placeholder item B", "quantity": 30, "unit_price": 100.00, "amount": 3000.00}
+      ]
+    },
+    {
+      "id": 2, "po_number": "PH-PO-0002", "vendor_id": 1, "currency": "USD", "total_amount": 1200.50,
+      "issued_date": "2026-01-15", "status": "open", "meta": {"placeholder": true},
+      "lines": [
+        {"line_no": 1, "description": "Placeholder item C", "quantity": 1, "unit_price": 1200.50, "amount": 1200.50}
+      ]
+    },
+    {
+      "id": 3, "po_number": "PH-PO-0003", "vendor_id": 2, "currency": "USD", "total_amount": 800.00,
+      "issued_date": "2026-01-20", "status": "fully_billed", "meta": {"placeholder": true},
+      "lines": [
+        {"line_no": 1, "description": "Placeholder item D", "quantity": 8, "unit_price": 100.00, "amount": 800.00}
+      ]
+    }
+  ],
+
+  "invoices": [
+    {
+      "id": 1, "vendor_id": 1, "invoice_number": "PH-INV-0001", "invoice_date": "2026-02-01", "currency": "USD",
+      "subtotal": 2000.00, "tax": 0.00, "total": 2000.00, "po_id": 1, "decision": "approve", "status": "approved",
+      "source_file": "placeholder/PH-INV-0001.pdf", "file_hash": "placeholder-hash-0001", "created_at": "2026-02-01T09:00:00Z",
+      "lines": [
+        {"line_no": 1, "description": "Placeholder item A", "quantity": 40, "unit_price": 50.00, "amount": 2000.00}
+      ]
+    },
+    {
+      "id": 2, "vendor_id": 1, "invoice_number": "PH-INV-0002", "invoice_date": "2026-02-10", "currency": "USD",
+      "subtotal": 500.00, "tax": 0.00, "total": 500.00, "po_id": 1, "decision": "approve", "status": "rejected",
+      "source_file": "placeholder/PH-INV-0002.pdf", "file_hash": "placeholder-hash-0002", "created_at": "2026-02-10T09:00:00Z",
+      "lines": []
+    },
+    {
+      "id": 3, "vendor_id": 2, "invoice_number": "PH-INV-0003", "invoice_date": "2026-02-15", "currency": "USD",
+      "subtotal": 800.00, "tax": 0.00, "total": 800.00, "po_id": 3, "decision": "approve", "status": "approved",
+      "source_file": "placeholder/PH-INV-0003.pdf", "file_hash": "placeholder-hash-0003", "created_at": "2026-02-15T09:00:00Z",
+      "lines": []
+    }
+  ],
+
+  "ledger_entries": [
+    {"id": 1, "po_id": 1, "invoice_id": 1, "amount": 2000.00, "type": "commit", "created_at": "2026-02-01T09:00:01Z"},
+    {"id": 2, "po_id": 1, "invoice_id": 2, "amount": 500.00, "type": "commit", "created_at": "2026-02-10T09:00:01Z"},
+    {"id": 3, "po_id": 1, "invoice_id": 2, "amount": -500.00, "type": "reversal", "created_at": "2026-02-12T09:00:00Z"},
+    {"id": 4, "po_id": 3, "invoice_id": 3, "amount": 800.00, "type": "commit", "created_at": "2026-02-15T09:00:01Z"}
+  ]
+}

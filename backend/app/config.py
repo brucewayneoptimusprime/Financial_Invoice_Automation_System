@@ -218,6 +218,16 @@ class Settings(BaseSettings):
     grounding: GroundingCaps = Field(default_factory=GroundingCaps)
     injection_patterns: tuple[str, ...] = DEFAULT_INJECTION_PATTERNS
 
+    # Pipeline (M3): what may be said to a vendor. rule id -> the kind of request it becomes in a vendor email. Rules not listed are
+    # internal (vendor status, PO balance, near-duplicates, ...): they explain the decision to us and never appear in a vendor email.
+    vendor_facing_rules: dict[str, str] = Field(default_factory=lambda: {
+        "r_required_fields": "missing_fields", "r_extraction_confidence": "unclear_fields", "r_po_found": "po_reference",
+        "r_arithmetic": "arithmetic", "r_currency_mismatch": "currency", "r_document_type": "document_type",
+        "r_duplicate_exact": "duplicate"})
+    # rule id -> outcome keys that mean the vendor must NOT be emailed (an internal notification is drafted instead)
+    no_vendor_email_outcomes: dict[str, list[str]] = Field(default_factory=lambda: {"r_vendor_status": ["blocked"]})
+    review_reason_max_chars: int = Field(default=500, ge=50)
+
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS
     engine_floor_severity: int = 1  # severity the engine floor forces (must be a non-approve severity)

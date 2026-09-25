@@ -134,3 +134,48 @@ def save_invoice(conn: sqlite3.Connection, ctx: RunContext, decision: Decision) 
             "INSERT INTO invoice_lines (invoice_id, line_no, description, quantity, unit_price, amount) VALUES (?,?,?,?,?,?)",
             (invoice_id, n, line.description, _text(line.quantity), _text(line.unit_price), _minor(line.amount, f"line {n} amount", notes)))
     return SavedInvoice(invoice_id=invoice_id, lines=len(ex.line_items), notes=notes)
+
+
+# ------------------------------------------------------------------------------- ledger, review queue, drafts
+
+def po_balance_minor(conn: sqlite3.Connection, po_id: int) -> int:
+    from app.db.queries import get_po_balance_minor
+
+    return get_po_balance_minor(conn, po_id)
+
+
+def commit_ledger(conn: sqlite3.Connection, po_id: int, invoice_id: int, amount_minor: int) -> int:
+    """One `commit` entry (positive). The PO balance stays derived: total minus the ledger sum."""
+    if amount_minor <= 0:
+        raise ValueError("a ledger commit must be positive")
+    return conn.execute("INSERT INTO ledger_entries (po_id, invoice_id, amount, type) VALUES (?, ?, ?, 'commit')",
+                        (po_id, invoice_id, amount_minor)).lastrowid
+
+
+def set_po_status_after_commit(conn: sqlite3.Connection, po_id: int) -> str:
+    """partially_billed, or fully_billed once the derived balance is used up. Never `closed` (a human action)."""
+    status = "fully_billed" if po_balance_minor(conn, po_id) <= 0 else "partially_billed"
+    conn.execute("UPDATE purchase_orders SET status = ? WHERE id = ?", (status, po_id))
+    return status
+
+
+def enqueue_review(conn: sqlite3.Connection, run_id: str, reason: str) -> int:
+    return conn.execute("INSERT INTO review_queue (run_id, reason, status) VALUES (?, ?, 'open')", (run_id, reason)).lastrowid
+
+
+def save_draft(conn: sqlite3.Connection, run_id: str, kind: str, to: str | None, subject: str, body: str) -> int:
+    """Always status 'draft': nothing in this code base sends anything."""
+    return conn.execute('INSERT INTO drafts (run_id, kind, "to", subject, body, status) VALUES (?, ?, ?, ?, ?, \'draft\')',
+                        (run_id, kind, to, subject, body)).lastrowid
+
+
+def snapshot_is_current(conn: sqlite3.Connection, run_id: str, prior_invoice_count: int, po_id: int | None, net_committed_minor: int | None) -> str | None:
+    """None if nothing the decision relied on has changed since the facts snapshot; else a sentence saying what changed."""
+    now = conn.execute("SELECT COUNT(*) FROM invoices WHERE run_id IS NULL OR run_id <> ?", (run_id,)).fetchone()[0]
+    if now != prior_invoice_count:
+        return f"other invoices were recorded while this run was in progress ({prior_invoice_count} before, {now} now)"
+    if po_id is not None and net_committed_minor is not None:
+        row = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE po_id = ?", (po_id,)).fetchone()
+        if row[0] != net_committed_minor:
+            return "the purchase order's balance changed while this run was in progress"
+    return None

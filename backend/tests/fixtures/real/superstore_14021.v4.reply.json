@@ -1,0 +1,131 @@
+{
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "SuperStore",
+      "page": 1,
+      "source_text": "SuperStore",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "INVOICE",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "14021",
+      "page": 1,
+      "source_text": "# 14021",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2013-03-07",
+      "page": 1,
+      "source_text": "Date: Mar 07 2013",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "$",
+      "page": 1,
+      "source_text": "$9,671.51",
+      "confidence": 0.8,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "9466.50",
+      "page": 1,
+      "source_text": "Subtotal: $9,466.50",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "9671.51",
+      "page": 1,
+      "source_text": "Total: $9,671.51",
+      "confidence": 0.95,
+      "flag": "unknown"
+    }
+  ],
+  "line_items": [
+    {
+      "description": "Canon Wireless Fax, Laser - Copiers, Technology",
+      "item_code": "TEC-CO-3710",
+      "quantity": "5",
+      "unit_price": "1893.30",
+      "amount": "9466.50",
+      "page": 1,
+      "source_text": "Canon Wireless Fax, Laser 5 $1,893.30 $9,466.50",
+      "confidence": 0.9
+    }
+  ],
+  "adjustments": [
+    {
+      "kind": "shipping",
+      "description": "Shipping",
+      "amount": "205.01",
+      "page": 1,
+      "source_text": "Shipping: $205.01",
+      "confidence": 0.95
+    }
+  ],
+  "document_quality": {
+    "type": "native",
+    "issues": [],
+    "contains_reader_instructions": "no"
+  },
+  "extraction_notes": "No tax amount or rate is printed on this invoice; the Order ID field ('ES-2013-BE11335139-41340') is labeled as a Terms/Order ID, not a purchase order, so po_reference is not set."
+}

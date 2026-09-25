@@ -358,3 +358,5 @@ Edge rules: an approve is re-verified inside the transaction (PO balance re-read
 6. `data/seed_demo.json` beside the untouched placeholder, with the `_DATASET` loader relaxation. Recommendation: yes.
 7. Approve path shown by a labelled controlled variant (PO number added by editing the recorded reply), since none of the six real invoices prints a PO number. Recommendation: yes.
 8. Add the same `--live` guard to the existing M2 extraction CLI (today it calls the API whenever `--replay` is absent). This is CLI plumbing, not extraction logic. Recommendation: yes.
+
+**M3 build status (2026-09-25):** stages 1-4 built as planned; deviations: the digest, templates and actions landed in stage 2 (with the runner) and the LLM roles in stage 3; the `runs` row is inserted right after a successful ingest (an ingest rejection creates no run); model roles are skipped when reader instructions are suspected; SPEC section 11 items 61-68.

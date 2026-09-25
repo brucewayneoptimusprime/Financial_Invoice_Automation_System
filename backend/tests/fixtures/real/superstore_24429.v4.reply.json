@@ -1,0 +1,139 @@
+{
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "SuperStore",
+      "page": 1,
+      "source_text": "SuperStore",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "INVOICE",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "24429",
+      "page": 1,
+      "source_text": "# 24429",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2013-03-07",
+      "page": 1,
+      "source_text": "Mar 07 2013",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "$",
+      "page": 1,
+      "source_text": "$1,770.61",
+      "confidence": 0.8,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "1845.94",
+      "page": 1,
+      "source_text": "Subtotal: $1,845.94",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "1770.61",
+      "page": 1,
+      "source_text": "Total: $1,770.61",
+      "confidence": 0.95,
+      "flag": "unknown"
+    }
+  ],
+  "line_items": [
+    {
+      "description": "Hon Rocking Chair, Black",
+      "item_code": "FUR-CH-4682",
+      "quantity": "4",
+      "unit_price": "461.48",
+      "amount": "1845.94",
+      "page": 1,
+      "source_text": "Hon Rocking Chair, Black 4 $461.48 $1,845.94",
+      "confidence": 0.95
+    }
+  ],
+  "adjustments": [
+    {
+      "kind": "discount",
+      "description": "Discount (10%)",
+      "amount": "184.59",
+      "page": 1,
+      "source_text": "Discount (10%): $184.59",
+      "confidence": 0.95
+    },
+    {
+      "kind": "shipping",
+      "description": "Shipping",
+      "amount": "109.26",
+      "page": 1,
+      "source_text": "Shipping: $109.26",
+      "confidence": 0.95
+    }
+  ],
+  "document_quality": {
+    "type": "native",
+    "issues": [],
+    "contains_reader_instructions": "no"
+  },
+  "extraction_notes": "No tax line present on this invoice; Order ID field is a sales order reference, not a PO number, so po_reference is not found."
+}

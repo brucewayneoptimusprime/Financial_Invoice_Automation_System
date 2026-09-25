@@ -239,3 +239,10 @@ def test_request_lines_for_each_category_are_vendor_safe():
 def test_a_notification_is_used_when_nothing_is_vendor_facing():
     ctx, d = digest_for(make_extracted(), make_facts(vendors=[make_vendor(1, "Vendor Alpha Ltd", status=VendorStatus.NEW)]))
     assert d.decision is Decision.REVIEW and not d.vendor_facing and draft_kind(d, S) == "notification"
+
+
+def test_the_review_reason_uses_the_engines_message_once_not_the_digest_wording_twice():
+    ctx, d = digest_for(make_extracted(po_reference=None), make_facts())
+    reason = review_reason(d, S)
+    assert reason == ("Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-A-1 is a confident, "
+                      "unambiguous match on vendor, amount and lines. A person should confirm it.")

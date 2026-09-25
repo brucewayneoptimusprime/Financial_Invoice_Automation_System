@@ -1,0 +1,131 @@
+{
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "SuperStore",
+      "page": 1,
+      "source_text": "SuperStore",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "INVOICE",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "10963",
+      "page": 1,
+      "source_text": "# 10963",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2013-03-07",
+      "page": 1,
+      "source_text": "Date: Mar 07 2013",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "$",
+      "page": 1,
+      "source_text": "$5,338.08",
+      "confidence": 0.85,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "5141.76",
+      "page": 1,
+      "source_text": "Subtotal: $5,141.76",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "5338.08",
+      "page": 1,
+      "source_text": "Total: $5,338.08",
+      "confidence": 0.95,
+      "flag": "unknown"
+    }
+  ],
+  "line_items": [
+    {
+      "description": "Hewlett Fax Machine, Color - Copiers, Technology, TEC-CO-4575",
+      "item_code": "TEC-CO-4575",
+      "quantity": "4",
+      "unit_price": "1285.44",
+      "amount": "5141.76",
+      "page": 1,
+      "source_text": "Hewlett Fax Machine, Color 4 $1,285.44 $5,141.76",
+      "confidence": 0.9
+    }
+  ],
+  "adjustments": [
+    {
+      "kind": "shipping",
+      "description": "Shipping",
+      "amount": "196.32",
+      "page": 1,
+      "source_text": "Shipping: $196.32",
+      "confidence": 0.95
+    }
+  ],
+  "document_quality": {
+    "type": "native",
+    "issues": [],
+    "contains_reader_instructions": "no"
+  },
+  "extraction_notes": "Order ID is a sales order/reference number, not labeled as a Purchase Order, so po_reference is not extracted. No tax line or rate was printed on this invoice."
+}

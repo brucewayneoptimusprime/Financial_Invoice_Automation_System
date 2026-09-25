@@ -212,7 +212,7 @@ def build_digest(ctx: RunContext, settings: Settings, rule_names: dict[str, str]
                                   severity=r.severity))
             continue
         name = rule_names.get(r.rule_id, r.rule_id)
-        facts.append(Fact(ids(), "rule", f"{r.rule_id} - {name} ({r.outcome_key}, severity {r.severity}): {r.message}",
+        facts.append(Fact(ids(), "rule", f"{r.rule_id} ({name}) - {r.outcome_key}, severity {r.severity}: {r.message}",
                           f"{r.rule_id} {r.outcome_key}", rule_id=r.rule_id, outcome_key=r.outcome_key, severity=r.severity,
                           category=settings.vendor_facing_rules.get(r.rule_id), items=_rule_items(r.rule_id, r.detail),
                           data={"detail": r.detail, "message": r.message}))

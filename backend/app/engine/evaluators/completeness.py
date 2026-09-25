@@ -80,6 +80,10 @@ class DocumentTypeParams(BaseParams):
     allowed: list[str] = Field(default_factory=lambda: ["invoice"], min_length=1)
 
 
+def _article(word: str) -> str:
+    return "an" if word[:1].lower() in "aeiou" else "a"
+
+
 @register("document_type", DocumentTypeParams)
 def document_type(ctx: RunContext, params: dict[str, Any]):
     """Only the allowed document types (default: invoice) go on; a credit note, quote, statement... needs a human.
@@ -91,5 +95,5 @@ def document_type(ctx: RunContext, params: dict[str, Any]):
         return not_evaluable("missing:document_type", "the document type could not be determined")
     detail = {"document_type": value, "allowed": params["allowed"]}
     if value in params["allowed"]:
-        return ok(f"The document is a {value.replace('_', ' ')}.", detail, "allowed")
-    return flag(params, "not_an_invoice", f"The document looks like a {value.replace('_', ' ')}, not an invoice.", detail)
+        return ok(f"The document is {_article(value)} {value.replace('_', ' ')}.", detail, "allowed")
+    return flag(params, "not_an_invoice", f"The document looks like {_article(value)} {value.replace('_', ' ')}, not an invoice.", detail)

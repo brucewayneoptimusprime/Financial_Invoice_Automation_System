@@ -169,7 +169,7 @@ def test_cli_prints_non_ascii_characters_without_crashing(cli_env, capsys):
 
 def test_cli_without_a_key_explains_and_exits_3(cli_env, capsys):
     source = make_source(cli_env / "docs", "native")
-    assert cli.main([str(source)]) == 3
+    assert cli.main([str(source), "--live"]) == 3
     out = capsys.readouterr().out
     assert "NOT CONFIGURED" in out and "ANTHROPIC_API_KEY" in out and "--ingest-only" in out
     assert not (cli_env / "cli-runs").exists()                                    # nothing was ingested
@@ -220,7 +220,7 @@ def test_cli_events_flag_prints_the_audit_trail(cli_env, capsys):
 
 def test_cli_record_without_a_key_is_not_configured(cli_env, capsys):
     source = make_source(cli_env / "docs", "native")
-    assert cli.main([str(source), "--record", str(cli_env / "rec")]) == 3
+    assert cli.main([str(source), "--record", str(cli_env / "rec"), "--live"]) == 3
 
 
 def test_cli_replay_and_record_are_mutually_exclusive(cli_env):
@@ -251,3 +251,26 @@ def test_cli_shows_grounding_counts_and_a_reader_instruction_warning(cli_env, ca
     assert cli.main([str(source), "--replay", str(rec)]) == 0
     out = capsys.readouterr().out
     assert "grounding:   " in out and "READER INSTRUCTIONS SUSPECTED: the model reported text addressed to the reader" in out
+
+
+@pytest.mark.parametrize("extra", [[], ["--record", "REC"], ["--max-cost", "1"], ["--mode", "vision"]])
+def test_cli_refuses_a_live_call_without_the_live_flag_and_builds_no_client(cli_env, capsys, monkeypatch, extra):
+    """Owner rule (M3 decision 8): the API is only ever called with an explicit --live."""
+    def boom(*a, **k):
+        raise AssertionError("the real API client was constructed")
+
+    monkeypatch.setattr(cli, "AnthropicClient", boom)
+    source = make_source(cli_env / "docs", "native")
+    argv = [str(source), *[str(cli_env / "rec") if x == "REC" else x for x in extra]]
+    assert cli.main(argv) == 5
+    out = capsys.readouterr().out
+    assert "REFUSED: no live API call was made (nothing was sent, nothing was spent)" in out and "--live" in out and "--replay DIR" in out
+    assert not (cli_env / "cli-runs").exists() and not (cli_env / "rec").exists()
+
+
+def test_cli_live_flag_is_still_needed_with_record_and_not_needed_for_replay_or_ingest_only(cli_env, capsys):
+    source = make_source(cli_env / "docs", "native")
+    assert cli.main([str(source), "--ingest-only"]) == 0
+    rec = record_replay(cli_env, source, load_reply("us_native_invoice"))
+    assert cli.main([str(source), "--replay", str(rec)]) == 0
+

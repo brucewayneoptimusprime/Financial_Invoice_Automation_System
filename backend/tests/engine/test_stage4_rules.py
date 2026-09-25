@@ -187,3 +187,11 @@ def test_the_allowed_types_are_a_param():
 def test_a_credit_note_never_auto_approves_even_when_everything_else_is_clean():
     ctx, res, _ = pipeline(make_extracted(document_type=field("credit_note")), make_facts())
     assert res["r_document_type"].outcome is Outcome.FLAG and ctx.decision.value == "review"
+
+
+def test_the_document_type_messages_use_the_right_article():
+    assert ev_builtin("r_document_type", make_ctx()).message == "The document is an invoice."
+    quote = ev_builtin("r_document_type", make_ctx(extracted=make_extracted(document_type=field("quote"))))
+    assert quote.message == "The document looks like a quote, not an invoice."
+    other = ev_builtin("r_document_type", make_ctx(extracted=make_extracted(document_type=field("other"))))
+    assert other.message == "The document looks like an other, not an invoice."

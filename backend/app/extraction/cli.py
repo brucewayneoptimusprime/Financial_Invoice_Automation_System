@@ -5,7 +5,7 @@
 
 Runs ingest then extract and prints: the extracted JSON, the path used (text_and_vision / vision_only), tokens,
 cost, whether the API accepted thinking=disabled with effort=low, and the grounding counts and reader-instruction scan result, at this
-stage. Exit codes: 0 ok, 1 degraded extraction, 2 file rejected / bad usage, 3 API key not configured, 4 the API rejected
+stage. Exit codes: 0 ok, 1 degraded extraction, 2 file rejected / bad usage, 3 API key not configured, 5 live call refused (no --live), 4 the API rejected
 the extraction schema (a configuration problem: the message names LLM_STRUCTURED_OUTPUT).
 """
 import argparse
@@ -51,7 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-cost", type=Decimal, help="cost ceiling in USD for this invocation (run and session)")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--replay", type=Path, help="serve responses recorded in DIR instead of calling the API")
-    g.add_argument("--record", type=Path, help="call the API and record each response into DIR")
+    g.add_argument("--record", type=Path, help="call the API and record each response into DIR (needs --live)")
+    p.add_argument("--live", action="store_true", help="ALLOW real, paid API calls (required unless --replay or --ingest-only is given)")
     p.add_argument("--ingest-only", action="store_true", help="stop after ingest (no LLM call, no key needed)")
     p.add_argument("--events", action="store_true", help="also print the audit events")
     p.add_argument("-v", "--verbose", action="store_true", help="log LLM calls")
@@ -67,6 +68,13 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     if args.mode:
         settings = settings.model_copy(update={"extraction_mode": args.mode})
+
+    if not args.ingest_only and not args.replay and not args.live:      # --record alone would also call the API
+        print("REFUSED: no live API call was made (nothing was sent, nothing was spent).\n"
+              "This would call the paid API (about $0.02 per invoice) and --live was not given.\n"
+              "  To allow it:      python -m app.extraction.cli <file> --live [--record DIR] [--max-cost USD]\n"
+              "  To run for free:  --replay DIR (recorded responses) or --ingest-only")
+        return 5
 
     client = None
     if not args.ingest_only:

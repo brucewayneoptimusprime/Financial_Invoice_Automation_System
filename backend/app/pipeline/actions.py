@@ -26,7 +26,7 @@ def review_reason(digest: TrailDigest, settings: Settings) -> str:
     """One deterministic line from the triggered checks (rule id, outcome, the engine's message). Evidence = the run's audit events."""
     parts = []
     for f in digest.triggered:
-        parts.append(f"{f.rule_id or f.kind} ({f.outcome_key}): {f.text}" if f.rule_id and f.kind == "rule" else f.text)
+        parts.append(f"{f.rule_id} ({f.outcome_key}): {f.data.get('message', f.text)}" if f.rule_id and f.kind == "rule" else f.text)
     text = "Review: " + " | ".join(parts) if parts else "Review: escalated for a person to confirm."
     limit = settings.review_reason_max_chars
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"

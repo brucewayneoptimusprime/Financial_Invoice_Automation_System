@@ -1,0 +1,874 @@
+{
+ "run": {
+  "id": "b1b76fac8fbb485fa7ab29904e9aa809",
+  "source_file": "invoice_Scot Wooten_10963.pdf",
+  "status": "completed",
+  "started_at": "2026-09-25T11:41:20Z",
+  "finished_at": "2026-09-25T11:41:20Z",
+  "final_decision": "review",
+  "tokens_in": 7228,
+  "tokens_out": 918,
+  "cost_usd": 0.023636,
+  "model": "claude-sonnet-5"
+ },
+ "stages": [
+  {
+   "stage": "ingest",
+   "status": "ok",
+   "duration_ms": 165,
+   "summary": {
+    "failure_code": null,
+    "failure_kind": null,
+    "media_type": "application/pdf",
+    "pages_processed": 1,
+    "pages_total": 1,
+    "size_bytes": 14490,
+    "text_layer": "usable",
+    "truncated": false
+   }
+  },
+  {
+   "stage": "extract",
+   "status": "ok",
+   "duration_ms": 21,
+   "summary": {
+    "adjustments": 1,
+    "attempts": 1,
+    "cost_usd": "0.02363600",
+    "degraded": false,
+    "failure_code": null,
+    "failure_kind": null,
+    "fields_found": 7,
+    "fields_total": 11,
+    "grounding": {
+     "exact": 6,
+     "value_present": 3
+    },
+    "injection_suspected": false,
+    "line_items": 1,
+    "model": "claude-sonnet-5",
+    "path": "text_and_vision",
+    "prompt_version": "extract-v5",
+    "tokens_in": 7228,
+    "tokens_out": 918
+   }
+  },
+  {
+   "stage": "match",
+   "status": "ok",
+   "duration_ms": 1,
+   "summary": {
+    "candidate_count": 5,
+    "match_status": "matched",
+    "matched_po": "PO-SS-001",
+    "top_candidate": "PO-SS-001",
+    "top_score": 0.576368,
+    "vendor": "SuperStore",
+    "vendor_ambiguous": false,
+    "vendor_id": 1,
+    "vendor_method": "exact_name",
+    "vendor_score": 1.0
+   }
+  },
+  {
+   "stage": "validate",
+   "status": "flagged",
+   "duration_ms": 5,
+   "summary": {
+    "counts": {
+     "fail": 0,
+     "flag": 1,
+     "info": 0,
+     "pass": 14
+    },
+    "results": 15,
+    "triggered": [
+     "r_po_found"
+    ]
+   }
+  },
+  {
+   "stage": "decide",
+   "status": "ok",
+   "duration_ms": 0,
+   "summary": {
+    "decision": "review",
+    "final_severity": 1
+   }
+  },
+  {
+   "stage": "explain",
+   "status": "ok",
+   "duration_ms": 0,
+   "summary": {
+    "attempts": 1,
+    "cost_usd": "0",
+    "fallback_reason": "replay_miss: No recorded response for this request (key 891d7fbd5a8f...) in ..\\data\\recordings.",
+    "model": null,
+    "source": "template"
+   }
+  },
+  {
+   "stage": "act",
+   "status": "ok",
+   "duration_ms": 1,
+   "summary": {
+    "decision": "review",
+    "downgraded_to_review": false,
+    "draft_kind": null,
+    "rows_written": {
+     "invoice_lines": 1,
+     "invoices": 1,
+     "review_queue": 1
+    }
+   }
+  }
+ ],
+ "decision": "review",
+ "explanation": {
+  "attempts": 1,
+  "cited_facts": [
+   "F2"
+  ],
+  "cost_usd": "0",
+  "fallback_reason": "replay_miss: No recorded response for this request (key 891d7fbd5a8f...) in ..\\data\\recordings.",
+  "model": null,
+  "next_step": "A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+  "one_line": "review: r_po_found matched_without_reference",
+  "reasons": [
+   {
+    "facts": [
+     "F2"
+    ],
+    "text": "r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."
+   }
+  ],
+  "source": "template",
+  "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F2]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "invoice": {
+  "id": 2,
+  "vendor_id": 1,
+  "invoice_number": "10963",
+  "invoice_date": "2013-03-07",
+  "currency": "USD",
+  "po_id": 1,
+  "decision": "review",
+  "status": "in_review",
+  "source_file": "invoice_Scot Wooten_10963.pdf",
+  "file_hash": "b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44",
+  "created_at": "2026-09-25T11:41:20Z",
+  "subtotal": "5141.76",
+  "tax": null,
+  "total": "5338.08"
+ },
+ "lines": [
+  {
+   "line_no": 1,
+   "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+   "quantity": "4",
+   "unit_price": "1285.44",
+   "amount": "5141.76"
+  }
+ ],
+ "extracted": {
+  "vendor_name": {
+   "value": "SuperStore",
+   "page": 1,
+   "source_text": "SuperStore",
+   "confidence": 0.9,
+   "model_confidence": 0.9,
+   "grounding": "exact"
+  },
+  "vendor_tax_id": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null
+  },
+  "vendor_address": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null
+  },
+  "document_type": {
+   "value": "invoice",
+   "page": 1,
+   "source_text": "INVOICE",
+   "confidence": 0.95,
+   "model_confidence": 0.95,
+   "grounding": "exact"
+  },
+  "invoice_number": {
+   "value": "10963",
+   "page": 1,
+   "source_text": "# 10963",
+   "confidence": 0.95,
+   "model_confidence": 0.95,
+   "grounding": "exact"
+  },
+  "invoice_date": {
+   "value": "2013-03-07",
+   "page": 1,
+   "source_text": "Mar 07 2013",
+   "confidence": 0.95,
+   "model_confidence": 0.95,
+   "grounding": "exact"
+  },
+  "currency": {
+   "value": "USD",
+   "page": 1,
+   "source_text": "$5,338.08",
+   "confidence": 0.85,
+   "model_confidence": 0.7,
+   "grounding": "exact"
+  },
+  "po_reference": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null,
+   "explicit": null
+  },
+  "subtotal": {
+   "value": "5141.76",
+   "page": 1,
+   "source_text": "Subtotal: $5,141.76",
+   "confidence": 0.85,
+   "model_confidence": 0.95,
+   "grounding": "value_present"
+  },
+  "tax": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null,
+   "included_in_total": null
+  },
+  "total": {
+   "value": "5338.08",
+   "page": 1,
+   "source_text": "Total: $5,338.08",
+   "confidence": 0.85,
+   "model_confidence": 0.95,
+   "grounding": "value_present"
+  },
+  "line_items": [
+   {
+    "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+    "item_code": "TEC-CO-4575",
+    "quantity": "4",
+    "unit_price": "1285.44",
+    "amount": "5141.76",
+    "page": 1,
+    "source_text": "Hewlett Fax Machine, Color 4 $1,285.44 $5,141.76",
+    "confidence": 0.9,
+    "model_confidence": 0.9,
+    "grounding": "exact"
+   }
+  ],
+  "adjustments": [
+   {
+    "kind": "shipping",
+    "description": "Shipping",
+    "printed_amount": "196.32",
+    "amount": "196.32",
+    "page": 1,
+    "source_text": "Shipping: $196.32",
+    "confidence": 0.85,
+    "model_confidence": 0.95,
+    "grounding": "value_present"
+   }
+  ],
+  "document_quality": {
+   "type": "native",
+   "issues": [],
+   "contains_reader_instructions": false
+  },
+  "extraction_notes": "Order ID field is not a purchase-order labeled reference, so po_reference not extracted. Currency symbol only ($) present; country is Austria but symbol used is $, so currency left as printed symbol rather than inferring EUR.\n[system] currency '$' was mapped to USD by configuration\n[system] currency confidence set to 0.85 from configuration (symbol-derived; the model reported 0.7)\n[system] grounding: 9 item(s) checked: 6 exact, 3 value_present"
+ },
+ "vendor": {
+  "ambiguous": false,
+  "candidate_vendor_ids": [],
+  "method": "exact_name",
+  "runner_up_score": null,
+  "score": 1.0,
+  "vendor_id": 1,
+  "vendor_name": "SuperStore",
+  "record": {
+   "name": "SuperStore",
+   "status": "approved",
+   "tax_id": null,
+   "country": null
+  },
+  "message": "Vendor 'SuperStore' resolved to 'SuperStore' (exact_name, score 1.00)."
+ },
+ "match": {
+  "status": "matched",
+  "matched_po": "PO-SS-001",
+  "message": "Matched PO-SS-001 (score 0.58).",
+  "candidates": [
+   {
+    "breakdown": {
+     "amount": 0.188968,
+     "lines": 0.1374,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-SS-001",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:fits(0.89 of balance)",
+     "lines:overlap(0.92)"
+    ],
+    "score": 0.576368
+   },
+   {
+    "breakdown": {
+     "amount": 0.144484,
+     "lines": 0.073784,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-SS-003",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:fits(0.44 of balance)",
+     "lines:overlap(0.49)"
+    ],
+    "score": 0.468268
+   },
+   {
+    "breakdown": {
+     "amount": 0.171174,
+     "lines": 0.0,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-SS-005",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:fits(0.71 of balance)",
+     "lines:overlap(0.00)"
+    ],
+    "score": 0.421174
+   },
+   {
+    "breakdown": {
+     "amount": 0.153381,
+     "lines": 0.0,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-SS-004",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:fits(0.53 of balance)",
+     "lines:overlap(0.00)"
+    ],
+    "score": 0.403381
+   },
+   {
+    "breakdown": {
+     "amount": 0.0,
+     "lines": 0.0,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-SS-002",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:over(+113.52%)",
+     "lines:overlap(0.00)"
+    ],
+    "score": 0.25
+   }
+  ]
+ },
+ "rules": [
+  {
+   "rule_id": "r_arithmetic",
+   "name": "Lines, tax and totals are consistent",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "consistent",
+   "message": "All 3 arithmetic check(s) are consistent.",
+   "detail": {
+    "checks": [
+     {
+      "actual": "5141.76",
+      "allowance": "0.030",
+      "check": "line_math",
+      "difference": "0.00",
+      "expected": "5141.76",
+      "line": 1,
+      "ok": true
+     },
+     {
+      "actual": "5141.76",
+      "allowance": "0.01",
+      "check": "lines_vs_subtotal",
+      "difference": "0.00",
+      "expected": "5141.76",
+      "ok": true,
+      "terms": 1
+     },
+     {
+      "actual": "5338.08",
+      "adjustment_count": 1,
+      "adjustments_total": "196.32",
+      "allowance": "0.02",
+      "check": "subtotal_plus_adjustments_equals_total",
+      "difference": "0.00",
+      "expected": "5338.08",
+      "ok": true,
+      "tax_assumed_zero": true,
+      "tax_included_in_total": null
+     }
+    ],
+    "outcome_key": "consistent",
+    "rounding_per_term": "0.01",
+    "severity": 0,
+    "skipped": [],
+    "unit_price_rounding": "0.005"
+   }
+  },
+  {
+   "rule_id": "r_currency_mismatch",
+   "name": "Invoice currency matches the PO's currency",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "match",
+   "message": "Invoice and PO are both in USD.",
+   "detail": {
+    "invoice_currency": "USD",
+    "outcome_key": "match",
+    "po_currency": "USD",
+    "po_number": "PO-SS-001",
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_document_type",
+   "name": "The document is an invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "allowed",
+   "message": "The document is an invoice.",
+   "detail": {
+    "allowed": [
+     "invoice"
+    ],
+    "document_type": "invoice",
+    "outcome_key": "allowed",
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_duplicate_exact",
+   "name": "Not an exact duplicate of a prior invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "no_duplicate",
+   "message": "No exact duplicate of a prior invoice was found.",
+   "detail": {
+    "counted_statuses": [
+     "approved",
+     "in_review",
+     "pending"
+    ],
+    "file_hash": "b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44",
+    "matches": [],
+    "normalized_invoice_number": "10963",
+    "outcome_key": "no_duplicate",
+    "severity": 0,
+    "skipped": [],
+    "vendor_id": 1
+   }
+  },
+  {
+   "rule_id": "r_duplicate_fuzzy",
+   "name": "Not a near-duplicate of a prior invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "no_near_duplicate",
+   "message": "No near-duplicate (same vendor, amount and close date) was found.",
+   "detail": {
+    "amount_tolerance": 0.0,
+    "invoice_date": "2013-03-07",
+    "invoice_total": "5338.08",
+    "matches": [],
+    "outcome_key": "no_near_duplicate",
+    "severity": 0,
+    "vendor_id": 1,
+    "window_days": 7
+   }
+  },
+  {
+   "rule_id": "r_extraction_confidence",
+   "name": "Extraction confidence is sufficient",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "confident",
+   "message": "All 5 checked fields meet the confidence threshold (0.80).",
+   "detail": {
+    "checked": [
+     {
+      "confidence": 0.9,
+      "field": "vendor_name"
+     },
+     {
+      "confidence": 0.95,
+      "field": "invoice_number"
+     },
+     {
+      "confidence": 0.95,
+      "field": "invoice_date"
+     },
+     {
+      "confidence": 0.85,
+      "field": "currency"
+     },
+     {
+      "confidence": 0.85,
+      "field": "total"
+     }
+    ],
+    "low_confidence": [],
+    "outcome_key": "confident",
+    "severity": 0,
+    "skipped_missing": [],
+    "threshold": 0.8
+   }
+  },
+  {
+   "rule_id": "r_po_ambiguity",
+   "name": "PO match is unambiguous",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "unambiguous",
+   "message": "The PO match is not ambiguous.",
+   "detail": {
+    "candidates": [
+     {
+      "breakdown": {
+       "amount": 0.188968,
+       "lines": 0.1374,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-SS-001",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.89 of balance)",
+       "lines:overlap(0.92)"
+      ],
+      "score": 0.576368
+     },
+     {
+      "breakdown": {
+       "amount": 0.144484,
+       "lines": 0.073784,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-SS-003",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.44 of balance)",
+       "lines:overlap(0.49)"
+      ],
+      "score": 0.468268
+     }
+    ],
+    "outcome_key": "unambiguous",
+    "score_gap": 0.1081,
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_po_found",
+   "name": "Invoice matches a purchase order",
+   "kind": "rule",
+   "outcome": "flag",
+   "severity": 1,
+   "outcome_key": "matched_without_reference",
+   "message": "The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+   "detail": {
+    "candidates": [
+     {
+      "breakdown": {
+       "amount": 0.188968,
+       "lines": 0.1374,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-SS-001",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.89 of balance)",
+       "lines:overlap(0.92)"
+      ],
+      "score": 0.576368
+     },
+     {
+      "breakdown": {
+       "amount": 0.144484,
+       "lines": 0.073784,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-SS-003",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.44 of balance)",
+       "lines:overlap(0.49)"
+      ],
+      "score": 0.468268
+     },
+     {
+      "breakdown": {
+       "amount": 0.171174,
+       "lines": 0.0,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-SS-005",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.71 of balance)",
+       "lines:overlap(0.00)"
+      ],
+      "score": 0.421174
+     }
+    ],
+    "match_status": "matched",
+    "outcome_key": "matched_without_reference",
+    "po_reference": null,
+    "reference_explicit": null,
+    "severity": 1,
+    "top_score": 0.576368
+   }
+  },
+  {
+   "rule_id": "r_po_status",
+   "name": "PO is not already fully billed",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "open",
+   "message": "PO-SS-001 still has 6,000.00 USD available.",
+   "detail": {
+    "balance": "6000.00",
+    "currency": "USD",
+    "derived_status": "open",
+    "net_committed": "0.00",
+    "outcome_key": "open",
+    "po_number": "PO-SS-001",
+    "severity": 0,
+    "stored_status": "open",
+    "total": "6000.00"
+   }
+  },
+  {
+   "rule_id": "r_required_fields",
+   "name": "Required fields are present",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "complete",
+   "message": "All 5 required fields are present.",
+   "detail": {
+    "missing": [],
+    "outcome_key": "complete",
+    "present": [
+     "vendor_name",
+     "invoice_number",
+     "invoice_date",
+     "currency",
+     "total"
+    ],
+    "required": [
+     "vendor_name",
+     "invoice_number",
+     "invoice_date",
+     "currency",
+     "total"
+    ],
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_tolerance_pct",
+   "name": "Invoice within tolerance of PO balance",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "within_balance",
+   "message": "Invoice total 5,338.08 USD is within the remaining PO balance 6,000.00 USD.",
+   "detail": {
+    "abs_allowance": "50.00",
+    "allowance": "50.00",
+    "balance": "6000.00",
+    "compare_field": "total",
+    "excess": "-661.92",
+    "invoice_amount": "5338.08",
+    "invoice_currency": "USD",
+    "mode": "lesser_of",
+    "outcome_key": "within_balance",
+    "pct": 2.0,
+    "pct_allowance": "120.00",
+    "po_currency": "USD",
+    "po_number": "PO-SS-001",
+    "severity": 0,
+    "within_balance": true,
+    "within_tolerance": true
+   }
+  },
+  {
+   "rule_id": "r_vendor_po_mismatch",
+   "name": "Invoice vendor matches the PO's vendor",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "match",
+   "message": "Invoice vendor matches the vendor on PO-SS-001.",
+   "detail": {
+    "invoice_vendor": "SuperStore",
+    "invoice_vendor_id": 1,
+    "outcome_key": "match",
+    "po_number": "PO-SS-001",
+    "po_vendor": "SuperStore",
+    "po_vendor_id": 1,
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_vendor_status",
+   "name": "Vendor is approved (not blocked)",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "approved",
+   "message": "Vendor 'SuperStore' is approved.",
+   "detail": {
+    "match": {
+     "ambiguous": false,
+     "candidate_vendor_ids": [],
+     "method": "exact_name",
+     "runner_up_score": null,
+     "score": 1.0,
+     "vendor_id": 1
+    },
+    "matched_name": "SuperStore",
+    "outcome_key": "approved",
+    "severity": 0,
+    "vendor_id": 1,
+    "vendor_name": "SuperStore",
+    "vendor_status": "approved"
+   }
+  },
+  {
+   "rule_id": "engine_floor",
+   "name": "engine floor",
+   "kind": "floor",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "floor_not_applied",
+   "message": "Engine floor not applied: PO confidently matched, amount comparable, required fields present and confident.",
+   "detail": {
+    "amount_evaluable": true,
+    "amount_reason": null,
+    "confidence_threshold": 0.8,
+    "match_status": "matched",
+    "matched_po": "PO-SS-001",
+    "outcome_key": "floor_not_applied",
+    "reasons": [],
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "engine_floor_reference",
+   "name": "engine floor reference",
+   "kind": "floor",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "reference_floor_not_applied",
+   "message": "Reference floor not applied: no stated PO reference conflicts with the PO.",
+   "detail": {
+    "matched": true,
+    "outcome_key": "reference_floor_not_applied",
+    "po_number": "PO-SS-001",
+    "reference": null,
+    "reference_explicit": null,
+    "reference_reasons": [
+     "reference:none",
+     "vendor:match"
+    ],
+    "severity": 0
+   }
+  }
+ ],
+ "aggregate": {
+  "decision": "review",
+  "final_severity": 1,
+  "triggered": [
+   {
+    "rule_id": "r_po_found",
+    "severity": 1
+   }
+  ]
+ },
+ "actions": {
+  "ledger": null,
+  "ready_for_payment": false,
+  "escalated": null,
+  "review": [
+   {
+    "id": 1,
+    "reason": "Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+    "status": "open",
+    "resolution": null,
+    "resolved_at": null
+   }
+  ],
+  "drafts": []
+ },
+ "pages": [
+  1
+ ],
+ "stage_costs": {
+  "extract": "0.02363600",
+  "explain": "0"
+ },
+ "error": null,
+ "event_count": 46
+}

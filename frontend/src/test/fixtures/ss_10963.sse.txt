@@ -1,0 +1,192 @@
+retry: 1000
+
+event: queued
+data: {"state":"running"}
+
+id: 0
+event: audit
+data: {"seq":0,"stage":"pipeline","event_type":"run_started","rule_id":null,"outcome":"info","message":"Run started for invoice_Scot Wooten_10963.pdf.","detail":{"file_hash":"b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44","source_file":"invoice_Scot Wooten_10963.pdf"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 1
+event: audit
+data: {"seq":1,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage ingest started.","detail":{"stage":"ingest"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 2
+event: audit
+data: {"seq":2,"stage":"ingest","event_type":"file_validated","rule_id":null,"outcome":"info","message":"Accepted invoice_Scot Wooten_10963.pdf as application/pdf (14490 bytes).","detail":{"media_type":"application/pdf","size_bytes":14490},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 3
+event: audit
+data: {"seq":3,"stage":"ingest","event_type":"file_stored","rule_id":null,"outcome":"info","message":"Stored a copy and computed SHA-256 b5567cc47172...","detail":{"run_dir":"C:\\Zamp_ai_Automation\\data\\runs\\b1b76fac8fbb485fa7ab29904e9aa809","sha256":"b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 4
+event: audit
+data: {"seq":4,"stage":"ingest","event_type":"document_rendered","rule_id":null,"outcome":"pass","message":"Rendered 1 of 1 page(s); text layer: usable.","detail":{"blank_pages":[],"pages_processed":1,"pages_total":1,"text_layer":{"chars_by_page":[382],"pages_without_text":[],"present":true,"reason":"usable","truncated_pages":[],"usable":true,"wordlike_ratio":1.0}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 5
+event: audit
+data: {"seq":5,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage ingest ok in 165 ms.","detail":{"duration_ms":165,"stage":"ingest","status":"ok","summary":{"failure_code":null,"failure_kind":null,"media_type":"application/pdf","pages_processed":1,"pages_total":1,"size_bytes":14490,"text_layer":"usable","truncated":false}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 6
+event: audit
+data: {"seq":6,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage extract started.","detail":{"stage":"extract"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 7
+event: audit
+data: {"seq":7,"stage":"extract","event_type":"path_selected","rule_id":null,"outcome":"info","message":"Extraction path: text_and_vision (text layer: usable; mode: auto).","detail":{"mode":"auto","note":null,"path":"text_and_vision","text_layer":"usable"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 8
+event: audit
+data: {"seq":8,"stage":"extract","event_type":"llm_call","rule_id":null,"outcome":"info","message":"LLM call 1: 7228 tokens in, 918 out, $0.023636, 0 ms.","detail":{"attempt":1,"cost_usd":"0.02363600","effort":null,"latency_ms":0,"model":"claude-sonnet-5","param_fallback":null,"request_id":"req_011CfQ4FkY5ByPoaadGuPFP1","stop_reason":"end_turn","thinking_mode":null,"tokens_in":7228,"tokens_out":918},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 9
+event: audit
+data: {"seq":9,"stage":"extract","event_type":"grounding","rule_id":null,"outcome":"info","message":"grounding: 9 item(s) checked: 6 exact, 3 value_present","detail":{"counts":{"exact":6,"value_present":3},"problems":[],"text_layer_usable":true},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 10
+event: audit
+data: {"seq":10,"stage":"extract","event_type":"extraction_complete","rule_id":null,"outcome":"pass","message":"Extraction complete via text_and_vision in 1 attempt(s); cost $0.023636.","detail":{"attempts":1,"cost_usd":"0.02363600","path":"text_and_vision","schema_repair_used":false,"system_notes":["currency '$' was mapped to USD by configuration","currency confidence set to 0.85 from configuration (symbol-derived; the model reported 0.7)"],"tokens_in":7228,"tokens_out":918},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 11
+event: audit
+data: {"seq":11,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage extract ok in 21 ms.","detail":{"duration_ms":21,"stage":"extract","status":"ok","summary":{"adjustments":1,"attempts":1,"cost_usd":"0.02363600","degraded":false,"failure_code":null,"failure_kind":null,"fields_found":7,"fields_total":11,"grounding":{"exact":6,"value_present":3},"injection_suspected":false,"line_items":1,"model":"claude-sonnet-5","path":"text_and_vision","prompt_version":"extract-v5","tokens_in":7228,"tokens_out":918}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 12
+event: audit
+data: {"seq":12,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage match started.","detail":{"stage":"match"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 13
+event: audit
+data: {"seq":13,"stage":"match","event_type":"vendor_resolved","rule_id":null,"outcome":"info","message":"Vendor 'SuperStore' resolved to 'SuperStore' (exact_name, score 1.00).","detail":{"ambiguous":false,"candidate_vendor_ids":[],"method":"exact_name","runner_up_score":null,"score":1.0,"vendor_id":1,"vendor_name":"SuperStore"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 14
+event: audit
+data: {"seq":14,"stage":"match","event_type":"po_candidates_ranked","rule_id":null,"outcome":"info","message":"5 candidate purchase order(s) ranked.","detail":{"ambiguity_margin":0.1,"candidates":[{"breakdown":{"amount":0.188968,"lines":0.1374,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-001","reasons":["reference:none","vendor:match","amount:fits(0.89 of balance)","lines:overlap(0.92)"],"score":0.576368},{"breakdown":{"amount":0.144484,"lines":0.073784,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-003","reasons":["reference:none","vendor:match","amount:fits(0.44 of balance)","lines:overlap(0.49)"],"score":0.468268},{"breakdown":{"amount":0.171174,"lines":0.0,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-005","reasons":["reference:none","vendor:match","amount:fits(0.71 of balance)","lines:overlap(0.00)"],"score":0.421174},{"breakdown":{"amount":0.153381,"lines":0.0,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-004","reasons":["reference:none","vendor:match","amount:fits(0.53 of balance)","lines:overlap(0.00)"],"score":0.403381},{"breakdown":{"amount":0.0,"lines":0.0,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-002","reasons":["reference:none","vendor:match","amount:over(+113.52%)","lines:overlap(0.00)"],"score":0.25}],"min_score":0.5},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 15
+event: audit
+data: {"seq":15,"stage":"match","event_type":"po_match_decision","rule_id":null,"outcome":"pass","message":"Matched PO-SS-001 (score 0.58).","detail":{"match_status":"matched","matched_po":"PO-SS-001"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 16
+event: audit
+data: {"seq":16,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage match ok in 1 ms.","detail":{"duration_ms":1,"stage":"match","status":"ok","summary":{"candidate_count":5,"match_status":"matched","matched_po":"PO-SS-001","top_candidate":"PO-SS-001","top_score":0.576368,"vendor":"SuperStore","vendor_ambiguous":false,"vendor_id":1,"vendor_method":"exact_name","vendor_score":1.0}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 17
+event: audit
+data: {"seq":17,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage validate started.","detail":{"stage":"validate"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 18
+event: audit
+data: {"seq":18,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_arithmetic","outcome":"pass","message":"All 3 arithmetic check(s) are consistent.","detail":{"checks":[{"actual":"5141.76","allowance":"0.030","check":"line_math","difference":"0.00","expected":"5141.76","line":1,"ok":true},{"actual":"5141.76","allowance":"0.01","check":"lines_vs_subtotal","difference":"0.00","expected":"5141.76","ok":true,"terms":1},{"actual":"5338.08","adjustment_count":1,"adjustments_total":"196.32","allowance":"0.02","check":"subtotal_plus_adjustments_equals_total","difference":"0.00","expected":"5338.08","ok":true,"tax_assumed_zero":true,"tax_included_in_total":null}],"outcome_key":"consistent","rounding_per_term":"0.01","severity":0,"skipped":[],"unit_price_rounding":"0.005"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 19
+event: audit
+data: {"seq":19,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_currency_mismatch","outcome":"pass","message":"Invoice and PO are both in USD.","detail":{"invoice_currency":"USD","outcome_key":"match","po_currency":"USD","po_number":"PO-SS-001","severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 20
+event: audit
+data: {"seq":20,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_document_type","outcome":"pass","message":"The document is an invoice.","detail":{"allowed":["invoice"],"document_type":"invoice","outcome_key":"allowed","severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 21
+event: audit
+data: {"seq":21,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_duplicate_exact","outcome":"pass","message":"No exact duplicate of a prior invoice was found.","detail":{"counted_statuses":["approved","in_review","pending"],"file_hash":"b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44","matches":[],"normalized_invoice_number":"10963","outcome_key":"no_duplicate","severity":0,"skipped":[],"vendor_id":1},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 22
+event: audit
+data: {"seq":22,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_duplicate_fuzzy","outcome":"pass","message":"No near-duplicate (same vendor, amount and close date) was found.","detail":{"amount_tolerance":0.0,"invoice_date":"2013-03-07","invoice_total":"5338.08","matches":[],"outcome_key":"no_near_duplicate","severity":0,"vendor_id":1,"window_days":7},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 23
+event: audit
+data: {"seq":23,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_extraction_confidence","outcome":"pass","message":"All 5 checked fields meet the confidence threshold (0.80).","detail":{"checked":[{"confidence":0.9,"field":"vendor_name"},{"confidence":0.95,"field":"invoice_number"},{"confidence":0.95,"field":"invoice_date"},{"confidence":0.85,"field":"currency"},{"confidence":0.85,"field":"total"}],"low_confidence":[],"outcome_key":"confident","severity":0,"skipped_missing":[],"threshold":0.8},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 24
+event: audit
+data: {"seq":24,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_po_ambiguity","outcome":"pass","message":"The PO match is not ambiguous.","detail":{"candidates":[{"breakdown":{"amount":0.188968,"lines":0.1374,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-001","reasons":["reference:none","vendor:match","amount:fits(0.89 of balance)","lines:overlap(0.92)"],"score":0.576368},{"breakdown":{"amount":0.144484,"lines":0.073784,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-003","reasons":["reference:none","vendor:match","amount:fits(0.44 of balance)","lines:overlap(0.49)"],"score":0.468268}],"outcome_key":"unambiguous","score_gap":0.1081,"severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 25
+event: audit
+data: {"seq":25,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_po_found","outcome":"flag","message":"The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.","detail":{"candidates":[{"breakdown":{"amount":0.188968,"lines":0.1374,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-001","reasons":["reference:none","vendor:match","amount:fits(0.89 of balance)","lines:overlap(0.92)"],"score":0.576368},{"breakdown":{"amount":0.144484,"lines":0.073784,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-003","reasons":["reference:none","vendor:match","amount:fits(0.44 of balance)","lines:overlap(0.49)"],"score":0.468268},{"breakdown":{"amount":0.171174,"lines":0.0,"reference":0.0,"vendor":0.25},"po_number":"PO-SS-005","reasons":["reference:none","vendor:match","amount:fits(0.71 of balance)","lines:overlap(0.00)"],"score":0.421174}],"match_status":"matched","outcome_key":"matched_without_reference","po_reference":null,"reference_explicit":null,"severity":1,"top_score":0.576368},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 26
+event: audit
+data: {"seq":26,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_po_status","outcome":"pass","message":"PO-SS-001 still has 6,000.00 USD available.","detail":{"balance":"6000.00","currency":"USD","derived_status":"open","net_committed":"0.00","outcome_key":"open","po_number":"PO-SS-001","severity":0,"stored_status":"open","total":"6000.00"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 27
+event: audit
+data: {"seq":27,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_required_fields","outcome":"pass","message":"All 5 required fields are present.","detail":{"missing":[],"outcome_key":"complete","present":["vendor_name","invoice_number","invoice_date","currency","total"],"required":["vendor_name","invoice_number","invoice_date","currency","total"],"severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 28
+event: audit
+data: {"seq":28,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_tolerance_pct","outcome":"pass","message":"Invoice total 5,338.08 USD is within the remaining PO balance 6,000.00 USD.","detail":{"abs_allowance":"50.00","allowance":"50.00","balance":"6000.00","compare_field":"total","excess":"-661.92","invoice_amount":"5338.08","invoice_currency":"USD","mode":"lesser_of","outcome_key":"within_balance","pct":2.0,"pct_allowance":"120.00","po_currency":"USD","po_number":"PO-SS-001","severity":0,"within_balance":true,"within_tolerance":true},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 29
+event: audit
+data: {"seq":29,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_vendor_po_mismatch","outcome":"pass","message":"Invoice vendor matches the vendor on PO-SS-001.","detail":{"invoice_vendor":"SuperStore","invoice_vendor_id":1,"outcome_key":"match","po_number":"PO-SS-001","po_vendor":"SuperStore","po_vendor_id":1,"severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 30
+event: audit
+data: {"seq":30,"stage":"validate","event_type":"rule_evaluated","rule_id":"r_vendor_status","outcome":"pass","message":"Vendor 'SuperStore' is approved.","detail":{"match":{"ambiguous":false,"candidate_vendor_ids":[],"method":"exact_name","runner_up_score":null,"score":1.0,"vendor_id":1},"matched_name":"SuperStore","outcome_key":"approved","severity":0,"vendor_id":1,"vendor_name":"SuperStore","vendor_status":"approved"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 31
+event: audit
+data: {"seq":31,"stage":"validate","event_type":"engine_floor","rule_id":"engine_floor","outcome":"pass","message":"Engine floor not applied: PO confidently matched, amount comparable, required fields present and confident.","detail":{"amount_evaluable":true,"amount_reason":null,"confidence_threshold":0.8,"match_status":"matched","matched_po":"PO-SS-001","outcome_key":"floor_not_applied","reasons":[],"severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 32
+event: audit
+data: {"seq":32,"stage":"validate","event_type":"engine_floor","rule_id":"engine_floor_reference","outcome":"pass","message":"Reference floor not applied: no stated PO reference conflicts with the PO.","detail":{"matched":true,"outcome_key":"reference_floor_not_applied","po_number":"PO-SS-001","reference":null,"reference_explicit":null,"reference_reasons":["reference:none","vendor:match"],"severity":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 33
+event: audit
+data: {"seq":33,"stage":"validate","event_type":"severity_aggregated","rule_id":null,"outcome":"info","message":"Final severity 1 (review) = max over 1 triggered result(s).","detail":{"decision":"review","final_severity":1,"triggered":[{"rule_id":"r_po_found","severity":1}]},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 34
+event: audit
+data: {"seq":34,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"flag","message":"Stage validate flagged in 5 ms.","detail":{"duration_ms":5,"stage":"validate","status":"flagged","summary":{"counts":{"fail":0,"flag":1,"info":0,"pass":14},"results":15,"triggered":["r_po_found"]}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 35
+event: audit
+data: {"seq":35,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage decide started.","detail":{"stage":"decide"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 36
+event: audit
+data: {"seq":36,"stage":"decide","event_type":"decision_made","rule_id":null,"outcome":"info","message":"Decision: review (severity 1).","detail":{"decision":"review","final_severity":1},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 37
+event: audit
+data: {"seq":37,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage decide ok in 0 ms.","detail":{"duration_ms":0,"stage":"decide","status":"ok","summary":{"decision":"review","final_severity":1}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 38
+event: audit
+data: {"seq":38,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage explain started.","detail":{"stage":"explain"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 39
+event: audit
+data: {"seq":39,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage explain ok in 0 ms.","detail":{"duration_ms":0,"stage":"explain","status":"ok","summary":{"attempts":1,"cost_usd":"0","fallback_reason":"replay_miss: No recorded response for this request (key 891d7fbd5a8f...) in ..\\data\\recordings.","model":null,"source":"template"}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 40
+event: audit
+data: {"seq":40,"stage":"pipeline","event_type":"stage_started","rule_id":null,"outcome":"info","message":"Stage act started.","detail":{"stage":"act"},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 41
+event: audit
+data: {"seq":41,"stage":"explain","event_type":"explanation","rule_id":null,"outcome":"info","message":"review: r_po_found matched_without_reference","detail":{"attempts":1,"cited_facts":["F2"],"cost_usd":"0","fallback_reason":"replay_miss: No recorded response for this request (key 891d7fbd5a8f...) in ..\\data\\recordings.","model":null,"next_step":"A reviewer should check the flagged items in the review queue and approve or reject the invoice.","one_line":"review: r_po_found matched_without_reference","reasons":[{"facts":["F2"],"text":"r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."}],"source":"template","text":"Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F2]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.","tokens_in":0,"tokens_out":0},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 42
+event: audit
+data: {"seq":42,"stage":"act","event_type":"invoice_saved","rule_id":null,"outcome":"info","message":"Invoice saved (id 2) with status in_review.","detail":{"invoice_id":2,"lines":1,"notes":[]},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 43
+event: audit
+data: {"seq":43,"stage":"act","event_type":"review_queued","rule_id":null,"outcome":"flag","message":"Placed in the review queue.","detail":{"reason":"Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.","review_id":1},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 44
+event: audit
+data: {"seq":44,"stage":"pipeline","event_type":"stage_completed","rule_id":null,"outcome":"pass","message":"Stage act ok in 1 ms.","detail":{"duration_ms":1,"stage":"act","status":"ok","summary":{"decision":"review","downgraded_to_review":false,"draft_kind":null,"rows_written":{"invoice_lines":1,"invoices":1,"review_queue":1}}},"created_at":"2026-09-25T11:41:20Z"}
+
+id: 45
+event: audit
+data: {"seq":45,"stage":"pipeline","event_type":"run_completed","rule_id":null,"outcome":"info","message":"Run completed: review.","detail":{"cost_usd":"0.02363600","decision":"review","tokens_in":7228,"tokens_out":918},"created_at":"2026-09-25T11:41:20Z"}
+
+event: end
+data: {"status":"completed","decision":"review"}
+

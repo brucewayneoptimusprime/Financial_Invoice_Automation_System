@@ -1,0 +1,793 @@
+{
+ "run": {
+  "id": "2befe1858b954c59acf1171fd1d37286",
+  "source_file": "image_based_invoice.jpg",
+  "status": "completed",
+  "started_at": "2026-09-25T11:41:21Z",
+  "finished_at": "2026-09-25T11:41:21Z",
+  "final_decision": "review",
+  "tokens_in": 5557,
+  "tokens_out": 1205,
+  "cost_usd": 0.023164,
+  "model": "claude-sonnet-5"
+ },
+ "stages": [
+  {
+   "stage": "ingest",
+   "status": "ok",
+   "duration_ms": 61,
+   "summary": {
+    "failure_code": null,
+    "failure_kind": null,
+    "media_type": "image/jpeg",
+    "pages_processed": 1,
+    "pages_total": 1,
+    "size_bytes": 184689,
+    "text_layer": "no_text_layer",
+    "truncated": false
+   }
+  },
+  {
+   "stage": "extract",
+   "status": "ok",
+   "duration_ms": 20,
+   "summary": {
+    "adjustments": 0,
+    "attempts": 1,
+    "cost_usd": "0.02316400",
+    "degraded": false,
+    "failure_code": null,
+    "failure_kind": null,
+    "fields_found": 8,
+    "fields_total": 11,
+    "grounding": {
+     "unavailable": 8,
+     "value_mismatch": 1
+    },
+    "injection_suspected": false,
+    "line_items": 1,
+    "model": "claude-sonnet-5",
+    "path": "vision_only",
+    "prompt_version": "extract-v5",
+    "tokens_in": 5557,
+    "tokens_out": 1205
+   }
+  },
+  {
+   "stage": "match",
+   "status": "ok",
+   "duration_ms": 1,
+   "summary": {
+    "candidate_count": 1,
+    "match_status": "matched",
+    "matched_po": "PO-IQ-2025-001",
+    "top_candidate": "PO-IQ-2025-001",
+    "top_score": 0.587382,
+    "vendor": "Electronics Mart India Limited",
+    "vendor_ambiguous": false,
+    "vendor_id": 2,
+    "vendor_method": "tax_id",
+    "vendor_score": 1.0
+   }
+  },
+  {
+   "stage": "validate",
+   "status": "flagged",
+   "duration_ms": 4,
+   "summary": {
+    "counts": {
+     "fail": 0,
+     "flag": 3,
+     "info": 0,
+     "pass": 12
+    },
+    "results": 15,
+    "triggered": [
+     "r_extraction_confidence",
+     "r_po_found",
+     "engine_floor"
+    ]
+   }
+  },
+  {
+   "stage": "decide",
+   "status": "ok",
+   "duration_ms": 0,
+   "summary": {
+    "decision": "review",
+    "final_severity": 1
+   }
+  },
+  {
+   "stage": "explain",
+   "status": "ok",
+   "duration_ms": 0,
+   "summary": {
+    "attempts": 1,
+    "cost_usd": "0",
+    "fallback_reason": "replay_miss: No recorded response for this request (key 78198521bc03...) in ..\\data\\recordings.",
+    "model": null,
+    "source": "template"
+   }
+  },
+  {
+   "stage": "act",
+   "status": "ok",
+   "duration_ms": 1,
+   "summary": {
+    "decision": "review",
+    "downgraded_to_review": false,
+    "draft_kind": null,
+    "rows_written": {
+     "invoice_lines": 1,
+     "invoices": 1,
+     "review_queue": 1
+    }
+   }
+  }
+ ],
+ "decision": "review",
+ "explanation": {
+  "attempts": 1,
+  "cited_facts": [
+   "F2",
+   "F3",
+   "F4"
+  ],
+  "cost_usd": "0",
+  "fallback_reason": "replay_miss: No recorded response for this request (key 78198521bc03...) in ..\\data\\recordings.",
+  "model": null,
+  "next_step": "A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+  "one_line": "review: required_fields_low_confidence; r_extraction_confidence low_confidence; r_po_found matched_without_reference",
+  "reasons": [
+   {
+    "facts": [
+     "F2"
+    ],
+    "text": "Engine floor (required_fields_low_confidence): required fields below the confidence threshold: vendor_name, invoice_date."
+   },
+   {
+    "facts": [
+     "F3"
+    ],
+    "text": "r_extraction_confidence (Extraction confidence is sufficient) - low_confidence, severity 1: Low extraction confidence on: vendor_name (0.30 < 0.80), invoice_date (0.50 < 0.80)."
+   },
+   {
+    "facts": [
+     "F4"
+    ],
+    "text": "r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-IQ-2025-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."
+   }
+  ],
+  "source": "template",
+  "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- Engine floor (required_fields_low_confidence): required fields below the confidence threshold: vendor_name, invoice_date. [F2]\n- r_extraction_confidence (Extraction confidence is sufficient) - low_confidence, severity 1: Low extraction confidence on: vendor_name (0.30 < 0.80), invoice_date (0.50 < 0.80). [F3]\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-IQ-2025-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F4]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+  "tokens_in": 0,
+  "tokens_out": 0
+ },
+ "invoice": {
+  "id": 7,
+  "vendor_id": 2,
+  "invoice_number": "1801/24/S-3641",
+  "invoice_date": "2025-01-05",
+  "currency": "INR",
+  "po_id": 6,
+  "decision": "review",
+  "status": "in_review",
+  "source_file": "image_based_invoice.jpg",
+  "file_hash": "446147a3055a57245bda9dc73473746aafd28fa02b5f34e7fdf6cb726a36b9da",
+  "created_at": "2026-09-25T11:41:21Z",
+  "subtotal": null,
+  "tax": null,
+  "total": "4900.00"
+ },
+ "lines": [
+  {
+   "line_no": 1,
+   "description": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801",
+   "quantity": "1",
+   "unit_price": "4900.00",
+   "amount": "4900.00"
+  }
+ ],
+ "extracted": {
+  "vendor_name": {
+   "value": "IQ (Electronics Mart India Ltd.)",
+   "page": 1,
+   "source_text": "iQ ... (A unit of Electronics Mart India Ltd.)",
+   "confidence": 0.3,
+   "model_confidence": 0.75,
+   "grounding": "value_mismatch"
+  },
+  "vendor_tax_id": {
+   "value": "36AAFCE1683D1ZT",
+   "page": 1,
+   "source_text": "GSTIN : 36AAFCE1683D1ZT",
+   "confidence": 0.9,
+   "model_confidence": 0.9,
+   "grounding": "unavailable"
+  },
+  "vendor_address": {
+   "value": "D. No: 6-1-91/10, Ground Floor, Next to Telephone Bhavan, Secretariat Road, Saifabad, Hyderabad – 500 004, Telangana, India.",
+   "page": 1,
+   "source_text": "D. No: 6-1-91/10, Ground Floor, Next to Telephone Bhavan, Secretariat Road, Saifabad, Hyderabad – 500 004, Telangana, India.",
+   "confidence": 0.9,
+   "model_confidence": 0.9,
+   "grounding": "unavailable"
+  },
+  "document_type": {
+   "value": "invoice",
+   "page": 1,
+   "source_text": "TAX INVOICE",
+   "confidence": 0.95,
+   "model_confidence": 0.95,
+   "grounding": "unavailable"
+  },
+  "invoice_number": {
+   "value": "1801/24/S-3641",
+   "page": 1,
+   "source_text": "Invoice No : 1801/24/S-3641",
+   "confidence": 0.9,
+   "model_confidence": 0.9,
+   "grounding": "unavailable"
+  },
+  "invoice_date": {
+   "value": "2025-01-05",
+   "page": 1,
+   "source_text": "Invoice Date : 05-01-2025",
+   "confidence": 0.5,
+   "model_confidence": 0.9,
+   "grounding": "unavailable"
+  },
+  "currency": {
+   "value": "INR",
+   "page": 1,
+   "source_text": "Rupees Four Thousand Nine Hundred only",
+   "confidence": 0.9,
+   "model_confidence": 0.9,
+   "grounding": "unavailable"
+  },
+  "po_reference": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null,
+   "explicit": null
+  },
+  "subtotal": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null
+  },
+  "tax": {
+   "value": null,
+   "page": null,
+   "source_text": null,
+   "confidence": 0.0,
+   "model_confidence": 0.0,
+   "grounding": null,
+   "included_in_total": true
+  },
+  "total": {
+   "value": "4900.00",
+   "page": 1,
+   "source_text": "Total Amount 4,900.00",
+   "confidence": 0.92,
+   "model_confidence": 0.92,
+   "grounding": "unavailable"
+  },
+  "line_items": [
+   {
+    "description": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801",
+    "item_code": "42029200",
+    "quantity": "1",
+    "unit_price": "4900.00",
+    "amount": "4900.00",
+    "page": 1,
+    "source_text": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z 42029200 1 4900.00 9.00 9.00 4900.00",
+    "confidence": 0.85,
+    "model_confidence": 0.85,
+    "grounding": "unavailable"
+   }
+  ],
+  "adjustments": [],
+  "document_quality": {
+   "type": "scanned",
+   "issues": [
+    "skewed",
+    "partially_hidden"
+   ],
+   "contains_reader_instructions": false
+  },
+  "extraction_notes": "Tax rates (CGST 9%, SGST 9%) are printed but no explicit tax amount is shown; per instructions no tax amount was computed. Total appears to equal the line total (4900.00) with no visible added tax amount, suggesting tax may be included or not separately charged despite the rate columns; flagged as included (yes) with low confidence. Signature/stamp obscures part of the authorized signatory block.\n[system] invoice_date 'Invoice Date : 05-01-2025' has an ambiguous day/month order; read as 2025-01-05 (confidence capped at 0.5)\n[system] grounding: 9 item(s) checked: 8 unavailable, 1 value_mismatch\n[system] grounding: vendor_name does not agree with its own source_text (confidence 0.75 -> 0.3)"
+ },
+ "vendor": {
+  "ambiguous": false,
+  "candidate_vendor_ids": [],
+  "method": "tax_id",
+  "runner_up_score": null,
+  "score": 1.0,
+  "vendor_id": 2,
+  "vendor_name": "IQ (Electronics Mart India Ltd.)",
+  "record": {
+   "name": "Electronics Mart India Limited",
+   "status": "approved",
+   "tax_id": "36AAFCE1683D1ZT",
+   "country": "IN"
+  },
+  "message": "Vendor 'IQ (Electronics Mart India Ltd.)' resolved to 'Electronics Mart India Limited' (tax_id, score 1.00)."
+ },
+ "match": {
+  "status": "matched",
+  "matched_po": "PO-IQ-2025-001",
+  "message": "Matched PO-IQ-2025-001 (score 0.59).",
+  "candidates": [
+   {
+    "breakdown": {
+     "amount": 0.198,
+     "lines": 0.139382,
+     "reference": 0.0,
+     "vendor": 0.25
+    },
+    "po_number": "PO-IQ-2025-001",
+    "reasons": [
+     "reference:none",
+     "vendor:match",
+     "amount:fits(0.98 of balance)",
+     "lines:overlap(0.93)"
+    ],
+    "score": 0.587382
+   }
+  ]
+ },
+ "rules": [
+  {
+   "rule_id": "r_arithmetic",
+   "name": "Lines, tax and totals are consistent",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "consistent",
+   "message": "All 1 arithmetic check(s) are consistent (2 skipped for missing data).",
+   "detail": {
+    "checks": [
+     {
+      "actual": "4900.00",
+      "allowance": "0.015",
+      "check": "line_math",
+      "difference": "0.00",
+      "expected": "4900.00",
+      "line": 1,
+      "ok": true
+     }
+    ],
+    "outcome_key": "consistent",
+    "rounding_per_term": "0.01",
+    "severity": 0,
+    "skipped": [
+     {
+      "check": "lines_vs_subtotal",
+      "reason": "missing:subtotal"
+     },
+     {
+      "check": "subtotal_tax_total",
+      "reason": "missing:subtotal"
+     }
+    ],
+    "unit_price_rounding": "0.005"
+   }
+  },
+  {
+   "rule_id": "r_currency_mismatch",
+   "name": "Invoice currency matches the PO's currency",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "match",
+   "message": "Invoice and PO are both in INR.",
+   "detail": {
+    "invoice_currency": "INR",
+    "outcome_key": "match",
+    "po_currency": "INR",
+    "po_number": "PO-IQ-2025-001",
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_document_type",
+   "name": "The document is an invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "allowed",
+   "message": "The document is an invoice.",
+   "detail": {
+    "allowed": [
+     "invoice"
+    ],
+    "document_type": "invoice",
+    "outcome_key": "allowed",
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_duplicate_exact",
+   "name": "Not an exact duplicate of a prior invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "no_duplicate",
+   "message": "No exact duplicate of a prior invoice was found.",
+   "detail": {
+    "counted_statuses": [
+     "approved",
+     "in_review",
+     "pending"
+    ],
+    "file_hash": "446147a3055a57245bda9dc73473746aafd28fa02b5f34e7fdf6cb726a36b9da",
+    "matches": [],
+    "normalized_invoice_number": "180124s3641",
+    "outcome_key": "no_duplicate",
+    "severity": 0,
+    "skipped": [],
+    "vendor_id": 2
+   }
+  },
+  {
+   "rule_id": "r_duplicate_fuzzy",
+   "name": "Not a near-duplicate of a prior invoice",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "no_near_duplicate",
+   "message": "No near-duplicate (same vendor, amount and close date) was found.",
+   "detail": {
+    "amount_tolerance": 0.0,
+    "invoice_date": "2025-01-05",
+    "invoice_total": "4900.00",
+    "matches": [],
+    "outcome_key": "no_near_duplicate",
+    "severity": 0,
+    "vendor_id": 2,
+    "window_days": 7
+   }
+  },
+  {
+   "rule_id": "r_extraction_confidence",
+   "name": "Extraction confidence is sufficient",
+   "kind": "rule",
+   "outcome": "flag",
+   "severity": 1,
+   "outcome_key": "low_confidence",
+   "message": "Low extraction confidence on: vendor_name (0.30 < 0.80), invoice_date (0.50 < 0.80).",
+   "detail": {
+    "checked": [
+     {
+      "confidence": 0.3,
+      "field": "vendor_name"
+     },
+     {
+      "confidence": 0.9,
+      "field": "invoice_number"
+     },
+     {
+      "confidence": 0.5,
+      "field": "invoice_date"
+     },
+     {
+      "confidence": 0.9,
+      "field": "currency"
+     },
+     {
+      "confidence": 0.92,
+      "field": "total"
+     }
+    ],
+    "low_confidence": [
+     {
+      "confidence": 0.3,
+      "field": "vendor_name",
+      "threshold": 0.8
+     },
+     {
+      "confidence": 0.5,
+      "field": "invoice_date",
+      "threshold": 0.8
+     }
+    ],
+    "outcome_key": "low_confidence",
+    "severity": 1,
+    "skipped_missing": [],
+    "threshold": 0.8
+   }
+  },
+  {
+   "rule_id": "r_po_ambiguity",
+   "name": "PO match is unambiguous",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "unambiguous",
+   "message": "The PO match is not ambiguous.",
+   "detail": {
+    "candidates": [
+     {
+      "breakdown": {
+       "amount": 0.198,
+       "lines": 0.139382,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-IQ-2025-001",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.98 of balance)",
+       "lines:overlap(0.93)"
+      ],
+      "score": 0.587382
+     }
+    ],
+    "outcome_key": "unambiguous",
+    "score_gap": null,
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_po_found",
+   "name": "Invoice matches a purchase order",
+   "kind": "rule",
+   "outcome": "flag",
+   "severity": 1,
+   "outcome_key": "matched_without_reference",
+   "message": "The invoice has no PO reference; purchase order PO-IQ-2025-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+   "detail": {
+    "candidates": [
+     {
+      "breakdown": {
+       "amount": 0.198,
+       "lines": 0.139382,
+       "reference": 0.0,
+       "vendor": 0.25
+      },
+      "po_number": "PO-IQ-2025-001",
+      "reasons": [
+       "reference:none",
+       "vendor:match",
+       "amount:fits(0.98 of balance)",
+       "lines:overlap(0.93)"
+      ],
+      "score": 0.587382
+     }
+    ],
+    "match_status": "matched",
+    "outcome_key": "matched_without_reference",
+    "po_reference": null,
+    "reference_explicit": null,
+    "severity": 1,
+    "top_score": 0.587382
+   }
+  },
+  {
+   "rule_id": "r_po_status",
+   "name": "PO is not already fully billed",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "open",
+   "message": "PO-IQ-2025-001 still has 5,000.00 INR available.",
+   "detail": {
+    "balance": "5000.00",
+    "currency": "INR",
+    "derived_status": "open",
+    "net_committed": "0.00",
+    "outcome_key": "open",
+    "po_number": "PO-IQ-2025-001",
+    "severity": 0,
+    "stored_status": "open",
+    "total": "5000.00"
+   }
+  },
+  {
+   "rule_id": "r_required_fields",
+   "name": "Required fields are present",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "complete",
+   "message": "All 5 required fields are present.",
+   "detail": {
+    "missing": [],
+    "outcome_key": "complete",
+    "present": [
+     "vendor_name",
+     "invoice_number",
+     "invoice_date",
+     "currency",
+     "total"
+    ],
+    "required": [
+     "vendor_name",
+     "invoice_number",
+     "invoice_date",
+     "currency",
+     "total"
+    ],
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_tolerance_pct",
+   "name": "Invoice within tolerance of PO balance",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "within_balance",
+   "message": "Invoice total 4,900.00 INR is within the remaining PO balance 5,000.00 INR.",
+   "detail": {
+    "abs_allowance": "50.00",
+    "allowance": "50.00",
+    "balance": "5000.00",
+    "compare_field": "total",
+    "excess": "-100.00",
+    "invoice_amount": "4900.00",
+    "invoice_currency": "INR",
+    "mode": "lesser_of",
+    "outcome_key": "within_balance",
+    "pct": 2.0,
+    "pct_allowance": "100.00",
+    "po_currency": "INR",
+    "po_number": "PO-IQ-2025-001",
+    "severity": 0,
+    "within_balance": true,
+    "within_tolerance": true
+   }
+  },
+  {
+   "rule_id": "r_vendor_po_mismatch",
+   "name": "Invoice vendor matches the PO's vendor",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "match",
+   "message": "Invoice vendor matches the vendor on PO-IQ-2025-001.",
+   "detail": {
+    "invoice_vendor": "IQ (Electronics Mart India Ltd.)",
+    "invoice_vendor_id": 2,
+    "outcome_key": "match",
+    "po_number": "PO-IQ-2025-001",
+    "po_vendor": "Electronics Mart India Limited",
+    "po_vendor_id": 2,
+    "severity": 0
+   }
+  },
+  {
+   "rule_id": "r_vendor_status",
+   "name": "Vendor is approved (not blocked)",
+   "kind": "rule",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "approved",
+   "message": "Vendor 'Electronics Mart India Limited' is approved.",
+   "detail": {
+    "match": {
+     "ambiguous": false,
+     "candidate_vendor_ids": [],
+     "method": "tax_id",
+     "runner_up_score": null,
+     "score": 1.0,
+     "vendor_id": 2
+    },
+    "matched_name": "Electronics Mart India Limited",
+    "outcome_key": "approved",
+    "severity": 0,
+    "vendor_id": 2,
+    "vendor_name": "IQ (Electronics Mart India Ltd.)",
+    "vendor_status": "approved"
+   }
+  },
+  {
+   "rule_id": "engine_floor",
+   "name": "engine floor",
+   "kind": "floor",
+   "outcome": "flag",
+   "severity": 1,
+   "outcome_key": "floor_applied",
+   "message": "Engine floor applied (at least review): required fields below the confidence threshold: vendor_name, invoice_date.",
+   "detail": {
+    "amount_evaluable": true,
+    "amount_reason": null,
+    "confidence_threshold": 0.8,
+    "match_status": "matched",
+    "matched_po": "PO-IQ-2025-001",
+    "outcome_key": "floor_applied",
+    "reasons": [
+     {
+      "code": "required_fields_low_confidence",
+      "fields": [
+       {
+        "confidence": 0.3,
+        "field": "vendor_name",
+        "threshold": 0.8
+       },
+       {
+        "confidence": 0.5,
+        "field": "invoice_date",
+        "threshold": 0.8
+       }
+      ],
+      "message": "required fields below the confidence threshold: vendor_name, invoice_date"
+     }
+    ],
+    "severity": 1
+   }
+  },
+  {
+   "rule_id": "engine_floor_reference",
+   "name": "engine floor reference",
+   "kind": "floor",
+   "outcome": "pass",
+   "severity": 0,
+   "outcome_key": "reference_floor_not_applied",
+   "message": "Reference floor not applied: no stated PO reference conflicts with the PO.",
+   "detail": {
+    "matched": true,
+    "outcome_key": "reference_floor_not_applied",
+    "po_number": "PO-IQ-2025-001",
+    "reference": null,
+    "reference_explicit": null,
+    "reference_reasons": [
+     "reference:none",
+     "vendor:match"
+    ],
+    "severity": 0
+   }
+  }
+ ],
+ "aggregate": {
+  "decision": "review",
+  "final_severity": 1,
+  "triggered": [
+   {
+    "rule_id": "r_extraction_confidence",
+    "severity": 1
+   },
+   {
+    "rule_id": "r_po_found",
+    "severity": 1
+   },
+   {
+    "rule_id": "engine_floor",
+    "severity": 1
+   }
+  ]
+ },
+ "actions": {
+  "ledger": null,
+  "ready_for_payment": false,
+  "escalated": null,
+  "review": [
+   {
+    "id": 6,
+    "reason": "Review: Engine floor (required_fields_low_confidence): required fields below the confidence threshold: vendor_name, invoice_date. | r_extraction_confidence (low_confidence): Low extraction confidence on: vendor_name (0.30 < 0.80), invoice_date (0.50 < 0.80). | r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-IQ-2025-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+    "status": "open",
+    "resolution": null,
+    "resolved_at": null
+   }
+  ],
+  "drafts": []
+ },
+ "pages": [
+  1
+ ],
+ "stage_costs": {
+  "extract": "0.02316400",
+  "explain": "0"
+ },
+ "error": null,
+ "event_count": 46
+}

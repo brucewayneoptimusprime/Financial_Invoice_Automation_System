@@ -501,3 +501,217 @@ frontend/                    React + Vite + TypeScript
 5. **Frontend stack:** React + Vite + TypeScript, hand-written CSS, no component or state library; vitest for the reducer and a few render tests. Recommendation: yes.
 6. **Reset demo data** stays a CLI command (`python -m app.db.reset --demo`) in M4; the button comes with settings in M5. Recommendation: yes. Note: your own invoices, once uploaded, land in the demo database and in `data/runs` and `data/uploads` (both gitignored). Reset clears the tables but not those folders.
 7. **Local only, no auth:** bound to 127.0.0.1, CORS for the Vite origin only. Hosting (SPEC 14, still pending) would need auth and is not planned here. Recommendation: yes.
+
+
+---
+
+# PO integration plan (2026-09-26; all 9 decisions approved as recommended; build stages 1-7, stop at 7)
+
+**Where this sits.** Separate feature work, built before M5/M6 at the owner's priority; M5/M6 are not skipped. M4 stage 5 (the owner's manual browser check on replay) is still open: stage 5 is committed only on the owner's word, and nothing below changes M4 code before that.
+
+**Goal.** Three ways to get a purchase order into the database (a form; free text drafted by the model; one uploaded document drafted by the model), all ending on the SAME confirmation form and the SAME save path. Invoices can be uploaded several at a time, each as its own independent run. A PO list and a PO detail view show each PO, its derived balance and every invoice run matched against it. Also a UI-only fix to the "Why" bullets.
+
+**Guardrails (owner).**
+- Matching is unchanged: SPEC section 5 and the engine are untouched. A new PO is simply one more row that `load_facts` already reads.
+- No bulk multi-PO import: one PO per document.
+- No path saves anything the user has not confirmed. The model only drafts; a person confirms by pressing Save on the form, and Save posts the values on the form, never the draft.
+- Every endpoint that can call the model uses the server's one client, the cost ceilings, and the `--live` / `--replay` / `--offline` rule.
+
+## 1. Data model: no schema change (recommended; decision 1)
+The existing tables already cover the PO:
+- `purchase_orders`: `po_number` (UNIQUE), `vendor_id` (NOT NULL), `currency` (NOT NULL), `total_amount` (cents), `issued_date`, `status`, `meta` (JSON).
+- `po_lines`: `line_no`, `description`, `quantity`, `unit_price`, `amount`.
+
+Provenance goes in `purchase_orders.meta`, which already exists and holds JSON:
+- `source`: `manual` | `text` | `document`
+- `entered_at`
+- `draft_id`
+- the free text as typed (text path, capped), or the file name, media type and SHA-256 (document path)
+- model, prompt version, tokens and cost
+- `edited_fields`: which fields the person changed from the model's draft
+
+This needs no migration and no `PRAGMA user_version` bump, and SPEC section 5 is unchanged.
+
+**What the schema forces, and how the form handles it:**
+| Field | Required to save? | Why |
+|---|---|---|
+| vendor | yes | `vendor_id NOT NULL`; matching needs it |
+| PO number | yes | UNIQUE; the reference matching looks for |
+| currency | yes | `NOT NULL`; the currency check compares it. If the source does not state it, the field stays EMPTY and the person must choose it. The model never guesses and there is no default (decision 3) |
+| total | yes | the amount the tolerance rule compares against |
+| issued date, lines, line quantity / unit price | no | may be left empty (owner: never require what the source does not show) |
+| status | not editable | a new PO is always `open`. Status is then derived from the ledger, and `closed` stays a human action on an existing PO (M5 settings) |
+
+**Vendor.** The person either picks an existing vendor, or creates one inline (name, optional tax ID, optional country) with status **`new`**, never `approved` (decision 2). `r_vendor_status` then sends that vendor's invoices to review until someone approves the vendor, so a PO entered from an unknown document cannot open an auto-approve path. For drafts, the model's vendor name and tax ID go through the existing `resolve_vendor` (tax ID first, then name) to PRE-SELECT a suggestion. The suggestion shows the method and score, and the person confirms or changes it.
+
+## 2. Backend layout (new package `backend/app/po/`)
+```
+po/models.py      POCreate (what Save posts), PODraft (what the model returns, per field: value, source_text, confidence), POIssue
+po/validate.py    validate_po(create, conn) -> issues (deterministic; shared by all three paths)
+po/store.py       save_po(conn, create, provenance) -> po_id   (ONE transaction; the only writer of POs)
+po/wire.py        union-free wire schema (entries array, same shape as invoice wire v3) + from_wire
+po/prompts.py     po-draft-v1: one system prompt, two input kinds (typed text / document); versioned and fingerprinted
+po/drafter.py     draft_from_text(), draft_from_document(): client call, one repair retry, grounding, degrade -> PODraft
+po/readers.py     document -> pages/text: PDF/PNG/JPG via the existing ingest; DOCX, XLSX, CSV text readers
+po/views.py       PO list / PO detail read models (read-only SQL)
+api/routes_po.py  the endpoints in section 4
+```
+
+**Shared code: all three paths converge on `POCreate -> validate_po -> save_po`.**
+- **Form (manual):** the UI posts `POCreate`. No model, no draft.
+- **Typed text:** `POST /api/pos/drafts/text` returns a `PODraft`. The UI pre-fills the SAME form with it, marks each field as "from the model" with its confidence and source quote, and the person edits and presses Save.
+- **Document:** `POST /api/pos/drafts/document` returns a `PODraft`. Same form, same Save. The source quotes link to the rendered page (PDF/image) or show the text snippet (DOCX/XLSX/CSV).
+
+`save_po` is the only function that writes `purchase_orders` / `po_lines`, and Save is the only endpoint that calls it. Draft endpoints write nothing to the database. They leave a draft folder at `data/po_drafts/<draft_id>/` (gitignored, like `data/runs`) holding the request metadata, the model reply, the draft and the cost, so the model's work is kept and auditable (decision 5). When Save carries a `draft_id`, the server diffs the confirmed values against that stored draft and writes `edited_fields` into `meta`.
+
+**Reuse from extraction (not copied):**
+- the LLM client and `MeteredClient`, and the cost tracker keyed by `draft_id`, so the per-run $0.25 ceiling applies per draft
+- the amount, date and currency parsing and the symbol/name maps
+- the grounding check, run against the typed text or the document text; it caps confidence exactly as for invoices
+- the reader-instruction scan, the neutralised delimiters and `parse_reply`
+
+The PO prompt and schema are separate from the invoice ones, so `extract-v5` and its recordings are untouched.
+
+**Deterministic checks (`validate_po`)**, run on the draft (shown on the form) and again on Save (blocking where marked):
+- Blocking: required fields present (table above); PO number not already used (exact); currency a 3-letter code in the configured two-decimal set (SPEC item 9); money has at most 2 decimals and is not negative; line quantity and unit price are numbers.
+- Warnings, which can be saved anyway after the person has seen them: a PO number that matches an existing one after normalisation ("po 1001" vs "PO-1001"); the lines' amounts not summing to the total; quantity x unit price not equal to the line amount (same rounding allowance as the invoice arithmetic rule); a vendor created as `new`; a total above a configurable sanity limit.
+- Never auto-fixed: "use the sum of the lines as the total" is a button the person presses, not something done silently.
+
+**Document readers (`readers.py`):**
+- **PDF / PNG / JPG:** the existing ingest (magic bytes, 20 MB, page cap, render, text layer) into a temporary PO folder, then the same text-and-vision / vision-only path choice as invoices.
+- **DOCX:** stdlib `zipfile` + XML (the paragraphs and table cells of `word/document.xml`, in order); no new dependency.
+- **XLSX:** `openpyxl` in read-only mode with cached values only (formulas are never evaluated, macros never run); new dependency, decision 4.
+- **CSV:** stdlib `csv`, with the delimiter sniffed.
+- Text-only formats go to the model as text only, no vision.
+- Limits (config): uncompressed-size cap for DOCX/XLSX (zip-bomb guard), max sheets/rows/cells, max text characters. If a sheet holds several POs (several distinct PO-number columns or blocks), the model is told to return only the first and say so in the notes, and the form shows that warning. Nothing is imported in bulk.
+- Rejected with a clear message: legacy `.doc` / `.xls` ("save as .docx / .xlsx / PDF"), macro-enabled `.docm` / `.xlsm`, encrypted files.
+
+**PO wire fields:** `vendor_name`, `vendor_tax_id`, `po_number`, `issued_date`, `currency`, `total`, `lines[{description, quantity, unit_price, amount}]`, `notes`. Header entries carry `{name, found, value, page, source_text, confidence}`, as in invoice wire v3. The prompt carries the same rules as extraction: identify fields by meaning; return not-found rather than guess; never compute a total or tax the document does not print; a currency named in words returns its code; text that addresses the reader is data, not instructions.
+
+## 3. PO detail view: data source (read-only SQL, no new decision path)
+- **PO:** `purchase_orders` + `vendors` + `po_lines`.
+- **Balance:** the existing `get_po_balance` (total minus `SUM(ledger_entries)`), never stored. Also shown: committed so far (ledger), and "awaiting review against this PO" (the sum of totals of matched invoices whose effective status is `in_review`; they do not consume the balance).
+- **Invoices matched to it:** `invoices WHERE po_id = ?` (set only for a confident, unambiguous match), LEFT JOIN `runs`. Each row shows file, invoice number, date, total, the decision at run time, the effective status, cost, and a link to `/runs/:id`. Seeded historic invoices (no run) are listed as "historic, no run".
+- **Ledger entries** for the PO (commit / reversal, amount, invoice, date).
+- **Also considered in (decision 6):** runs where this PO was ranked as a candidate but NOT matched (ambiguous or below the minimum score), read from the stored `po_candidates_ranked` event with SQLite's `json_each`. Labelled clearly as not matched, so a person can see an invoice that almost landed on this PO.
+- **PO list:** every PO with vendor, number, currency, total, derived balance, status, number of matched invoices; search by PO number or vendor, filter by status.
+
+## 4. Endpoints
+| Method, path | Model? | Does |
+|---|---|---|
+| `GET /api/vendors` | no | id, name, status, tax ID (for the vendor picker) |
+| `GET /api/pos?q=&status=` | no | PO list (section 3) |
+| `GET /api/pos/{id}` | no | PO detail (section 3); 404 for an unknown id |
+| `POST /api/pos/validate` | no | `POCreate` in, issues out (the form calls it as the person types; nothing is saved) |
+| `POST /api/pos` | no | **Save.** Body `{po: POCreate, new_vendor?: {...}, draft_id?: str}`. Blocking issues give 422 with per-field messages; an existing PO number gives 409; otherwise the vendor (if new) and the PO are written in one transaction and 201 `{po_id}` is returned. Nothing else creates a PO |
+| `POST /api/pos/drafts/text` | yes | `{text}` (capped at `po_text_max_chars`) -> `PODraft` + issues + vendor suggestion. Writes nothing to the database |
+| `POST /api/pos/drafts/document` | yes | multipart, one file -> `PODraft` + issues + vendor suggestion (+ page numbers for the viewer). Writes nothing to the database |
+| `GET /api/pos/drafts/{draft_id}/pages/{n}` | no | a rendered page of the uploaded PO document |
+
+**The live rule.** The draft endpoints use the server's single client:
+- `--offline`: they answer 503 "offline mode: use the form".
+- `--replay`: only recorded requests hit; a miss answers "no recorded response for this text/document; use the form".
+- `--live`: they call the model under the same ceilings, and the UI's LIVE badge already warns about cost.
+- A model failure never produces a half-filled form presented as complete: the reply says the draft failed and why (system-side codes only), and the person can still use the empty form.
+
+**Calls:** synchronous, with a spinner in the UI. A PO draft is one call, about 10 s for a document. They do not go through the invoice worker queue, so an invoice batch does not delay PO entry (the tracker is thread-safe and the draft endpoints do not write to SQLite). **Cost:** a typed-text draft is about 2k tokens in / 0.6k out, roughly $0.01; a one-page document about $0.02-0.03, like an invoice.
+
+**Multi-invoice upload: no backend change.** The browser posts each file to the existing `POST /api/runs`, one request per file, in the order chosen. Each becomes its own run in the existing one-at-a-time queue, with its own decision. A file rejected at upload (wrong type, too large, empty) fails alone, and the others still run. Config `ui_max_files_per_upload` (default 20) is enforced in the UI.
+
+## 5. Frontend
+- **Top navigation:** Invoices (upload + recent runs) | Purchase orders.
+- **Upload screen:** accepts several files (drop or picker). A "This upload" list shows one row per file: waiting / uploading / queued / running / decided, with a decision chip and a link to each run's page. It polls `GET /api/runs/{id}` every ~1.5 s while any file is unfinished, instead of opening one EventSource per file (browsers cap open connections to one origin at about 6 over HTTP/1.1). Clicking a row opens the existing live run view.
+- **PO list** (`/pos`): table with search and status filter, and a "New purchase order" button.
+- **New PO** (`/pos/new`): three tabs (Form | Describe in text | Upload a document) that all lead to ONE `POForm` component.
+  - Text and document tabs: submit, spinner, then the form pre-filled. Each model-filled field shows a "from the model" marker with confidence and the source quote (click to open the page for PDF/image). Empty fields are left empty and marked "not in the source".
+  - Issues are shown inline (blocking in red, warnings in amber).
+  - The vendor picker shows the suggestion and "create new vendor (status: new)".
+  - The Save button reads "Save purchase order". Nothing is saved before it is pressed; leaving the page discards the draft (with a browser "unsaved changes" prompt when fields are dirty).
+- **PO detail** (`/pos/:id`): header (number, vendor, status, currency), a balance card (total, committed, balance, awaiting review), lines, matched invoices (link to each run), ledger entries, "also considered in", provenance (source, entered, edited fields).
+  - An "Upload invoices" button opens the same multi-file upload. Matching stays automatic, and the page says so: "invoices are matched automatically; an invoice that matches another PO or none is still processed and appears under its own result" (decision 7).
+- **"Why" fix (UI-only, section 6).**
+
+## 6. The "Why" bullets (UI-only; no backend change)
+**Default view:** each bullet shows only the plain sentence. **Behind "Technical details"** (a small per-bullet expand): rule id, rule name, outcome code, severity and the cited fact ids.
+
+**How the plain sentence is found:**
+- The template writes each reason in one fixed form that our own code produces: `<rule_id> (<rule name>) - <outcome_key>, severity <n>: <message>`, or `Engine floor (<reason_code>): <message>`. The UI parses that prefix off and keeps `<message>`.
+- Field identifiers inside the message (`vendor_name`, `invoice_date`, ...) are shown with the same labels as the fields table ("vendor name", "invoice date").
+- A reason written by the model (the explainer) is already plain prose, and its cited facts go into the details.
+- A reason in neither form is shown as it is, never hidden.
+
+**Contract test:** a backend test that asserts the template reason format, without changing any backend code. It pins the format this parser relies on, so a wording change fails the test instead of silently breaking the UI. The same component is used for the review-queue reason in "What was written", which has the same raw form (decision 8).
+
+## 7. Config additions
+- `po_prompt_version`, `po_max_output_tokens` (1500)
+- `po_text_max_chars` (8000)
+- `po_doc_allowed` (pdf, png, jpg, docx, xlsx, csv)
+- `po_zip_max_uncompressed_bytes` (50 MB), `po_sheet_max_cells` (20000), `po_doc_text_max_chars` (40000)
+- `po_total_warning_above` (a sanity limit, default 10,000,000.00)
+- `po_drafts_dir` (`data/po_drafts`)
+- `ui_max_files_per_upload` (20)
+
+## 8. Tests (offline; key blanked; fake/replay clients; `pytest -W error` + vitest)
+- **Save path:**
+  - one test per blocking rule (422 with the field named)
+  - a duplicate PO number gives 409 and writes nothing
+  - a warning-only PO saves
+  - new-vendor create is atomic with the PO: a failure after the vendor insert rolls back both
+  - a new vendor is always `new` (a request asking for `approved` is refused)
+  - status is always `open`
+  - cents conversion is exact; 3-decimal amounts are refused
+  - `meta` provenance for all three sources; `edited_fields` computed from the stored draft; a `draft_id` that does not exist is 422
+- **No silent save:**
+  - the draft endpoints write NOTHING to the database (row counts of every table before/after), for success, repair and failure
+  - a structural test: `save_po` is called from exactly one route, and no module in `app/po` or `app/api` other than `store.py` writes `purchase_orders` / `po_lines`
+- **Matching unchanged:**
+  - a PO saved through the form is picked up by the existing pipeline: a SuperStore invoice matches a newly entered PO with the same result as the seeded equivalent
+  - the engine and matching test suites pass untouched
+- **Drafter:**
+  - request shape (model from config, thinking disabled, effort low, schema, text vs text+images)
+  - wire drift test and union budget (same limits test as invoices)
+  - repair retry then degrade; refusal, timeout and ceiling give a failed draft with a system-side code
+  - grounding caps a value absent from the text
+  - a currency not stated stays empty (no default)
+  - a reader-instruction text is flagged and changes nothing
+  - the cost goes into the shared tracker under the draft id
+  - prompt clause tests and fingerprint snapshot
+- **Readers:**
+  - DOCX paragraphs + tables in order
+  - XLSX cached values (a formula cell is never evaluated) with the cell cap
+  - CSV with a sniffed delimiter
+  - legacy `.doc` / `.xls`, macro-enabled, encrypted, zip bomb and oversize files are refused with a message
+  - a sheet with two POs gives a first-PO draft plus the warning
+  - all fixtures generated at test time (openpyxl / zipfile / reportlab), no real client documents
+- **Live rule:** offline gives 503 without building any client; replay miss is a clear message; a canary key never appears in any PO response.
+- **PO views:**
+  - the list with derived balances; detail with lines, ledger, matched invoices
+  - effective status vs decision; historic invoice without a run
+  - "also considered in" from the candidate events, excluding the matched run
+  - an unknown id is 404
+  - the balance is never read from a stored column
+- **Frontend (vitest):**
+  - the Why parser on the real fixtures: template reasons, an engine-floor reason, a model-written reason, an unknown form; field ids shown as labels; details hidden by default and shown on expand
+  - `POForm` pre-fill from a draft fixture with markers and empty "not in source" fields; blocking issues disable Save; "use sum of lines" only on click; vendor suggestion vs new vendor
+  - multi-upload list states (one file rejected, others continue)
+  - PO list and detail render from fixtures
+
+## 9. Build stages (commit after each; STATUS.md rewritten each time)
+1. The "Why" fix (UI) + the template-format contract test.
+2. PO backend without a model: models, validate, store, vendors/PO list/detail/validate/save endpoints, views + tests.
+3. PO frontend without a model: navigation, PO list, PO detail, the form (manual path) + tests.
+4. PO drafter: wire schema, prompt, readers (+ `openpyxl`), the two draft endpoints with the live rule, draft folders + tests.
+5. Frontend: text and document tabs on the shared form, source quotes and page viewer + tests.
+6. Multi-invoice upload (UI) + upload from the PO detail page + tests.
+7. Owner's manual browser check (as for M4 stage 5), then STATUS.md; then stop. The first real PO drafts need a live check you run yourself (about $0.01 per text draft, $0.02-0.03 per document); until then text/document drafting has only been exercised through fakes.
+
+## 10. Decisions needed from the owner
+1. **No schema change:** provenance and edit history live in `purchase_orders.meta`; SPEC section 5 is unchanged, with no migration. Recommendation: yes. The alternative is a `po_drafts` table plus `created_at` / `source` columns, which needs the first real migration.
+2. **Inline new vendors get status `new`, never `approved`**, so their invoices go to review until a person approves the vendor (M5 settings). Recommendation: yes.
+3. **Currency is required to save but never defaulted or guessed:** if the source does not state it, the person must choose it. Recommendation: yes (the schema requires it, and the currency check depends on it).
+4. **`openpyxl` as a new dependency** for XLSX (read-only, cached values). DOCX and CSV use the standard library. Legacy `.doc` / `.xls` are refused. Recommendation: yes. Also accept PNG/JPG photos of a PO, which the existing ingest handles for free? Recommendation: yes.
+5. **Drafts are files** (`data/po_drafts/<id>/`, gitignored), not database rows; the saved PO's `meta` points to its draft and records which fields the person changed. Recommendation: yes.
+6. **"Also considered in" on the PO detail page** (runs where the PO was a candidate but not matched), clearly marked as not matched. Recommendation: yes. It is read-only and explains near-misses without touching matching.
+7. **Uploading invoices from a PO page does not tell the matcher which PO to use.** Passing the PO as a hint would be new matching logic, which is excluded. The page states that matching is automatic. Recommendation: yes.
+8. **Apply the same plain-sentence + technical-details treatment to the review-queue reason** shown in "What was written". Recommendation: yes; same component, same raw form.
+9. **Editing or deleting an existing PO stays out of scope** here: changing a PO's total or lines after invoices matched it changes derived balances and past context. Recommendation: later, with M5 settings, as an audited action.

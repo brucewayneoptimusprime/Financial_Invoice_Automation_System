@@ -238,7 +238,12 @@ td.num, th.num { text-align: right; }
 .banner-note { margin: 8px 0 0; color: var(--flag); }
 .banner-why { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 14px; }
 .reasons { margin: 8px 0; padding-left: 18px; display: grid; gap: 6px; }
-.facts { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tech-btn { background: none; border: 0; padding: 0; color: var(--muted); font-size: 11.5px; text-decoration: underline dotted; cursor: pointer; }
+.tech-btn:hover { color: var(--accent-text); }
+.tech { margin: 6px 0 2px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; display: grid; gap: 2px; font-size: 12px; }
+.tech > div { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
+.tech dt { color: var(--muted); }
+.tech dd { margin: 0; overflow-wrap: anywhere; }
 .next { margin: 8px 0 0; }
 .source { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 .banner-approve { border-left-color: var(--pass); } .banner-approve .banner-icon { background: var(--pass-soft); color: var(--pass); } .banner-approve .banner-title { color: var(--pass); }

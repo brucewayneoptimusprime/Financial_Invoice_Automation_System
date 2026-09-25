@@ -1,8 +1,39 @@
 import { useMemo, useState } from "react";
 import { Chip, Confidence, DetailList, Disclosure, Section } from "./common";
 import { PageViewer, type PageTarget } from "./PageViewer";
+import { plainReason, reviewReasons, type PlainReason } from "../reasons";
 import { DECISION, FIELD_LABEL, GROUNDING, HEADER_FIELDS, MONEY_FIELDS, OUTCOME, humanize, money, score, usd } from "../format";
 import type { Decision, EvidencedField, RuleRow, RunView } from "../types";
+
+// ------------------------------------------------------------------------------------------------ reasons
+
+// A plain sentence; rule id, outcome code, severity and cited facts only behind "Technical details".
+export function ReasonItem({ reason }: { reason: PlainReason }) {
+  const [open, setOpen] = useState(false);
+  const t = reason.technical;
+  return (
+    <li className="reason">
+      <span>{reason.text}</span>
+      {t && (
+        <>
+          {" "}
+          <button type="button" className="tech-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? "Hide technical details" : "Technical details"}
+          </button>
+          {open && (
+            <dl className="tech">
+              {t.ruleId && <div><dt>Check</dt><dd><code>{t.ruleId}</code>{t.ruleName && <> · {t.ruleName}</>}</dd></div>}
+              {t.floorCode && <div><dt>Floor reason</dt><dd><code>{t.floorCode}</code></dd></div>}
+              {t.outcome && <div><dt>Outcome</dt><dd><code>{t.outcome}</code></dd></div>}
+              {t.severity !== undefined && <div><dt>Severity</dt><dd>{t.severity}</dd></div>}
+              {t.facts.length > 0 && <div><dt>Audit facts</dt><dd><code>{t.facts.join(" ")}</code></dd></div>}
+            </dl>
+          )}
+        </>
+      )}
+    </li>
+  );
+}
 
 // ------------------------------------------------------------------------------------------------ decision
 
@@ -39,9 +70,7 @@ export function DecisionBanner({ view }: { view: RunView }) {
         <div className="banner-why">
           <h3>Why</h3>
           <ul className="reasons">
-            {ex.reasons.map((r, i) => (
-              <li key={i}>{r.text} <span className="facts">{r.facts.join(" ")}</span></li>
-            ))}
+            {ex.reasons.map((r, i) => <ReasonItem key={i} reason={plainReason(r.text, r.facts)} />)}
           </ul>
           <p className="next"><strong>Next step:</strong> {ex.next_step}</p>
           <p className="source" title={ex.fallback_reason ?? undefined}>
@@ -275,7 +304,9 @@ export function ActionsPanel({ view }: { view: RunView }) {
         <div className="action" key={r.id}>
           <div className="label">Review queue</div>
           <div>Item #{r.id} · <strong>{r.status}</strong></div>
-          <p className="dim small">{r.reason}</p>
+          <ul className="reasons small">
+            {reviewReasons(r.reason).map((p, i) => <ReasonItem key={i} reason={p} />)}
+          </ul>
         </div>
       ))}
       {a.drafts.map((d) => (

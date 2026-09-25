@@ -3,32 +3,51 @@
 Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M2 complete: Stage 4 (grounding, injection scan, engine touch points, real-invoice end-to-end) and **Stage 5 (eval script, manifest parser, draft manifest)** are done and committed. **Stopped as instructed; M3 is not started.**
-- No live API call was made in either stage. The eval was run once offline with `--replay` on the two real recordings.
+- M0-M2 complete, plus the follow-ups you approved (below). **Stopped as instructed: waiting for you to verify `data\manifest.md`; M3 is not started.**
+- The approved live draft run was made once (5 paid calls, all succeeded). No other live call was made.
 
 ## Test count and result
-**1583 passed, 0 failed, 2 deselected** (`pytest -W error`, ~51 s). Stage 4 added 210 (1500 total), Stage 5 added 83. Mutation checks: 23 (Stage 4) + 16 (Stage 5, live guards, verified-only scoring, draft rules, scoring verdicts, ceiling and schema stops): all killed except one equivalent mutant (unreachable code).
+**1603 passed, 0 failed, 2 deselected** (`pytest -W error`). +20 this round.
 
 ## What changed
-- **Stage 4:** grounding (`value_present` at 0.85 on the real label-separated PDFs, never raises confidence), `$` currency at a configured 0.85, injection scan, three new floor reasons, system-side failure -> `review` / vendor-side -> `request_info`, adjustments in `r_arithmetic`, tax-id vendor resolution, `r_document_type`. SPEC section 11 items 46-53.
-- **Stage 5:** `python -m app.extraction.eval` (`--dir --manifest --mode --replay --live --record --max-cost --draft-manifest`), `manifest.py` (parser + draft writer), `scoring.py`. SPEC items 54-57.
-- **`--live` guard:** without `--live` and without `--replay` the eval refuses (exit 5) before any client exists; the real client is built in one function behind an `allow_live` check, enforced by a structural test and by tests that fail if the client is ever constructed without the flag. `--record` also needs `--live`.
-- **Manifest:** only `"verified": true` entries are scored; drafts are always `false`, existing entries are never edited, the writer refuses to write `true`.
-- **Real invoices end to end (unchanged from Stage 4):** matching PO -> approve (all 13 rules and both floors pass) for both 10963 and 24429; no PO -> request_info (`r_po_found` no_reference + floor). No clean invoice is flagged now; 24429 was, until the line-math rounding allowance (SPEC 53).
+- **Genuine arithmetic errors still flag** despite the unit-price allowance: a wrong quantity, a wrong unit price, transposed digits, and errors of 4 cents or more on 4 units all fail `r_arithmetic`; the allowance boundary (3 cents for 4 units) is pinned; the same mistakes injected into the real 24429 reply are caught end to end.
+- **`r_po_found` split** (SPEC 58), tested at rule and pipeline level:
+  - stated reference that matches no PO -> severity 2 -> `request_info`
+  - no reference, confident unambiguous vendor+amount+lines match -> severity 1 -> `review`
+  - no reference, no confident match -> severity 2 -> `request_info` (as before)
+- **Draft manifest run** (live, `--record data\recordings --draft-manifest`): 5 drafts written to `data\manifest.md`, all `"verified": false`; I did not touch `verified`. `data\manifest.md` is uncommitted so your edits show as a clean diff.
+
+## Real invoices end to end (SuperStore vendor, PO-SS-1 with plenty of balance; identical for 10963 and 24429)
+| Case | Decision | Triggered |
+|---|---|---|
+| Matching PO, invoice prints no PO reference | **review** (was approve) | `r_po_found` matched_without_reference (sev 1); the other 12 rules and both floors pass |
+| No PO at all | **request_info** | `r_po_found` no_reference (sev 2), `engine_floor` no_po_candidates (sev 1) |
+| Stated reference matching no PO | request_info | `r_po_found` reference_not_found (sev 2) (pipeline test, not a real invoice: neither sample prints a PO number) |
+
+Consequence: the two SuperStore samples now go to review even with a perfect match, because they print no PO number. That is what you specified.
+
+## Draft run totals (live)
+5 invoices, all `text_and_vision`, all extracted, none degraded. **Tokens in 34,040 / out 4,668. Cost $0.114760** ($0.0224-$0.0235 each, 44.0 s API time). Grounding: 27 exact, 20 value_present, 0 not_found or mismatched. Drafts, at a glance (all SuperStore, USD, no tax line, no PO reference, one line item):
+
+| File | Date | Subtotal | Adjustments | Total | Arithmetic |
+|---|---|---|---|---|---|
+| 14021 | 2013-03-07 | 9466.50 | shipping 205.01 | 9671.51 | adds up |
+| 6459 | 2013-03-06 | 9515.00 | shipping 243.79 | 9758.79 | adds up |
+| 14130 | 2013-03-07 | 7556.98 | discount -755.70, shipping 89.18 | 6890.46 | adds up |
+| 24429 | 2013-03-07 | 1845.94 | discount -184.59, shipping 109.26 | 1770.61 | adds up |
+| 10963 | 2013-03-07 | 5141.76 | shipping 196.32 | 5338.08 | adds up |
+
+Arithmetic adding up shows the drafts are self-consistent, not that they match the documents: check each value against the PDF.
 
 ## Decisions I need from the user
-1. **Unit-price rounding allowance** (SPEC 53, 0.005 per unit): keep? Recommendation: keep; without it a clean real invoice (24429) goes to review.
-2. **Missing tax line = "no tax printed"** (SPEC 52): keep? Recommendation: keep; it is what verifies the shipping/discount adjustments on both real invoices.
-3. **No-PO invoices get `request_info`** (existing severity 2 on `r_po_found`); odd for a vendor that never prints a PO number. Recommendation: keep until M3, then decide whether no-PO should be `review`.
-4. **`$` -> USD at 0.85** (SPEC 46): a non-USD "$" vendor is only caught if the PO currency differs. Recommendation: keep.
-5. **To start the answer key:** run `python -m app.extraction.eval --live --record data\recordings --draft-manifest` (about $0.12 for the 5 sample invoices; needs your go-ahead), check each draft in `data\manifest.md` by hand, flip `verified` to `true`, then re-run with `--replay data\recordings` for free. I have not run it.
+1. **Verify `data\manifest.md`**: check each draft against its PDF, fix anything wrong, set `"verified": true` per entry. Then `python -m app.extraction.eval --replay data\recordings` scores them for free.
+2. **Note on item 3:** you described the stated-but-unmatched reference as "as it is now (severity 2)", but it was severity 1 (the reference floor gave the review). I set it to 2 to match your stated outcome (SPEC 58). Recommendation: keep; say so if you wanted the old severity 1.
 
 ## Assumptions added to SPEC section 11
-46-53 (Stage 4), 54-57 (Stage 5). Earlier: 8-20 (M0), 21-35 (M1), 36-37, 38-45 (M2).
+58 (this round); 53 marked owner-approved. Earlier: 46-57 (Stages 4-5), 8-45.
 
 ## Known risks or gaps
-- `data\manifest.md` does not exist yet, so nothing is scored on the real invoices; accuracy is unmeasured until you verify some drafts. Three of the five sample invoices have no recording (replay misses until they are recorded live).
-- PO matching without a PO reference scored 0.55 and 0.57 against the 0.50 minimum (vendor + amount + lines only): thin margin.
+- Nothing is scored until you verify entries, so extraction accuracy is still unmeasured; all 5 samples are near-identical SuperStore layouts, so they say little about other formats (scans, tax lines, PO references, non-USD).
 - Grounding uses the text layer only; scanned pages are `unavailable` (no penalty).
-- The 4096-token output cap on very long invoices is untested live (the real replies used about 920).
-- The two existing `@pytest.mark.live` tests were not run. Working-tree files may have CRLF locally; git normalises to LF.
+- The 4096-token output cap is untested on long invoices (these used about 930 output tokens each).
+- The two existing `@pytest.mark.live` tests were not run.

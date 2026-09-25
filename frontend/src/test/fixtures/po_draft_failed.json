@@ -1,0 +1,31 @@
+{
+ "draft_id": "09a121b53e814e5e91af14d46fa2d889",
+ "status": "failed",
+ "source": "text",
+ "failure": {
+  "code": "replay_miss",
+  "message": "No recorded response for this request (key 1234abcd...)."
+ },
+ "values": {
+  "po_number": null,
+  "currency": null,
+  "total": null,
+  "issued_date": null,
+  "vendor_name": null,
+  "vendor_tax_id": null,
+  "lines": []
+ },
+ "marks": {},
+ "suggested_vendor_id": null,
+ "new_vendor": null,
+ "vendor_hint": null,
+ "warnings": [],
+ "notes": [],
+ "issues": [],
+ "lines_sum": null,
+ "pages": [],
+ "model": "claude-sonnet-5",
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": "0"
+}

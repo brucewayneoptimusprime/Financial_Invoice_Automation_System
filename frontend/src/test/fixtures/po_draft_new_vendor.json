@@ -1,0 +1,99 @@
+{
+ "draft_id": "52b855d844f24124978702bc22596842",
+ "status": "ok",
+ "source": "text",
+ "failure": null,
+ "values": {
+  "po_number": "PO-7788",
+  "currency": null,
+  "total": "1250.00",
+  "issued_date": "2026-01-15",
+  "vendor_name": "Globex Corporation",
+  "vendor_tax_id": null,
+  "lines": [
+   {
+    "description": "Office chairs",
+    "quantity": "5",
+    "unit_price": "250.00",
+    "amount": null
+   }
+  ]
+ },
+ "marks": {
+  "po_number": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "purchase order PO-7788",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "currency": {
+   "found": false,
+   "confidence": 0.0,
+   "source_text": null,
+   "page": null,
+   "grounding": null
+  },
+  "total": {
+   "found": true,
+   "confidence": 0.85,
+   "source_text": "total USD 1,250.00",
+   "page": 1,
+   "grounding": "value_present"
+  },
+  "issued_date": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "issued 2026-01-15",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "vendor": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "to Globex Corporation",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "lines[0]": {
+   "found": true,
+   "confidence": 0.9,
+   "source_text": "5 x Office chairs at 250.00 each",
+   "page": 1,
+   "grounding": "exact"
+  }
+ },
+ "suggested_vendor_id": null,
+ "new_vendor": {
+  "name": "Globex Corporation",
+  "tax_id": "",
+  "country": ""
+ },
+ "vendor_hint": "No existing vendor matched: a NEW vendor (status new) is proposed. Pick an existing vendor instead if it is one.",
+ "warnings": [
+  "No currency is stated in the source. Choose it yourself: it is never guessed."
+ ],
+ "notes": [
+  "[system] total: evidence value_present, confidence 0.95 -> 0.85"
+ ],
+ "issues": [
+  {
+   "field": "vendor",
+   "level": "warning",
+   "code": "new_vendor",
+   "message": "A new vendor 'Globex Corporation' will be created with status new: its invoices go to review until someone approves the vendor."
+  },
+  {
+   "field": "currency",
+   "level": "error",
+   "code": "required",
+   "message": "Currency is required (it is never guessed)."
+  }
+ ],
+ "lines_sum": null,
+ "pages": [],
+ "model": "claude-sonnet-5",
+ "tokens_in": 1800,
+ "tokens_out": 500,
+ "cost_usd": "0.00860000"
+}

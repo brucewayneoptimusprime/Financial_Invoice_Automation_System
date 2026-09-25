@@ -1,0 +1,78 @@
+{
+ "draft_id": "b267d47bb0b04ee09cb348231cfcfc38",
+ "status": "ok",
+ "source": "text",
+ "failure": null,
+ "values": {
+  "po_number": "PO-7788",
+  "currency": "USD",
+  "total": "1250.00",
+  "issued_date": "2026-01-15",
+  "vendor_name": "SuperStore",
+  "vendor_tax_id": null,
+  "lines": [
+   {
+    "description": "Office chairs",
+    "quantity": "5",
+    "unit_price": "250.00",
+    "amount": null
+   }
+  ]
+ },
+ "marks": {
+  "po_number": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "purchase order PO-7788",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "currency": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "total USD 1,250.00",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "total": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "total USD 1,250.00",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "issued_date": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "issued 2026-01-15",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "vendor": {
+   "found": true,
+   "confidence": 0.95,
+   "source_text": "to SuperStore",
+   "page": 1,
+   "grounding": "exact"
+  },
+  "lines[0]": {
+   "found": true,
+   "confidence": 0.9,
+   "source_text": "5 x Office chairs at 250.00 each",
+   "page": 1,
+   "grounding": "exact"
+  }
+ },
+ "suggested_vendor_id": 1,
+ "new_vendor": null,
+ "vendor_hint": "Suggested: existing vendor SuperStore, recognised by its name (score 1.00). Check it before saving.",
+ "warnings": [],
+ "notes": [],
+ "issues": [],
+ "lines_sum": null,
+ "pages": [],
+ "model": "claude-sonnet-5",
+ "tokens_in": 1800,
+ "tokens_out": 500,
+ "cost_usd": "0.00860000"
+}

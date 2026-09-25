@@ -192,3 +192,24 @@ export interface POInput {
 }
 export interface POIssue { field: string; level: "error" | "warning"; code: string; message: string }
 export interface ValidateResult { issues: POIssue[]; can_save: boolean; lines_sum: string | null }
+
+export interface PODraftView {
+  draft_id: string;
+  status: "ok" | "failed";
+  source: "text" | "document";
+  failure: { code: string; message: string } | null;
+  values: { po_number: string | null; currency: string | null; total: string | null; issued_date: string | null;
+            vendor_name: string | null; vendor_tax_id: string | null;
+            lines: { description: string | null; quantity: string | null; unit_price: string | null; amount: string | null }[] };
+  marks: Record<string, { found: boolean; confidence: number; source_text: string | null; page: number | null; grounding: string | null }>;
+  suggested_vendor_id: number | null;
+  new_vendor: { name: string; tax_id: string; country: string } | null;
+  vendor_hint: string | null;
+  warnings: string[];
+  notes: string[];
+  issues: POIssue[];
+  lines_sum: string | null;
+  pages: number[];
+  model: string | null;
+  cost_usd: string;
+}

@@ -4,13 +4,18 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-4 of 7 done** (the "Why" fix; the PO backend; the PO screens with the manual form; the PO drafter).
-- Next: PO stage 5 (text and document tabs on the shared form).
+- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-5 of 7 done** (the "Why" fix; PO backend; PO screens + manual form; PO drafter; text and document tabs).
+- Next: PO stage 6 (multi-invoice upload, and upload from the PO detail page).
 - No live calls. The first real PO drafts (text/document) are your live check after stage 7.
 
 ## Test count and result
 - Backend: **2009 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43, stage 4 added 50.
-- Frontend: **44 passed** (vitest; stage 1 added 8, stage 3 added 11); `tsc --noEmit` clean; `vite build` OK.
+- Frontend: **50 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (PO stage 5: text and document tabs)
+- New PO screen: tabs Form | Describe in text | Upload a document. Text and document produce a draft (spinner while the model works), then the SAME `POForm` pre-filled: model-filled fields show "from the model" + confidence + evidence status + the source quote (click opens the rendered page for PDF/image drafts); fields the source did not state are empty and marked "not in the source"; warnings (no currency stated, several POs, text addressed to an AI, ambiguous vendor) and the draft's notes above the form; "Nothing has been saved" stated; the vendor suggestion pre-selected or a new vendor proposed (created only on Save). Save sends the form values plus the draft id.
+- A failed draft says why and offers "Try again" / "Use the empty form". Offline mode shows "use the Form tab" and makes no call. Switching tabs or leaving with a draft asks first.
+- Fixtures `po_draft_*.json` from the real endpoints with scripted model replies.
 
 ## What changed (PO stage 4: the PO drafter; model calls only through fakes)
 - `app/po/`: `wire.py` (union-free PO schema), `prompts.py` (`po-draft-v1`, fingerprint pinned in a test), `drafter.py` (call, one repair retry, post-processing, grounding, reader-instruction scan; a failure is a `failed` draft, never an exception), `readers.py` (PDF/PNG/JPG via the invoice ingest; DOCX, XLSX, CSV text; refusals), `service.py` (draft -> form pre-fill, per-field marks, vendor suggestion or proposed new vendor, the form's own issues, the draft file).

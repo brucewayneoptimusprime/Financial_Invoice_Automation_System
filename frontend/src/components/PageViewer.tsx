@@ -8,8 +8,8 @@ export interface PageTarget {
 }
 
 // The rendered page beside the evidence it supports. Esc, the close button or a click outside closes it.
-export function PageViewer({ runId, target, pages, onClose, onPage }:
-  { runId: string; target: PageTarget; pages: number[]; onClose: () => void; onPage: (n: number) => void }) {
+export function PageViewer({ runId, target, pages, onClose, onPage, src }:
+  { runId: string; target: PageTarget; pages: number[]; onClose: () => void; onPage: (n: number) => void; src?: (n: number) => string }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     closeRef.current?.focus();
@@ -36,7 +36,7 @@ export function PageViewer({ runId, target, pages, onClose, onPage }:
           </div>
         </div>
         <div className="viewer-img">
-          {exists ? <img src={pageUrl(runId, target.page)} alt={`Rendered page ${target.page} of the invoice`} />
+          {exists ? <img src={src ? src(target.page) : pageUrl(runId, target.page)} alt={`Rendered page ${target.page} of the invoice`} />
                   : <p className="dim">Page {target.page} was not rendered.</p>}
         </div>
       </div>

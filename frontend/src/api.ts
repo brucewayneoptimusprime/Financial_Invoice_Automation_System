@@ -1,5 +1,6 @@
 // Thin, typed wrappers over the local API. All paths are relative: Vite proxies /api to the backend.
-import type { AuditEvent, Health, NewVendorInput, PendingView, PODetail, POInput, POIssue, POListRow, RunRow, RunView, ValidateResult,
+import type { AuditEvent, Health, NewVendorInput, PendingView, PODetail, PODraftView, POInput, POIssue, POListRow, RunRow, RunView,
+              ValidateResult,
               Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -109,3 +110,12 @@ export async function savePO(po: POInput, nv: NewVendorInput | null, draftId: st
   try { body = await r.json(); } catch { /* not JSON */ }
   throw new SaveRefused(r.status, body.message ?? `The server answered ${r.status}.`, body.issues ?? []);
 }
+
+// Model drafts: NOTHING is saved by these; the draft pre-fills the form, and only savePO() saves.
+export const draftFromText = (text: string) => post("/api/pos/drafts/text", { text }).then((r) => json<PODraftView>(r));
+export async function draftFromDocument(file: File): Promise<PODraftView> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return fetch("/api/pos/drafts/document", { method: "POST", body: form }).then((r) => json<PODraftView>(r));
+}
+export const draftPageUrl = (draftId: string, n: number) => `/api/pos/drafts/${encodeURIComponent(draftId)}/pages/${n}`;

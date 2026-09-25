@@ -54,7 +54,7 @@ export function App() {
         {route.name === "upload" && <UploadScreen health={health} />}
         {route.name === "run" && <RunScreen key={route.id} runId={route.id} />}
         {route.name === "pos" && <POListScreen />}
-        {route.name === "poNew" && <PONewScreen />}
+        {route.name === "poNew" && <PONewScreen health={health} />}
         {route.name === "po" && <PODetailScreen key={route.id} id={route.id} />}
         {route.name === "missing" && (
           <div className="empty">

@@ -359,4 +359,145 @@ Edge rules: an approve is re-verified inside the transaction (PO balance re-read
 7. Approve path shown by a labelled controlled variant (PO number added by editing the recorded reply), since none of the six real invoices prints a PO number. Recommendation: yes.
 8. Add the same `--live` guard to the existing M2 extraction CLI (today it calls the API whenever `--replay` is absent). This is CLI plumbing, not extraction logic. Recommendation: yes.
 
-**M3 build status (2026-09-25):** stages 1-4 built as planned; deviations: the digest, templates and actions landed in stage 2 (with the runner) and the LLM roles in stage 3; the `runs` row is inserted right after a successful ingest (an ingest rejection creates no run); model roles are skipped when reader instructions are suspected; SPEC section 11 items 61-68.
+**M3 build status (2026-09-25):** stages 1-4 built as planned; deviations: the digest, templates and actions landed in stage 2 (with the runner) and the LLM roles in stage 3; the `runs` row is inserted right after a successful ingest (an ingest rejection creates no run); model roles are skipped when reader instructions are suspected; SPEC section 11 items 61-68. End-of-M3 re-record with extract-v5 done (2026-09-25, $0.143; see STATUS.md).
+
+
+---
+
+# M4 plan: API and live run view (2026-09-25, awaiting owner approval; no M4 code exists)
+
+**Goal.** Someone drops an invoice into the browser, watches each pipeline stage appear as it runs (status, key outputs, timing, expandable detail), and ends on a result view: the decision, the explanation, extracted fields with page and source text, every rule with its numbers, and what was written. Everything the view shows comes from `audit_events` and the other SQLite tables (SPEC section 1: "a live run view ... read[s] from that log"). A page refresh or a server restart therefore replays a run exactly. The pipeline logic is reused unchanged apart from the two small runner changes in section 2.
+
+- Out of scope, M5: dashboard, review-queue actions, drafts "mark as sent", settings/rules editing, reset button.
+- Out of scope, M7: the match-assistant and reviewer roles.
+
+## 1. Module layout
+```
+backend/app/api/main.py      create_app(settings, llm_mode) -> FastAPI   (app factory; routes under /api)
+backend/app/api/serve.py     python -m app.api.serve (--replay DIR | --live [--record DIR] | --offline) [--db PATH] [--port 8000]
+backend/app/api/worker.py    RunWorker: one background thread, runs queued uploads one at a time, each with its own DB connection
+backend/app/api/routes.py    the endpoints in section 3
+backend/app/api/sse.py       event stream: tails audit_events by seq
+backend/app/api/views.py     read models: DB rows -> JSON for the run view (read-only SQL, no pipeline objects)
+frontend/                    React + Vite + TypeScript
+  src/api.ts                 typed fetch + EventSource wrapper
+  src/runState.ts            pure reducer: audit events -> per-stage view model (the one piece of logic in the UI; unit-tested)
+  src/screens/Upload.tsx     drop zone, mode badge, recent runs
+  src/screens/Run.tsx        live stage timeline; becomes the result view when the run finishes
+  src/components/...         StageCard, DecisionBanner, FieldsTable (value, confidence, grounding, page, source text, page image),
+                             RulesTable, WritesTable, DraftCard (read-only)
+```
+**Config additions** (`config.py`, env-overridable):
+- `api_host` (127.0.0.1), `api_port` (8000)
+- `api_cors_origins` (the Vite dev origin only)
+- `api_upload_dir` (`data/uploads`, gitignored)
+- `sse_poll_ms` (250), `sse_heartbeat_s` (15)
+
+**New dependencies:**
+- Backend: `uvicorn` and `python-multipart` (FastAPI needs it for uploads); dev: `httpx` (for FastAPI's TestClient).
+- Frontend: `react`, `react-dom`, `vite`, `typescript`; dev: `vitest`, `@testing-library/react`.
+- No UI component library and no state library.
+
+## 2. Runner changes (the only change to M3 code)
+1. `run_pipeline(..., run_id=None)`: the API picks the run id before the run starts, so it can return the id at once. The default is unchanged (generate one).
+2. **Stage timing events.** For each of ingest, extract, match, validate, decide, explain and act, the runner writes two events:
+   - `pipeline/stage_started`, committed BEFORE the stage runs, so the UI can show "running" during the 8-12 s extraction.
+   - `pipeline/stage_completed`, whose `detail` holds the stage, status (ok / flagged / failed), `duration_ms` and a small `summary`.
+
+   `summary` is built by one pure function per stage, from values the stage already produced, through a whitelist:
+   - extract: path, fields found/total, low-confidence field names, grounding counts, tokens, cost
+   - match: vendor and method, PO number and score, match status
+   - validate: pass/flag/fail counts
+   - decide: the decision
+   - explain: source (template or model)
+   - act: rows written
+
+   No image bytes, page text, key or free-text model output go into it. This adds 14 events per run. The M3 tests that count or list events are updated; nothing else in them changes.
+
+## 3. Endpoints (JSON unless stated; no auth; the server binds 127.0.0.1)
+| Method, path | Does |
+|---|---|
+| `GET /api/health` | mode (`live` / `replay` / `offline`), model, session spend and ceiling, DB path, queue length |
+| `POST /api/runs` (multipart `file`) | Streams the upload to `data/uploads/<uuid>/` and stops reading at 20 MB (413). Checks it with the existing `validate_file` (magic bytes, empty, size): a rejected file gets 415/400 with the ingest message and creates no run. Otherwise it queues the run and returns **202** `{run_id}` right away |
+| `GET /api/runs?limit=20` | recent runs (id, file, status, decision, started, cost), for the upload screen |
+| `GET /api/runs/{id}` | The run view: the run row, the invoice row and lines, extracted fields with evidence (from `invoices.extracted`), match candidates, rule results with their detail numbers, floor results, decision, explanation, drafts, review item, ledger entry with PO balance before/after, and timing and cost per stage. 404 for an unknown or malformed id (`check_run_id`) |
+| `GET /api/runs/{id}/events` | **SSE.** Sends every audit event with `seq` > `Last-Event-ID` (the browser reconnects with that header automatically) as `id: seq`, `event: audit`, data = the stored row. Polls the table every `sse_poll_ms` with a fresh read and sends a comment line as a heartbeat. Once the run is no longer `running` and every event has gone out, it sends `event: end` `{status, decision}`. Stops polling when the client disconnects |
+| `GET /api/runs/{id}/pages/{n}` | the rendered page PNG from the run folder, for evidence; served only from `pages/` of a valid run id, with n in range |
+
+**Queueing and edge cases:**
+- One worker thread, so runs execute one at a time in upload order. SQLite has one writer, and the approve re-check stays simple.
+- A queued run has no `runs` row yet, so the stream sends `event: queued` until the row appears.
+- If ingest still rejects a file in the worker (unexpected once `validate_file` has passed), the worker keeps the message in memory; the stream sends `event: rejected` and closes.
+- Connections get `busy_timeout` 5 s. WAL is not needed at this scale: readers only wait for the short commits.
+
+## 4. The live-call rule (same as the CLIs, SPEC item 68)
+- `python -m app.api.serve` REFUSES to start unless given exactly one of `--live`, `--replay DIR` or `--offline`. With none it exits 5 and builds no client.
+- `--offline` builds no client: extraction degrades to review and the explanation is a template. Handy for UI work.
+- `--live` prints the same cost line as the CLIs. The UI shows a permanent **LIVE: paid API calls** badge (REPLAY or OFFLINE otherwise) and the session spend.
+- The client is built once per server through the existing `build_client(... allow_live=...)`. A structural test keeps the API from building a client any other way.
+- Ceilings: the per-run $0.25 and per-session $5.00 ceilings cover the server process's lifetime. Past $5, extraction degrades to review with the ceiling reason; a restart resets the counter.
+
+## 5. UI (M4 screens)
+- **Upload.** A drop zone (PDF/PNG/JPG, max 20 MB; a rejection is shown inline with the server's reason), the mode badge, and the last runs as a short list linking to their run views.
+- **Live run view** (`/runs/:id`). A vertical timeline of the seven stages. Each goes waiting -> running (spinner, elapsed time) -> ok / flagged / failed, with its duration and a one-line summary from `stage_completed`. A card expands to that stage's events: message, outcome, and `detail` as readable key/value rows, not raw JSON. Rule results appear as they are written: pass/flag/fail with severity and the numbers.
+- **Result view.** The same page once `end` arrives; it loads `GET /api/runs/{id}` and shows:
+  - a decision banner (colour and word, never colour alone)
+  - the explanation and its source (model or template)
+  - the extracted fields: value, effective and model confidence, grounding status, page, source text; click to open the page image
+  - the rule table
+  - the match candidates with their score breakdown
+  - what was written: ledger commit with PO balance before -> after, review item, draft email text (read-only, with "nothing is sent" stated)
+  - tokens and cost per stage
+- **Design.** Clean and restrained: system font stack, one accent colour, colour tokens with a dark theme, readable at laptop width and usable on a phone. Opening a finished run's URL shows the same result (the stream replays and ends immediately).
+
+## 6. Tests (offline; key blanked; `pytest -W error`, plus `vitest`)
+- **Runner:**
+  - started/completed pairs for all seven stages, in order, with durations >= 0
+  - `stage_started` is committed before its stage runs (checked from a second connection inside a slow fake stage)
+  - the summary whitelist holds: no page text, image bytes, canary key or model free text
+  - a `run_id` passed in is used
+  - existing event tests updated
+- **Upload:**
+  - 202 and a run id for a good file
+  - wrong type 415, empty 400, oversize 413 without reading past the limit, no file 422
+  - a rejected upload creates no run and leaves no upload folder
+  - hostile file names
+- **Worker:**
+  - two uploads run one after the other, in order
+  - a pipeline exception ends as a failed run, and the stream ends with `status: failed`
+- **SSE:**
+  - every event exactly once, in seq order
+  - resuming with `Last-Event-ID` sends only later events
+  - `queued` before the run row exists; `end` after the last event
+  - an unknown id is 404
+  - heartbeat; a disconnect stops polling
+  - a finished run replays and closes
+- **Run view JSON:**
+  - exact content for review, request_info, reject (blocked vendor -> notification) and the labelled synthetic approve variant (ledger commit, balance before/after)
+  - all against the demo seed with the M3 doubles
+  - amounts are exact decimal strings
+- **Pages:** a valid page is served; traversal attempts, bad ids and out-of-range pages are 404.
+- **Live rule:**
+  - serve refuses to start without a mode (exit 5, no client); `--offline` builds no client
+  - a canary key never appears in any response
+  - CORS allows only the configured origin; the default host is 127.0.0.1
+- **Frontend (vitest):**
+  - the reducer on event streams recorded from the real backend in replay mode: a complete run, a resume halfway, a failed run, flagged stages
+  - render tests for the stage card, decision banner and fields table from those same recordings
+- **Manual, in Chrome, on replay:** upload the six real invoices one by one; screenshots of the live view mid-run and of each result, reported in STATUS.md.
+
+## 7. Build stages (commit after each; STATUS.md rewritten each time)
+1. Runner changes (section 2) and tests.
+2. API: app factory, serve command with the live rule, upload and worker, run view, runs list, pages; tests.
+3. SSE endpoint and tests.
+4. Frontend: scaffold, upload screen, live run view, result view, reducer tests.
+5. Browser check of the six on replay, STATUS.md; then stop. You then run it with `--live` on your own invoices, which is also the first real explainer/drafter output.
+
+## 8. Decisions needed from the owner
+1. **Server live rule:** `serve` requires `--live`, `--replay DIR` or `--offline` and has no default, matching the CLIs. Recommendation: yes.
+2. **One run at a time** (a queue with one worker). Recommendation: yes. Parallel runs gain nothing in a demo and make SQLite writes and the approve re-check harder.
+3. **Result view in M4** (SPEC 9.3), not M5: the live view ends in it, and you want to test real invoices with it. Recommendation: yes.
+4. **`stage_started` / `stage_completed` events** in the audit trail: 14 more rows per run, carrying timing and a whitelisted summary. The alternative, keeping timing only in memory, would be lost on refresh. Recommendation: the events.
+5. **Frontend stack:** React + Vite + TypeScript, hand-written CSS, no component or state library; vitest for the reducer and a few render tests. Recommendation: yes.
+6. **Reset demo data** stays a CLI command (`python -m app.db.reset --demo`) in M4; the button comes with settings in M5. Recommendation: yes. Note: your own invoices, once uploaded, land in the demo database and in `data/runs` and `data/uploads` (both gitignored). Reset clears the tables but not those folders.
+7. **Local only, no auth:** bound to 127.0.0.1, CORS for the Vite origin only. Hosting (SPEC 14, still pending) would need auth and is not planned here. Recommendation: yes.

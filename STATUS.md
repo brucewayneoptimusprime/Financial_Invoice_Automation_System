@@ -3,44 +3,38 @@
 Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M2 complete. **M3 (Pipeline): all 4 stages built and committed. Stopped as instructed. Nothing re-recorded, no live call this milestone.**
-- New: `python -m app.pipeline.cli <file> (--replay DIR | --live [--record DIR]) [--db PATH] [--reset-demo] [--json]` runs the whole pipeline and prints ingest, extraction, match, every rule, decision, explanation, drafts, database writes and cost. It refuses to call the API without `--live` (so does the M2 extraction CLI now: decision 8).
+- M0-M3 complete. **The end-of-M3 re-record is done** (owner-approved): all 6 samples re-recorded live with extract-v5, so `--replay data\recordings` works again for the eval, the extraction CLI and the pipeline CLI. No code, prompt, seed or manifest changes this session.
+- **M4 (API + live run view): plan written in `PLAN.md` (bottom section), awaiting approval. No M4 code exists.**
+- The explainer/drafter have still never run live (owner: check them later in the M4 UI with real invoices).
 
 ## Test count and result
-**1845 passed, 0 failed, 2 deselected** (`pytest -W error`). Stage 4 added 42. Mutation checks on the CLI guards and the six-invoice test: killed (one equivalent mutant: `allow_live=True` is unreachable behind the earlier guard).
+**1845 passed, 0 failed, 2 deselected** (`pytest -W error`), unchanged; run after the re-record.
 
-## What changed (Stage 4)
-- Pipeline CLI (above); extraction CLI `--live` guard; fixtures for all six samples (5 SuperStore replies recorded live with extract-v4, IQ v4 reply, three more PDFs).
-- Wording polish found while reading real output: digest facts read `r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: ...`; the review reason no longer repeats itself; "a invoice" -> "an invoice".
-- SPEC section 11 item 68.
+## The re-record (live, extraction only)
+`python -m app.extraction.eval --live --record ..\data\recordings --max-cost 0.20`: 6 calls, **$0.143174** (in 41,747 / out 5,968 tokens), 53 s of API time. Eval on the 5 verified SuperStore entries: **67/67 fields correct** (same as v4). Grounding: 28 exact, 19 value_present, 8 unavailable, 1 value_mismatch. The old v3/v4 recordings are still in the (gitignored) folder; they are keyed by prompt fingerprint and simply never hit.
 
-## The six real invoices, end to end (demo dataset; models = scripted double, extraction = replies recorded live)
+**IQ manifest entry re-checked:** `currency` is now **`"INR"`** (confidence 0.90, source text "Rupees Four Thousand Nine Hundred only"). So extract-v5 fixed the finding. Everything else matches the draft entry except one new difference:
+- `vendor_name` came back as `"IQ (Electronics Mart India Ltd.)"` (the draft says `"IQ (A unit of Electronics Mart India Ltd.)"`); the model dropped "A unit of", so grounding caps it at **0.30** (`value_mismatch` against its own snippet). This happens from call to call; it is not a regression the prompt caused.
+- I did **not** edit `data/manifest.md`: the IQ entry is still a draft (`verified: false`) with `currency: null`. When you verify it, set `currency` to `"INR"` and pick the vendor-name form you want as the answer.
+
+## The six real invoices, end to end (replay of the new recordings; explainer/drafter = templates on replay miss)
+Scratch database reset to the demo dataset, run in this order:
 | Invoice | Decision | Why (one line) |
 |---|---|---|
-| SuperStore 10963 | **review** | PO-SS-001 is a confident match, but the invoice prints no PO number (`r_po_found` matched_without_reference); every other check passes |
-| SuperStore 24429 | **review** | same: PO-SS-002 matched, no PO number printed |
-| SuperStore 14021 | **review** | same: PO-SS-003 matched, no PO number printed |
-| SuperStore 6459 | **review** | same: PO-SS-004 matched, no PO number printed |
-| SuperStore 14130 | **review** | same: PO-SS-005 matched (partly consumed, 7,500 left), no PO number printed |
-| IQ Electronics scan | **request_info** | the v4 call returned no currency (required field), no PO number, no confident PO match (amount not comparable without a currency), invoice date only 0.50 (05-01-2025 is ambiguous); vendor found by GSTIN, tax null/included, arithmetic passes |
+| SuperStore 10963, 24429, 14021, 6459, 14130 | **review** (each) | a confident match on its own PO-SS-00x, but the invoice prints no PO number (`r_po_found` matched_without_reference); everything else passes |
+| IQ Electronics scan | **review** (was request_info) | currency INR is now present, so all 5 required fields are there and PO-IQ-2025-001 matches (0.587: vendor by GSTIN, amount 4,900 of 5,000, line overlap 0.93); still review because no PO number is printed, vendor_name confidence is 0.30 (the grounding cap) and the invoice date only 0.50 (05-01-2025 is ambiguous) |
 
-The five reviews sit in the queue, no money moved; the IQ run saved a draft vendor email (status draft, `to` NULL) asking for the currency, the invoice date and the PO number, with nothing internal in it.
-**Clean invoice flagged?** Yes, by design: none of the five SuperStore invoices prints a PO number, so none can be approved (your rule: no reference + confident match = review). **The approve path is shown only by a clearly labelled SYNTHETIC controlled variant** (real invoice 24429 with `PO-SS-002` edited into the recorded reply): approve, ledger commit 1,770.61, PO-SS-002 balance 2,500.00 -> 729.39, status partially_billed. It is named `controlled_variant_synthetic_*` in tests, tagged `[SYNTHETIC CONTROLLED VARIANT ...]` in the reply's notes (visible in the CLI's `--json`), and never counted among the six.
-
-## Prompt/wire changes that landed (for the end-of-M3 re-record; NOT run)
-- **extract-v5 only** (a currency named in words returns its ISO code). No other extraction prompt or wire change landed in M3 (the explainer `explain-v1` and drafter `draft-v1` prompts are separate and need no extraction re-record).
-- **Re-record cost: 6 live calls, about $0.14** (the v4 pass cost $0.140456; v5 adds roughly 30 prompt tokens per call, so expect about $0.141). It would also re-verify the IQ draft (currency INR expected), the five SuperStore entries, and restore `--replay` for the eval and this CLI. I will not run it until you confirm.
+So none of the six requests info any more; no vendor email draft comes out of the real set. The request_info/reject paths are still covered by the offline variants.
 
 ## Decisions I need from the user
-1. **Confirm the re-record** (6 calls, about $0.14) - and then verify the IQ manifest entry (`currency` should be `"INR"`, not null).
-2. **Optional:** a live run of the explainer/drafter to see how the real model does against the claim checks (about $0.006 per call; the whole six-invoice set through the CLI would be about $0.21). Recommendation: fold it into the same session as the re-record.
+1. **Approve (or change) the M4 plan** in `PLAN.md` (section "M4 plan"), including its decision list.
+2. When convenient: verify the IQ manifest entry (see above).
 
 ## Assumptions added to SPEC section 11
-61-68 (M3). Earlier: 46-60.
+None this session. Latest: 61-68 (M3).
 
 ## Known risks or gaps
-- The real explainer/drafter have never run; the double is grounded in the digest, so the six results above show the plumbing and the checks, not model quality. The checks are strict, so expect some template fallbacks at first.
+- The real explainer/drafter have never run; the claim checks are strict, so expect some template fallbacks at first.
+- Extraction varies between calls (IQ: the currency across v3/v4/v5, the vendor-name wording now); one pass per file does not measure stability.
 - `to` is always NULL (no vendor contact data); a blocked-vendor reject writes an internal notification instead of an email.
-- With no PO number printed, SuperStore-style invoices can never auto-approve (your rule). PO matching there rests on vendor + amount + line text: scores were 0.57-0.60 against a 0.50 minimum.
-- Recordings in `data\recordings` are extract-v4; `--replay` on the CLIs and eval misses until the re-record.
-- Extraction varies between calls (IQ currency/subtotal changed between v3 and v4); one verified pass per file is not a stability measurement.
+- With no printed PO number, none of the six real invoices can auto-approve (owner's rule); the approve path is shown only by the labelled synthetic controlled variant.

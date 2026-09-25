@@ -247,6 +247,16 @@ class Settings(BaseSettings):
     seed_path: Path = ROOT_DIR / "data" / "seed.json"                 # the M0 placeholder seed (used by the M0/M1 tests)
     demo_seed_path: Path = ROOT_DIR / "data" / "seed_demo.json"       # the M3 demo dataset (hand-written, built around the samples)
 
+    # API and live run view (M4). Local only: the server binds to localhost and allows the Vite dev origin.
+    api_host: str = "127.0.0.1"
+    api_port: int = Field(default=8000, ge=1, le=65535)
+    api_cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    api_upload_dir: Path = ROOT_DIR / "data" / "uploads"              # temporary upload copies, removed after each run
+    api_busy_timeout_ms: int = Field(default=5000, ge=0)
+    sse_poll_ms: int = Field(default=250, ge=10)
+    sse_heartbeat_s: float = Field(default=15.0, gt=0)
+    api_recent_runs_max: int = Field(default=100, ge=1)
+
     @field_validator("decision_severity")
     @classmethod
     def _check_severity(cls, v: dict[str, int]) -> dict[str, int]:

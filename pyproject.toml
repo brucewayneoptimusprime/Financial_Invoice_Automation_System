@@ -14,16 +14,19 @@ dependencies = [
     "anthropic>=1.8",
     "pypdfium2>=5",
     "Pillow>=12",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "reportlab>=4"]
+dev = ["pytest>=8", "reportlab>=4", "httpx>=0.27"]
 
 [project.scripts]
 init-db = "app.db.init_db:main"
 reset-db = "app.db.reset:main"
 llm-probe = "app.llm.probe:main"
 extract = "app.extraction.cli:main"
+serve = "app.api.serve:main"
 
 [tool.setuptools.packages.find]
 where = ["backend"]

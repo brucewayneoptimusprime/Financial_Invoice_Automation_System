@@ -32,3 +32,4 @@ node_modules/
 # Run artefacts and recorded LLM responses (may contain invoice data)
 data/runs/
 data/recordings/
+data/uploads/

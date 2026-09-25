@@ -257,6 +257,22 @@ class Settings(BaseSettings):
     sse_heartbeat_s: float = Field(default=15.0, gt=0)
     api_recent_runs_max: int = Field(default=100, ge=1)
 
+    # Purchase-order entry (PO integration). The model only DRAFTS a PO; a person confirms on the form before anything is saved.
+    po_prompt_version: str = "po-draft-v1"
+    po_max_output_tokens: int = Field(default=1500, ge=256)
+    po_text_max_chars: int = Field(default=8000, ge=100)
+    po_doc_text_max_chars: int = Field(default=40000, ge=1000)
+    po_zip_max_uncompressed_bytes: int = Field(default=50 * 1024 * 1024, ge=1024)
+    po_sheet_max_cells: int = Field(default=20000, ge=10)
+    po_max_lines: int = Field(default=200, ge=1)
+    po_total_warning_above: Decimal = Field(default=Decimal("10000000.00"), ge=0)
+    po_drafts_dir: Path = ROOT_DIR / "data" / "po_drafts"
+    # Currencies whose minor unit is not 2 decimals cannot be stored exactly (SPEC section 11 item 9).
+    unsupported_currencies: frozenset[str] = frozenset({
+        "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF", "UGX", "UYI", "VND", "VUV", "XAF", "XOF", "XPF",
+        "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND", "CLF", "UYW"})
+    ui_max_files_per_upload: int = Field(default=20, ge=1)
+
     @field_validator("decision_severity")
     @classmethod
     def _check_severity(cls, v: dict[str, int]) -> dict[str, int]:

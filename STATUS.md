@@ -4,13 +4,20 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stage 1 of 7 done** (the "Why" fix).
-- Next: PO stage 2 (PO backend without a model: validate, save, vendor/PO list/detail endpoints).
+- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-2 of 7 done** (the "Why" fix; the PO backend without a model).
+- Next: PO stage 3 (PO frontend without a model: navigation, PO list, PO detail, the manual form).
 - No live calls. The first real PO drafts (text/document) are your live check after stage 7.
 
 ## Test count and result
-- Backend: **1916 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5 (the template-format contract test).
+- Backend: **1959 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43 (`tests/po`).
 - Frontend: **33 passed** (vitest; stage 1 added 8); `tsc --noEmit` clean.
+
+## What changed (PO stage 2: PO backend, no model)
+- `app/po/`: `models.py` (what the form posts), `validate.py` (deterministic blocking errors and warnings, shared by all three entry paths), `store.py` (the ONLY writer of POs: new vendor + PO + lines in one transaction), `drafts.py` (draft files and `edited_fields`), `views.py` (PO list / detail read models).
+- Endpoints (`app/api/routes_po.py`): `GET /api/vendors`, `GET /api/pos?q=&status=`, `GET /api/pos/{id}`, `POST /api/pos/validate` (saves nothing), `POST /api/pos` (Save: 201; 422 with per-field issues; 409 for a PO number already used).
+- PO detail: PO + vendor + lines; total / committed / balance (derived from the ledger) / awaiting review (matched invoices still in review, which do not consume); matched invoices (`invoices.po_id`, with run status, decision, effective status; seeded historic invoices marked); ledger entries; "also considered in" (runs where the PO was ranked but not matched, from the stored candidate events); provenance.
+- Config: `po_*` settings (prompt version, limits, drafts dir), `unsupported_currencies`, `ui_max_files_per_upload`. `data/po_drafts/` is gitignored. SPEC section 11 item 72.
+- Matching unchanged: a PO entered through the form, with the same facts as seeded PO-SS-001, gets exactly the same candidate score from the existing engine.
 
 ## What changed (PO stage 1: the "Why" fix, UI only)
 - `frontend/src/reasons.ts`: each "Why" bullet shows only the plain sentence (the engine's message, with field ids shown as the fields-table labels: `invoice_date` -> "invoice date"). Rule id, rule name, outcome code, severity and cited fact ids are behind a per-bullet "Technical details" button. A model-written reason stays as written (its facts go in the details); an unknown form is shown as is, never hidden.
@@ -24,7 +31,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-69-71 (M4). Earlier: 61-68 (M3).
+72 (PO entry). Earlier: 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - The "Why" parser depends on the template wording; the contract test fails first if it changes.

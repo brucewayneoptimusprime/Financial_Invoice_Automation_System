@@ -3,10 +3,10 @@ import uuid
 from contextlib import closing
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
-from app.api import views
+from app.api import sse, views
 from app.api.main import ApiState
 from app.api.uploads import MULTIPART_SLACK_BYTES, STATUS_FOR_CODE, save_upload
 from app.api.worker import Job, open_db
@@ -93,6 +93,24 @@ def get_run(request: Request, run_id: str):
     if state is None:
         return _error(404, "not_found", "No such run.")
     return {"run": {"id": run_id, "status": state}, "rejection": st.worker.rejection(run_id)}
+
+
+@router.get("/runs/{run_id}/events")
+def stream_events(request: Request, run_id: str, after: int | None = Query(None, ge=-1)):
+    st = _state(request)
+    if not _valid_id(run_id):
+        return _error(404, "not_found", "No such run.")
+    with closing(open_db(st.db_path, st.settings)) as conn:
+        known = views.run_row(conn, run_id) is not None
+    if not known and st.worker.state(run_id) is None:
+        return _error(404, "not_found", "No such run.")
+    header = request.headers.get("last-event-id")
+    start = sse.parse_last_event_id(header) if header is not None else (-1 if after is None else after)
+    body = sse.run_events(run_id, open_conn=lambda: open_db(st.db_path, st.settings), worker=st.worker, after=start,
+                          poll_s=st.settings.sse_poll_ms / 1000, heartbeat_s=st.settings.sse_heartbeat_s,
+                          is_disconnected=request.is_disconnected)
+    return StreamingResponse(body, media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
 
 @router.get("/runs/{run_id}/pages/{n}")

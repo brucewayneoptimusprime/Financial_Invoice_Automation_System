@@ -4,12 +4,16 @@ Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete; end-of-M3 re-record with extract-v5 done ($0.143; IQ currency now INR).
-- **M4 (API + live run view): stages 1-2 of 5 done** (runner timing events; the HTTP API).
-- Next: stage 3 (the SSE event stream).
+- **M4 (API + live run view): stages 1-3 of 5 done** (runner timing events; the HTTP API; the SSE event stream).
+- Next: stage 4 (the React frontend: upload screen, live run view, result view).
 - No live calls in M4 (owner runs `--live` after seeing the UI on replay).
 
 ## Test count and result
-**1898 passed, 0 failed, 2 deselected** (`pytest -W error`); stage 2 added 44 (`tests/api`).
+**1911 passed, 0 failed, 2 deselected** (`pytest -W error`); stage 2 added 44, stage 3 added 13 (`tests/api/test_sse.py`, repeated 5 times: stable).
+
+## What changed (M4 stage 3)
+- `app/api/sse.py` + `GET /api/runs/{id}/events`: SSE tailing `audit_events` by seq (SPEC section 11 item 71): queued / audit / ping / end / rejected frames, `Last-Event-ID` resume, batches of 500, disconnect stops polling.
+- The in-progress test runs the app under a real uvicorn server (the TestClient buffers streams): with the run held inside the match stage, every event up to `stage_started(match)` has already arrived; then the rest and `end`.
 
 ## What changed (M4 stage 2)
 - `app/api/`: `main.py` (app factory), `routes.py`, `views.py` (read models from SQLite), `worker.py` (one run at a time), `uploads.py` (safe names, size-capped copy, the ingest acceptance check), `clients.py` (client by mode; `OfflineClient`), `serve.py`.
@@ -22,7 +26,7 @@ Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 None right now.
 
 ## Assumptions added to SPEC section 11
-69 (stage timing events), 70 (the API). Earlier: 61-68 (M3).
+69 (stage timing events), 70 (the API), 71 (the live stream). Earlier: 61-68 (M3).
 
 ## Known risks or gaps
 - Without a declared Content-Length, the multipart parser buffers the upload (to a temp file) before the size check can stop it; browsers always send the length.

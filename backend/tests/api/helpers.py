@@ -47,8 +47,7 @@ class ScriptedRuns:
         return run_pipeline(path, conn, client=run_client, settings=settings, run_id=run_id, source_name=source_name)
 
 
-@contextmanager
-def api(tmp_path, *, run_fn=None, settings=None, mode="offline"):
+def build_app(tmp_path, *, run_fn=None, settings=None, mode="offline"):
     settings = settings or api_settings(tmp_path)
     db = tmp_path / "app.db"
     reset_database(db, DEMO)
@@ -56,9 +55,42 @@ def api(tmp_path, *, run_fn=None, settings=None, mode="offline"):
     client = MeteredClient(OfflineClient(), tracker, settings.llm_prices)
     worker = RunWorker(db, client, settings, run_fn=run_fn or ScriptedRuns())
     app = create_app(settings, mode=mode, client=client, db_path=db, tracker=tracker, worker=worker)
+    return app, worker, db, settings
+
+
+@contextmanager
+def api(tmp_path, **kw):
+    app, worker, db, settings = build_app(tmp_path, **kw)
     with TestClient(app) as c:
         c.worker, c.db_path, c.settings = worker, db, settings
         yield c
+
+
+@contextmanager
+def live_server(app):
+    """The app under a real uvicorn server on a free localhost port (TestClient buffers streams; a browser does not)."""
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="on"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 15
+    while not server.started:
+        if time.monotonic() > deadline:
+            raise RuntimeError("uvicorn did not start")
+        time.sleep(0.02)
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        server.should_exit = True
+        thread.join(15)
 
 
 def upload(c, name: str, data: bytes | None = None, filename: str | None = None, content_type="application/octet-stream"):

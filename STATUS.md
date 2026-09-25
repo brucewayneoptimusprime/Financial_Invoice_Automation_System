@@ -21,7 +21,7 @@ Last updated: 2026-09-25. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - **IQ draft in the manifest, checked against the image:** vendor_tax_id, invoice number, date 2025-01-05, total 4900.00, address, the one line and no adjustments match what is printed. **Do not verify it as drafted:** `currency: null` should be `"INR"` (the words on the page). The GSTIN/PAN sit under the "Details of Consignee" header in the layout and the model flagged that ambiguity; they match the vendor's Hyderabad registration (state code 36, PAN AAFCE1683D embedded in the GSTIN), but confirm on your side.
 
 ## Decisions I need from the user
-1. **Currency in words (new):** add one prompt line (v5): a currency named only in words ("Rupees", "US Dollars") is returned as its ISO code when unambiguous. Cost: every prompt change changes all recording keys, so replay needs re-recording again (about $0.14, or $0.024 if only the IQ file is re-run and the five PDFs are re-recorded later). Alternative: leave it and accept `request_info` for words-only currency. Recommendation: fix it, and let me change replay keys to ignore prompt text is NOT proposed.
+1. **Currency in words (new):** add one prompt line (v5): a currency named only in words ("Rupees", "US Dollars") is returned as its ISO code when unambiguous. Cost: every prompt change changes all recording keys, so replay needs re-recording again (about $0.14, or $0.024 if only the IQ file is re-run and the five PDFs are re-recorded later). Alternative: leave it and accept `request_info` for words-only currency. Recommendation: fix it (then re-record).
 2. **M3 decisions:** the 8 decisions are pasted in full in my reply (decision 1 is done; 2-8 are open).
 
 ## Assumptions added to SPEC section 11

@@ -1,0 +1,52 @@
+{
+ "po": {
+  "id": 1,
+  "po_number": "PO-SS-001",
+  "vendor_id": 1,
+  "vendor": "SuperStore",
+  "vendor_status": "approved",
+  "vendor_tax_id": null,
+  "currency": "USD",
+  "issued_date": "2013-02-11",
+  "status": "open"
+ },
+ "amounts": {
+  "total": "6000.00",
+  "committed": "0.00",
+  "balance": "6000.00",
+  "awaiting_review": "5338.08",
+  "over_billed": false
+ },
+ "lines": [
+  {
+   "line_no": 1,
+   "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+   "quantity": "4",
+   "unit_price": "1285.44",
+   "amount": "5141.76"
+  }
+ ],
+ "invoices": [
+  {
+   "invoice_id": 2,
+   "run_id": "68cb85e8f0d14b1ca5706ff386ee928b",
+   "historic": false,
+   "invoice_number": "10963",
+   "invoice_date": "2013-03-07",
+   "currency": "USD",
+   "total": "5338.08",
+   "decision": "review",
+   "status": "in_review",
+   "source_file": "superstore_10963.pdf",
+   "run_status": "completed",
+   "cost_usd": 0.0,
+   "started_at": "2026-09-25T22:57:24Z"
+  }
+ ],
+ "ledger": [],
+ "considered_in": [],
+ "provenance": {
+  "demo": true,
+  "built_around_invoice": "10963"
+ }
+}

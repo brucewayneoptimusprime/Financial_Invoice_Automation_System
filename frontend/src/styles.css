@@ -339,3 +339,67 @@ td.num, th.num { text-align: right; }
   .run-meta { display: none; }
   .viewer-backdrop { padding: 8px; }
 }
+
+/* ------------------------------------------------------------------ navigation + PO screens */
+.topbar { gap: 20px; }
+.nav { display: flex; gap: 4px; margin-right: auto; margin-left: 12px; }
+.nav a { color: var(--text-2); padding: 6px 10px; border-radius: 6px; font-weight: 550; }
+.nav a:hover { background: var(--surface-2); text-decoration: none; }
+.nav a.active { color: var(--accent-text); background: var(--accent-soft); }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.page-head p { margin: 6px 0 0; }
+a.btn, a.btn-ghost { text-decoration: none; display: inline-flex; align-items: center; }
+a.btn { color: #fff; }
+.filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+input, select, textarea {
+  font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px;
+  padding: 7px 10px; min-width: 0;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.filters input[type=search] { flex: 1; min-width: 200px; }
+.neg { color: var(--fail); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-value { font-size: 20px; font-weight: 650; margin-top: 4px; }
+.stat-accent .stat-value { color: var(--accent-text); } .stat-fail .stat-value { color: var(--fail); } .stat-flag .stat-value { color: var(--flag); }
+.po-detail { display: grid; gap: 20px; }
+.po-detail > .run-title, .po-detail > .stats { margin-bottom: 0; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 14px; cursor: pointer; color: var(--text-2); font-weight: 550; }
+.tab.active, .tab[aria-selected=true] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.tab:disabled { opacity: 0.5; cursor: default; }
+
+.po-form { display: grid; gap: 18px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.fld { display: grid; gap: 5px; align-content: start; }
+.fld-wide { grid-column: 1 / -1; }
+.fld-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.req, .opt { font-weight: 500; font-size: 11px; color: var(--muted); margin-left: 4px; }
+.fld.bad input, .fld.bad select, tr.bad input { border-color: var(--fail); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > select, .row > input { flex: 1; min-width: 160px; }
+.new-vendor { display: grid; gap: 6px; }
+.hint { margin: 0; font-size: 12px; color: var(--muted); }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent-text); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.issue { font-size: 12px; padding-left: 14px; position: relative; }
+.issue::before { content: ""; position: absolute; left: 3px; top: 7px; width: 6px; height: 6px; border-radius: 50%; }
+.issue-error { color: var(--fail); } .issue-error::before { background: var(--fail); }
+.issue-warning { color: var(--flag); } .issue-warning::before { background: var(--flag); }
+.mark { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); }
+.mark-model { color: var(--accent-text); font-weight: 600; }
+.mark-missing { color: var(--flag); font-style: italic; }
+.mark q { font-family: var(--mono); font-size: 11.5px; }
+.small-btn { font-size: 12px; padding: 4px 10px; justify-self: start; }
+.lines-editor .section-head { margin-bottom: 8px; }
+.line-table input { width: 100%; }
+.line-table td:nth-child(2) { min-width: 260px; }
+.line-table td:nth-child(3), .line-table td:nth-child(4), .line-table td:nth-child(5) { width: 120px; }
+.form-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 14px; }
+@media (max-width: 700px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .nav { margin-left: 0; }
+  .brand { font-size: 0; gap: 0; }
+  .page-head { flex-direction: column; }
+}

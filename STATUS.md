@@ -4,13 +4,20 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-2 of 7 done** (the "Why" fix; the PO backend without a model).
-- Next: PO stage 3 (PO frontend without a model: navigation, PO list, PO detail, the manual form).
+- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-3 of 7 done** (the "Why" fix; the PO backend; the PO screens with the manual form).
+- Next: PO stage 4 (the PO drafter: wire schema, prompt, document readers, the two draft endpoints).
 - No live calls. The first real PO drafts (text/document) are your live check after stage 7.
 
 ## Test count and result
 - Backend: **1959 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43 (`tests/po`).
-- Frontend: **33 passed** (vitest; stage 1 added 8); `tsc --noEmit` clean.
+- Frontend: **44 passed** (vitest; stage 1 added 8, stage 3 added 11); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (PO stage 3: PO screens, manual form)
+- Top navigation: Invoices | Purchase orders. Routes `/pos`, `/pos/new`, `/pos/:id`.
+- PO list: search (PO number or vendor), status filter, total and derived balance, status, matched-invoice count, how it was entered.
+- PO detail: total / committed / balance / awaiting review; matched invoices (link to each run, decision at run time, status now; historic ones marked); lines; ledger; "also considered in (not matched)"; where the PO came from (source, model, fields the person changed, typed text). Refreshes every 5 s so newly uploaded invoices appear.
+- `components/POForm.tsx`: the ONE form all three paths will use. Validates as you type (debounced `POST /api/pos/validate`, nothing saved), shows errors in red and warnings in amber per field, keeps Save disabled while an error remains, offers "use the sum of the lines" only as a button, creates a new vendor inline (stated: status new). Save sends exactly the form's values. Leaving with unsaved changes asks first. Draft markers ("from the model", confidence, evidence, source quote, "not in the source") are built in for stage 5.
+- Fixtures `po_*.json` / `vendors.json` generated from the real backend views (offline).
 
 ## What changed (PO stage 2: PO backend, no model)
 - `app/po/`: `models.py` (what the form posts), `validate.py` (deterministic blocking errors and warnings, shared by all three entry paths), `store.py` (the ONLY writer of POs: new vendor + PO + lines in one transaction), `drafts.py` (draft files and `edited_fields`), `views.py` (PO list / detail read models).

@@ -1,0 +1,18 @@
+{
+ "vendors": [
+  {
+   "id": 2,
+   "name": "Electronics Mart India Limited",
+   "status": "approved",
+   "tax_id": "36AAFCE1683D1ZT",
+   "country": "IN"
+  },
+  {
+   "id": 1,
+   "name": "SuperStore",
+   "status": "approved",
+   "tax_id": null,
+   "country": null
+  }
+ ]
+}

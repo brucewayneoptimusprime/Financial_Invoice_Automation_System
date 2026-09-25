@@ -1,0 +1,47 @@
+{
+ "po": {
+  "id": 2,
+  "po_number": "PO-SS-002",
+  "vendor_id": 1,
+  "vendor": "SuperStore",
+  "vendor_status": "approved",
+  "vendor_tax_id": null,
+  "currency": "USD",
+  "issued_date": "2013-02-12",
+  "status": "open"
+ },
+ "amounts": {
+  "total": "2500.00",
+  "committed": "0.00",
+  "balance": "2500.00",
+  "awaiting_review": "0.00",
+  "over_billed": false
+ },
+ "lines": [
+  {
+   "line_no": 1,
+   "description": "Hon Rocking Chair, Black",
+   "quantity": "4",
+   "unit_price": "461.48",
+   "amount": "1845.94"
+  }
+ ],
+ "invoices": [],
+ "ledger": [],
+ "considered_in": [
+  {
+   "run_id": "68cb85e8f0d14b1ca5706ff386ee928b",
+   "source_file": "superstore_10963.pdf",
+   "started_at": "2026-09-25T22:57:24Z",
+   "score": 0.25,
+   "decision": "review",
+   "run_status": "completed",
+   "match_status": "matched",
+   "matched_po": "PO-SS-001"
+  }
+ ],
+ "provenance": {
+  "demo": true,
+  "built_around_invoice": "24429"
+ }
+}

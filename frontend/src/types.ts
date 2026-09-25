@@ -161,3 +161,34 @@ export interface PendingView {
   run: { id: string; status: "queued" | "running" | "rejected" };
   rejection?: { code: string; message: string } | null;
 }
+
+// ---------------------------------------------------------------------------------------------- purchase orders
+
+export interface Vendor { id: number; name: string; status: "approved" | "new" | "blocked"; tax_id: string | null; country: string | null }
+
+export interface POListRow {
+  id: number; po_number: string; vendor_id: number; vendor: string; vendor_status: string; currency: string;
+  total: string; balance: string; issued_date: string | null; status: string; invoice_count: number; source: string | null;
+}
+
+export interface PODetail {
+  po: { id: number; po_number: string; vendor_id: number; vendor: string; vendor_status: string; vendor_tax_id: string | null;
+        currency: string; issued_date: string | null; status: string };
+  amounts: { total: string; committed: string; balance: string; awaiting_review: string; over_billed: boolean };
+  lines: { line_no: number; description: string | null; quantity: string | null; unit_price: string | null; amount: string | null }[];
+  invoices: { invoice_id: number; run_id: string | null; historic: boolean; invoice_number: string | null; invoice_date: string | null;
+              currency: string | null; total: string | null; decision: Decision | null; status: string; source_file: string | null;
+              run_status: string | null; cost_usd: number | null; started_at: string | null }[];
+  ledger: { id: number; type: string; amount: string; invoice_id: number; created_at: string }[];
+  considered_in: { run_id: string; source_file: string; started_at: string; score: number | null; decision: Decision | null;
+                   run_status: string; match_status: string | null; matched_po: string | null }[];
+  provenance: Record<string, unknown>;
+}
+
+export interface POLineInput { description: string; quantity: string; unit_price: string; amount: string }
+export interface NewVendorInput { name: string; tax_id: string; country: string }
+export interface POInput {
+  po_number: string; vendor_id: number | null; currency: string; total: string; issued_date: string; lines: POLineInput[];
+}
+export interface POIssue { field: string; level: "error" | "warning"; code: string; message: string }
+export interface ValidateResult { issues: POIssue[]; can_save: boolean; lines_sum: string | null }

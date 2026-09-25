@@ -1,5 +1,6 @@
 // Thin, typed wrappers over the local API. All paths are relative: Vite proxies /api to the backend.
-import type { AuditEvent, Health, PendingView, RunRow, RunView } from "./types";
+import type { AuditEvent, Health, NewVendorInput, PendingView, PODetail, POInput, POIssue, POListRow, RunRow, RunView, ValidateResult,
+              Vendor } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -71,4 +72,40 @@ export function streamRun(id: string, h: StreamHandlers): () => void {
     done = true;
     es.close();
   };
+}
+
+// ---------------------------------------------------------------------------------------------- purchase orders
+export const listVendors = () => fetch("/api/vendors").then((r) => json<{ vendors: Vendor[] }>(r));
+export const listPOs = (q = "", status = "") =>
+  fetch(`/api/pos?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}) })}`).then((r) => json<{ pos: POListRow[] }>(r));
+export const getPO = (id: number | string) => fetch(`/api/pos/${encodeURIComponent(String(id))}`).then((r) => json<PODetail>(r));
+
+// The form's values -> what the API expects (empty strings become nulls; empty lines are kept so validation can name them).
+export function poPayload(po: POInput, newVendor: NewVendorInput | null) {
+  const nz = (s: string) => (s.trim() === "" ? null : s.trim());
+  return {
+    po: { po_number: nz(po.po_number), vendor_id: newVendor ? null : po.vendor_id, currency: nz(po.currency.toUpperCase()),
+          total: nz(po.total), issued_date: nz(po.issued_date),
+          lines: po.lines.map((l) => ({ description: nz(l.description), quantity: nz(l.quantity), unit_price: nz(l.unit_price), amount: nz(l.amount) })) },
+    new_vendor: newVendor ? { name: newVendor.name.trim(), tax_id: nz(newVendor.tax_id), country: nz(newVendor.country) } : null,
+  };
+}
+
+const post = (url: string, body: unknown) =>
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+export const validatePO = (po: POInput, nv: NewVendorInput | null) =>
+  post("/api/pos/validate", poPayload(po, nv)).then((r) => json<ValidateResult>(r));
+
+export class SaveRefused extends Error {
+  constructor(public status: number, message: string, public issues: POIssue[]) { super(message); }
+}
+
+// Save: the ONLY call that creates a purchase order. It sends what is on the form (plus the draft id, for provenance).
+export async function savePO(po: POInput, nv: NewVendorInput | null, draftId: string | null) {
+  const r = await post("/api/pos", { ...poPayload(po, nv), draft_id: draftId });
+  if (r.status === 201) return (await r.json()) as { po_id: number; vendor_id: number; warnings: POIssue[] };
+  let body: { message?: string; issues?: POIssue[]; detail?: unknown } = {};
+  try { body = await r.json(); } catch { /* not JSON */ }
+  throw new SaveRefused(r.status, body.message ?? `The server answered ${r.status}.`, body.issues ?? []);
 }

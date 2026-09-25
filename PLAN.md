@@ -364,7 +364,7 @@ Edge rules: an approve is re-verified inside the transaction (PO balance re-read
 
 ---
 
-# M4 plan: API and live run view (2026-09-25, awaiting owner approval; no M4 code exists)
+# M4 plan: API and live run view (2026-09-25; all 7 decisions approved as recommended; build stages 1-5, then stop)
 
 **Goal.** Someone drops an invoice into the browser, watches each pipeline stage appear as it runs (status, key outputs, timing, expandable detail), and ends on a result view: the decision, the explanation, extracted fields with page and source text, every rule with its numbers, and what was written. Everything the view shows comes from `audit_events` and the other SQLite tables (SPEC section 1: "a live run view ... read[s] from that log"). A page refresh or a server restart therefore replays a run exactly. The pipeline logic is reused unchanged apart from the two small runner changes in section 2.
 

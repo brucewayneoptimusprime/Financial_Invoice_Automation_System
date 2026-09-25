@@ -88,14 +88,16 @@ def test_the_audit_trail_is_complete_ordered_and_gapless(db, tmp_path):
     assert [e["seq"] for e in ev] == list(range(len(ev)))
     order = []
     for e in ev:
+        if e["event_type"] in ("stage_started", "stage_completed"):     # timing events (M4); checked in test_stage_events.py
+            continue
         if not order or order[-1] != e["stage"]:
             order.append(e["stage"])
-    assert order == ["ingest", "pipeline", "extract", "match", "validate", "decide", "explain", "act", "pipeline"]
+    assert order == ["pipeline", "ingest", "extract", "match", "validate", "decide", "explain", "act", "pipeline"]
     kinds = [e["event_type"] for e in ev]
     assert kinds.count("rule_evaluated") == 13 and kinds.count("engine_floor") == 2 and kinds.count("severity_aggregated") == 1
     assert kinds.index("run_started") < kinds.index("llm_call") < kinds.index("vendor_resolved") < kinds.index("decision_made") \
         < kinds.index("explanation") < kinds.index("invoice_saved") < kinds.index("review_queued") < kinds.index("run_completed")
-    assert kinds[-1] == "run_completed" and 30 <= len(ev) <= 60
+    assert kinds[-1] == "run_completed" and 44 <= len(ev) <= 74
     last = json.loads(ev[-1]["detail"])
     assert last["decision"] == "review" and last["tokens_in"] == 6800
 

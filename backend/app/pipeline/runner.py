@@ -13,9 +13,11 @@ Order of safety:
 """
 import logging
 import sqlite3
+from collections import Counter
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
+from time import perf_counter
 from typing import Callable
 
 from app.config import Settings, get_settings
@@ -25,7 +27,7 @@ from app.engine.matching import run_match_stage
 from app.enums import Decision, Outcome
 from app.extraction.stage import run_extract_stage
 from app.ingest.stage import run_ingest_stage
-from app.ingest.store import new_run_id
+from app.ingest.store import check_run_id, new_run_id
 from app.llm.client import build_llm_client
 from app.llm.errors import LLMConfigError
 from app.llm.types import LLMClient
@@ -38,6 +40,8 @@ from app.pipeline.digest import TrailDigest, build_digest
 from app.pipeline.draft import Draft, draft_for
 from app.pipeline.explain import Explanation, explain, template_explanation
 from app.pipeline.persist import AuditWriter, transaction
+from app.pipeline.summary import (completed_event, started_event, summarize_act, summarize_decide, summarize_explain,
+                                  summarize_extract, summarize_ingest, summarize_match, summarize_validate)
 
 logger = logging.getLogger("app.pipeline")
 PIPELINE_STAGE = "pipeline"
@@ -89,12 +93,22 @@ def _explanation_event(e: Explanation) -> AuditEvent:
                    "cost_usd": e.cost_usd})
 
 
+def _elapsed_ms(started: float) -> int:
+    return int((perf_counter() - started) * 1000)
+
+
 def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | None = None, settings: Settings | None = None,
                  explain_fn: ExplainFn = explain, draft_fn: DraftFn = draft_for,
-                 on_stage: Callable[[str, StageResult | None], None] | None = None) -> PipelineResult:
-    """Run one file. Raises IngestRejected / ValueError only for a file that is not accepted at all (no run is created)."""
+                 on_stage: Callable[[str, StageResult | None], None] | None = None, run_id: str | None = None,
+                 source_name: str | None = None) -> PipelineResult:
+    """Run one file. Raises IngestRejected / ValueError only for a file that is not accepted at all (no run is created).
+
+    `run_id` lets a caller (the API) choose the id before the run starts; `source_name` is the name to record when `path` is a
+    temporary upload copy. Every stage is bracketed by `stage_started` (committed before the stage runs) and `stage_completed`
+    (duration and a whitelisted summary) events; ingest's pair is written after it, since no run exists until ingest accepts the file.
+    """
     settings = settings or get_settings()
-    ctx = RunContext(run_id=new_run_id(), source_file=Path(path).name)
+    ctx = RunContext(run_id=new_run_id() if run_id is None else check_run_id(run_id), source_file=source_name or Path(path).name)
     result = PipelineResult(run_id=ctx.run_id, status="running", ctx=ctx)
     notify = on_stage or (lambda name, stage: None)
 
@@ -104,36 +118,57 @@ def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | No
         except LLMConfigError:
             client = None                                                 # extraction degrades with a clear message; the template is used
 
+    ingest_started = perf_counter()
     ingest = run_ingest_stage(ctx, Path(path), settings)                 # may raise: nothing has been written to the database
+    ingest_ms = _elapsed_ms(ingest_started)
     result.stages["ingest"] = ingest
     with transaction(conn):
         persist.start_run(conn, ctx.run_id, ctx.source_file)
     writer = AuditWriter(conn, ctx.run_id)
 
-    def persist_stage(name: str, stage: StageResult, *extra: AuditEvent) -> None:
+    def begin(name: str) -> float:
+        with transaction(conn):                                           # committed first, so a live view can show "running"
+            writer.write([started_event(name)])
+        return perf_counter()
+
+    def persist_stage(name: str, stage: StageResult, duration_ms: int, summary: dict, *before: AuditEvent) -> None:
         result.stages[name] = stage
         with transaction(conn):
-            writer.write([*stage.events, *extra])
+            writer.write([*before, *stage.events, completed_event(name, stage.status.value, duration_ms, summary)])
         notify(name, stage)
 
     try:
-        persist_stage("ingest", ingest, _event(PIPELINE_STAGE, "run_started", Outcome.INFO, f"Run started for {ctx.source_file}.",
-                                                {"source_file": ctx.source_file, "file_hash": ctx.file_hash}))
+        persist_stage("ingest", ingest, ingest_ms, summarize_ingest(ctx),
+                      _event(PIPELINE_STAGE, "run_started", Outcome.INFO, f"Run started for {ctx.source_file}.",
+                             {"source_file": ctx.source_file, "file_hash": ctx.file_hash}),
+                      started_event("ingest"))
+        t = begin("extract")
         extract = run_extract_stage(ctx, client, settings)
-        persist_stage("extract", extract)
+        persist_stage("extract", extract, _elapsed_ms(t), summarize_extract(ctx))
         meta = ctx.extraction_meta
         result.stage_costs["extract"] = meta.cost_usd
+        t = begin("match")
         ctx.facts = load_facts(conn, ctx.run_id)
-        persist_stage("match", run_match_stage(ctx))
+        match = run_match_stage(ctx)
+        persist_stage("match", match, _elapsed_ms(t), summarize_match(ctx))
+        t = begin("validate")
         rules = load_rules(conn)
-        persist_stage("validate", run_validate_stage(ctx, rules))
-        persist_stage("decide", run_decide_stage(ctx))
+        validate = run_validate_stage(ctx, rules)
+        persist_stage("validate", validate, _elapsed_ms(t), summarize_validate(ctx))
+        t = begin("decide")
+        decide = run_decide_stage(ctx)
+        persist_stage("decide", decide, _elapsed_ms(t), summarize_decide(decide))
         decision = ctx.decision
+        t = begin("explain")
         digest = build_digest(ctx, settings, {r.id: r.name for r in rules})
         explanation = explain_fn(digest, ctx=ctx, client=client, settings=settings, run_id=ctx.run_id)
+        with transaction(conn):                                           # the explanation text itself is written by the act stage
+            writer.write([completed_event("explain", "ok", _elapsed_ms(t), summarize_explain(
+                explanation.source, explanation.model, explanation.fallback_reason, explanation.attempts, explanation.cost_usd))])
+        t = begin("act")
         draft = (draft_fn(digest, settings, ctx=ctx, client=client, run_id=ctx.run_id)
                  if decision in (Decision.REQUEST_INFO, Decision.REJECT) else None)
-        _act(conn, writer, ctx, settings, result, digest, explanation, draft)
+        _act(conn, writer, ctx, settings, result, digest, explanation, draft, act_started=t)
     except Exception as exc:                                              # noqa: BLE001 - the run must end up recorded as failed
         logger.exception("pipeline failed run=%s", ctx.run_id)
         _record_failure(conn, ctx.run_id, exc, result)
@@ -151,7 +186,7 @@ def _totals(result: PipelineResult, explanation: Explanation | None, draft: Draf
 
 
 def _act(conn: sqlite3.Connection, writer: AuditWriter, ctx: RunContext, settings: Settings, result: PipelineResult, digest: TrailDigest,
-         explanation: Explanation, draft: Draft | None) -> None:
+         explanation: Explanation, draft: Draft | None, act_started: float | None = None) -> None:
     decision = digest.decision
     writes: list[WriteRecord] = []
     with transaction(conn, immediate=True):
@@ -225,7 +260,15 @@ def _act(conn: sqlite3.Connection, writer: AuditWriter, ctx: RunContext, setting
                                   "fallback_reason": draft.fallback_reason, "requested": list(draft.requested), "tokens_in": draft.tokens_in,
                                   "tokens_out": draft.tokens_out, "cost_usd": draft.cost_usd})])
 
-        # 5. Close the run in the same transaction.
+        # 5. Close the stage and the run in the same transaction.
+        tables = Counter(w.table for w in writes)
+        if saved.lines:
+            tables["invoice_lines"] = saved.lines
+        saved_draft = draft if (plan.draft and draft is not None) else None
+        writer.write([completed_event("act", "flagged" if withheld is not None else "ok",
+                                      0 if act_started is None else _elapsed_ms(act_started),
+                                      summarize_act(decision.value, dict(tables), withheld is not None,
+                                                    None if saved_draft is None else saved_draft.kind))])
         t_in, t_out, cost = _totals(result, explanation, draft)
         writer.write([_event(PIPELINE_STAGE, "run_completed", Outcome.INFO, f"Run completed: {decision.value}.",
                              {"decision": decision.value, "tokens_in": t_in, "tokens_out": t_out, "cost_usd": cost})])

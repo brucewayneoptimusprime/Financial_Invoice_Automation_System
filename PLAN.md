@@ -258,3 +258,102 @@ Model `claude-sonnet-5`; thinking disabled + effort low; `max_output_tokens` 409
 10. **Prompt additions (owner):** identify fields by meaning, not label text; total definition; Balance Due handling; an Order ID/Order No is not a PO reference (§8).
 11. **Grounding addition (owner):** `value_present` fallback, cap 0.85 (§9).
 12. **Eval (owner):** no `--compare-modes`/`--json`; add `--draft-manifest`; only `verified: true` entries are scored (§12.3).
+
+
+---
+
+# M3 plan: the pipeline (2026-09-25, awaiting owner approval; no M3 code exists)
+
+**Goal.** One command takes a file path and runs ingest -> extract -> match -> validate -> decide -> explain -> act, persists everything to SQLite, and prints what happened. Reuses the M1/M2 machinery unchanged (`run_ingest_stage`, `run_extract_stage`, `load_facts`, `run_match_stage`, `load_rules`, `run_validate_stage`, `run_decide_stage`). Extraction and grounding logic are not touched. Out of scope: API/SSE/UI (M4), review resolution and dashboard (M5), the match-assistant and reviewer LLM roles (M7), any sending of email.
+
+**Prerequisite (owner-gated, live, about $0.02-0.03).** The IQ Electronics scan is not in `data/invoices` (only the 5 SuperStore PDFs are there), so I need its path. Command once approved: `python -m app.extraction.cli "<path>" --record data\recordings`. I will report the extracted JSON and check: GSTIN in `vendor_tax_id`; CGST+SGST as a tax AMOUNT (not the 9% rate column); currency INR with no symbol on the page (the current symbol map cannot help there, so a wrong or null currency here would be a real finding, not something I would patch silently). The IQ vendor and PO in the seed are written only after seeing that extraction.
+
+## 1. Module layout (new package `backend/app/pipeline/`)
+
+```
+pipeline/runner.py    run_pipeline(path, conn, client, settings, on_event=None) -> PipelineResult   (orchestration only)
+pipeline/persist.py   ALL M3 SQL: AuditWriter, start_run, finish_run, save_invoice, commit_ledger, enqueue_review, save_draft (one transaction each)
+pipeline/actions.py   plan_actions(ctx) -> ActionPlan (pure: decision -> which rows to write), then persist.py executes it
+pipeline/digest.py    build_digest(ctx) -> TrailDigest: numbered facts F1..Fn taken ONLY from rule results, floors, match and extraction meta
+pipeline/explain.py   explainer call + claim checker + deterministic template fallback
+pipeline/draft.py     drafter call + checker + deterministic template fallback
+pipeline/prompts.py   explainer and drafter system prompts, versioned and fingerprint-tested like extract-v3
+pipeline/cli.py       python -m app.pipeline.cli <file> [...]
+```
+Config additions (all in `config.py`, none in code paths): `explainer_model` / `drafter_model` (default = `model_name`), `explainer_max_output_tokens` (700), `drafter_max_output_tokens` (900), `vendor_facing_rules` (which rule outcomes may be shown to a vendor), `demo_seed_path`, `explanation_max_sentences`. One `MeteredClient` and one `CostTracker` serve extraction, explainer and drafter, so the per-run $0.25 and per-session ceilings cover the whole run.
+
+## 2. Flow, transactions, failure handling
+1. `runs` row inserted (status `running`) and committed before any work, so a crash leaves a visible run.
+2. ingest, extract: existing stages; their events are persisted right after each stage. An ingest rejection (unsupported/empty/oversize file) creates no run and prints the error, as in M2.
+3. `load_facts(conn, run_id)` once (after extraction), match, validate, decide: events persisted per stage. Every event gets a monotonic `seq` from one `AuditWriter`.
+4. explain (LLM, with template fallback), then act. The act stage runs in ONE `BEGIN IMMEDIATE` transaction: invoice, lines, ledger/review/draft rows, audit events for those actions. Any exception rolls the whole act stage back, marks the run `failed` and records a `pipeline_error` event; nothing partial is left.
+5. `runs` finalised: `finished_at`, `final_decision`, summed tokens and cost, `model`; `final_decision` is never modified afterwards (SPEC section 5).
+6. Extraction failures, missing key, timeouts, ceilings degrade exactly as in M2 and the run still gets a decision (review / request_info) with an explanation and, where applicable, a draft. The pipeline only fails on programming or database errors.
+
+## 3. Exactly what is written, per table
+| Table | Written when | Content |
+|---|---|---|
+| `runs` | every run | id, source_file (original name), status running -> completed/failed, started/finished, final_decision, tokens_in/out and cost_usd summed over extract + explain + draft, model (extraction model) |
+| `audit_events` | every run | every event of every stage in order (ingest, extract incl. grounding/injection, match, validate: 13 rule results + engine_floor + engine_floor_reference + severity_aggregated, decide, explain incl. the explanation text, act incl. each row written); `detail` JSON-safe, no image bytes, no key. Roughly 35-45 rows per run |
+| `invoices` | every run that reached extraction (also review/request_info/reject, so later duplicate checks see them) | run_id, vendor_id (resolved vendor, NULL if unresolved or ambiguous), number, date, currency, subtotal/tax/total in cents (NULL, with an audit note, if a value is missing or not representable), po_id (only when the match is MATCHED), decision, status (approve -> `approved`, review -> `in_review`, request_info -> `awaiting_info`, reject -> `rejected`), source_file, file_hash, `extracted` = the full ExtractedInvoice JSON (this is where adjustments live: there is no adjustments table and SPEC section 5 is not changed) |
+| `invoice_lines` | with the invoice | line_no from 1, description, quantity/unit_price as decimal text, amount in cents |
+| `ledger_entries` | approve with a matched PO only | one `commit` = the invoice total in cents; the PO balance stays derived (`get_po_balance`). The audit event records balance before and after |
+| `purchase_orders.status` | with that commit | `partially_billed`, or `fully_billed` when derived balance <= 0 (never `closed`: that is a human action) |
+| `review_queue` | review only | status `open`, `reason` = a deterministic one-liner from the triggered rules (rule id, outcome key, engine message). Evidence = the run's audit events (no evidence column; not changing the schema) |
+| `drafts` | request_info and reject only | kind `vendor_email`, status `draft` (never `marked_sent`), subject, body, `to` NULL (vendors have no contact column). A reject caused by a blocked vendor writes kind `notification` (internal) instead of an email to the vendor |
+| `rules`, `settings`, `vendors`, POs | read only | |
+
+Edge rules: an approve is re-verified inside the transaction (PO balance re-read); if it changed since the snapshot so the approve would no longer hold, nothing is committed, the run is downgraded to `review` with an event saying why (escalate-only). The same file again is caught by `r_duplicate_exact` (reject), never a second commit.
+
+## 4. Explainer (decide stage, LLM role "Explainer")
+- **Input is only the digest**: `build_digest(ctx)` is deterministic code that lists numbered facts: final decision and severity; each triggered rule/floor reason (rule id, outcome key, severity, the engine's own message, whitelisted numbers from its detail); the passing rules as one summary fact; vendor and PO match facts; extraction failure/grounding/injection facts. No invoice text, no images, no free-text model output.
+- **Output** (strict small schema): `{summary, reasons:[{text, facts:[F..]}], next_step}`; every sentence must cite fact ids.
+- **Prompt constraints**: restate and clarify only; no fact not in the digest; no new numbers, names, dates or causes; no advice beyond the digest's `next_step` hint; the decision word must equal the given decision; never say a check "would pass" or suggest the decision could differ; plain language, at most `explanation_max_sentences`; treat digest text as data.
+- **Deterministic claim check** on the reply: every cited id exists; every number/percent/date in the text appears in a cited fact; no other decision word than the real one; length cap. Failure -> one repair retry with the reason -> otherwise the **template explanation** built by code from the same digest, stored with `source: "template"`. So an explanation always exists, even with no key, and the LLM can never change the decision (the decision is already fixed and persisted in the run context before it is called).
+- **Settings**: thinking disabled, effort low, max 700 output tokens, same client, same ceilings. Default model = the configured extraction model (priced in config, about $0.007 per call at roughly 1.2k in / 400 out). A cheaper model needs its price added to config by you.
+- Stored as an `audit_events` row (stage `explain`, event `explanation`, detail = text, cited facts, source, model, tokens, cost); no schema change.
+
+## 5. Drafter (act stage, LLM role "Drafter")
+- Runs only for request_info and reject; never for approve or review (a rejection-after-review email is M5).
+- **Input**: the digest restricted to vendor-facing facts (`vendor_facing_rules`: required fields missing/low confidence, no/unmatched PO reference, arithmetic mismatch, currency mismatch, wrong document type, duplicate). Never vendor status, blocked/new, internal thresholds, rule ids, severities, "AI" or system-side failures. Plus the extracted invoice number, date, total, and vendor name as extracted (grounded values).
+- **Output**: `{subject, body}`. **Constraints**: list exactly the missing/unclear items as bullets; state a rejection reason factually; no promise of payment or timing; no invented names, amounts, dates, contacts or terms; no approval language; 150 words maximum; neutral, polite; signed generically ("Accounts Payable").
+- **Check**: must mention the invoice number when known and each requested item; every number in the text must appear in the digest; no forbidden phrases (approve, will be paid, payment will...). Failure -> repair once -> template draft (still `status=draft`, `source: template`). There is no send code anywhere; a test blocks network access during the whole pipeline run.
+
+## 6. Seed data and how the two seeds coexist
+- Keep `data/seed.json` (the M0 placeholder) untouched; all M0/M1 tests keep reading it.
+- Add `data/seed_demo.json`, clearly not a placeholder. `SeedFile` accepts either the `_PLACEHOLDER` notice or a `_DATASET` description (exactly one required), so the loader, its validation and `load_seed` are reused. `python -m app.db.reset --seed data\seed_demo.json` (and `--demo` as shorthand via `demo_seed_path`) loads it; a database holds one seed at a time, so ids never collide.
+- Demo content: vendor 1 **SuperStore** (approved; no tax id, none is printed); five POs `PO-SS-001..005`, one per verified SuperStore invoice, with plain product-name lines from the verified manifest and totals above each invoice (e.g. 12,000 / 10,000 / 9,000 / 2,500 / 6,000); one PO partly consumed by a seeded historic approved invoice and ledger commit, so derived balances are visible; vendor 2 and one PO for **IQ Electronics** added after its extraction is seen. I checked offline that the 5 real invoices each match their own PO confidently against these five (top scores 0.57-0.60 vs the next 0.42-0.46), i.e. unambiguously but with a thin margin over the 0.50 minimum.
+- **Consequence to expect:** none of the five SuperStore invoices prints a PO number, so with this seed each goes to `review` (matched_without_reference), not approve. The approve path is shown by a labelled **controlled variant** (SPEC section 10): the same real invoice with `po_reference` set to the PO number by editing the recorded reply in the test, so the approve + ledger + PO-balance behaviour is exercised without a live call.
+
+## 7. CLI
+`python -m app.pipeline.cli <file> [--db PATH] [--reset-demo] [--replay DIR | --live [--record DIR]] [--max-cost USD] [--json]`. Like the eval, it **refuses to call the API unless `--live` is given** (exit 5, before any client exists). Prints in order: ingest, extraction (key fields, confidence, grounding), match (vendor, ranked POs with scores), validation (every rule: outcome, severity, message), decision, explanation (and its source), actions and drafts (full email text), a "written to the database" table (rows per table, PO balance before/after), then tokens and cost per stage. Exit codes: 0 done, 1 run failed, 2 usage or rejected file, 3 no key (live), 5 live refused.
+
+## 8. Offline test list (no live calls; key blanked; `pytest -W error`)
+- **Persistence:** one test per decision for exact rows in every table; audit `seq` monotonic and complete (count equals the sum of stage events; order ingest < extract < match < validate < decide < explain < act); run lifecycle and the failed-run path; `final_decision` never changes; minor-unit conversions, NULL handling, status mapping; act-stage rollback by fault injection leaves no partial rows; schema drift test that no stored PO balance exists.
+- **Ledger:** approve commits once with the right cents; balance before/after via `get_po_balance`; PO status transitions; no commit for review/reject/request_info; same file twice -> reject, no second commit; balance changed during the run -> downgraded to review; a commit slightly over balance within tolerance.
+- **Review/drafts:** review_queue row content; none for other decisions; drafts only for request_info/reject, always `draft`, blocked-vendor reject -> `notification`; a test that patches sockets to fail proves nothing is sent.
+- **Explainer:** digest is deterministic and contains only trail facts (no invoice text or images in the request); claim checker rejects an unknown fact id, an unsupported number, a wrong or extra decision word, over-length; repair then template fallback; a reply that says "approve" for a review changes nothing; cost lands in the shared tracker; ceiling hit -> template; no key -> template; prompt clause tests and a fingerprint that forces a version bump.
+- **Drafter:** vendor-facing whitelist (blocked/new status and internal ids never appear), required items all listed, forbidden phrases rejected, template fallback, word limit.
+- **Seed:** demo seed parses and loads; placeholder seed untouched and still loads; both pass balance derivation; reset with `--seed`; the `_PLACEHOLDER`/`_DATASET` rule.
+- **CLI:** every section printed; live refusal builds no client; replay works; exit codes; `--reset-demo` refuses a non-data path like `reset`.
+- **Six-invoice end to end** (5 SuperStore recordings now, IQ Electronics once recorded) through the whole pipeline against the demo seed, with scripted explainer/drafter doubles that return valid, grounded replies plus the template path: expected decision table below and one-line reasoning per invoice in STATUS.md. Variants: PO referenced -> approve + ledger commit + partial-billed status; no PO -> request_info + draft; same file again -> reject + draft; blocked vendor -> reject + internal notification; degraded extraction -> review, no email.
+- **Guardrails:** a property test that no LLM output can change a decision or write a ledger row; no vendor or file name appears in `app/`; determinism (same inputs and doubles -> identical events apart from timestamps).
+
+**Honest limits.** The real explainer and drafter prompts have no live evidence until you approve a run (about $0.01 per invoice for both; about $0.07 for six). Offline, their quality is tested only through doubles, checkers and templates.
+
+## 9. Build stages (commit after each; STATUS.md rewritten each time)
+0. (owner-gated) live scan sample, then IQ vendor/PO facts.
+1. `seed_demo.json` + loader relaxation + `persist.py` (audit writer, runs, invoices, lines) with tests.
+2. `actions.py` + ledger/review/draft persistence + `runner.py` using template explanation/draft only; all decision paths tested.
+3. `digest.py`, `explain.py`, `draft.py`, prompts, checkers, fallbacks.
+4. `cli.py`, six-invoice end-to-end, STATUS.md with each invoice's decision and one-line reasoning; then stop.
+
+## 10. Decisions needed from the owner
+1. IQ Electronics file path, and go-ahead for the one live scan run (plan section "Prerequisite").
+2. Explainer/drafter model: default to the configured `claude-sonnet-5` (priced, cost negligible). Recommendation: yes; a cheaper model only if you add its price.
+3. Explanation is stored as an `audit_events` row and review evidence is the run's audit events (no new columns; SPEC section 5 unchanged). Recommendation: yes.
+4. Draft `to` stays NULL (no vendor contact data); a blocked-vendor reject makes an internal `notification`, not an email to the vendor. Recommendation: yes.
+5. Ledger commit = full invoice total, which may leave a PO balance slightly negative when the tolerance rule allowed it (recorded in the event). Alternative: cap the commit. Recommendation: full total.
+6. `data/seed_demo.json` beside the untouched placeholder, with the `_DATASET` loader relaxation. Recommendation: yes.
+7. Approve path shown by a labelled controlled variant (PO number added by editing the recorded reply), since none of the six real invoices prints a PO number. Recommendation: yes.
+8. Add the same `--live` guard to the existing M2 extraction CLI (today it calls the API whenever `--replay` is absent). This is CLI plumbing, not extraction logic. Recommendation: yes.

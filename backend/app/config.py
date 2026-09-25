@@ -225,7 +225,8 @@ class Settings(BaseSettings):
 
     # Paths
     db_path: Path = ROOT_DIR / "data" / "app.db"
-    seed_path: Path = ROOT_DIR / "data" / "seed.json"
+    seed_path: Path = ROOT_DIR / "data" / "seed.json"                 # the M0 placeholder seed (used by the M0/M1 tests)
+    demo_seed_path: Path = ROOT_DIR / "data" / "seed_demo.json"       # the M3 demo dataset (hand-written, built around the samples)
 
     @field_validator("decision_severity")
     @classmethod

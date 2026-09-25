@@ -1,0 +1,191 @@
+{
+  "_DATASET": "DEMO DATASET (M3), hand-written around the verified sample invoices in data/invoices: five SuperStore invoices and one scanned IQ / Electronics Mart India invoice. Vendors, POs, one partly consumed PO and one historic invoice are invented for the demo; PO lines carry the invoices' full printed line text. This is NOT the M0 placeholder seed (data/seed.json), which stays untouched for tests.",
+  "vendors": [
+    {
+      "id": 1,
+      "name": "SuperStore",
+      "aliases": [
+        "Super Store"
+      ],
+      "tax_id": null,
+      "country": null,
+      "status": "approved",
+      "created_at": "2013-01-01T00:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Electronics Mart India Limited",
+      "aliases": [
+        "IQ",
+        "IQ (A unit of Electronics Mart India Ltd.)"
+      ],
+      "tax_id": "36AAFCE1683D1ZT",
+      "country": "IN",
+      "status": "approved",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "purchase_orders": [
+    {
+      "id": 1,
+      "po_number": "PO-SS-001",
+      "vendor_id": 1,
+      "currency": "USD",
+      "total_amount": 6000.0,
+      "issued_date": "2013-02-11",
+      "status": "open",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "10963"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+          "quantity": 4.0,
+          "unit_price": 1285.44,
+          "amount": 5141.76
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "po_number": "PO-SS-002",
+      "vendor_id": 1,
+      "currency": "USD",
+      "total_amount": 2500.0,
+      "issued_date": "2013-02-12",
+      "status": "open",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "24429"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "Hon Rocking Chair, Black",
+          "quantity": 4.0,
+          "unit_price": 461.48,
+          "amount": 1845.94
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "po_number": "PO-SS-003",
+      "vendor_id": 1,
+      "currency": "USD",
+      "total_amount": 12000.0,
+      "issued_date": "2013-02-13",
+      "status": "open",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "14021"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "Canon Wireless Fax, Laser - Copiers, Technology, TEC-CO-3710",
+          "quantity": 5.0,
+          "unit_price": 1893.3,
+          "amount": 9466.5
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "po_number": "PO-SS-004",
+      "vendor_id": 1,
+      "currency": "USD",
+      "total_amount": 10000.0,
+      "issued_date": "2013-02-14",
+      "status": "open",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "6459"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "KitchenAid Stove, Silver (Appliances, Office Supplies)",
+          "quantity": 5.0,
+          "unit_price": 1903.0,
+          "amount": 9515.0
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "po_number": "PO-SS-005",
+      "vendor_id": 1,
+      "currency": "USD",
+      "total_amount": 9000.0,
+      "issued_date": "2013-02-15",
+      "status": "partially_billed",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "14130"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "Safco 3-Shelf Cabinet, Mobile - Bookcases, Furniture, FUR-BO-5746",
+          "quantity": 7.0,
+          "unit_price": 1079.57,
+          "amount": 7556.98
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "po_number": "PO-IQ-2025-001",
+      "vendor_id": 2,
+      "currency": "INR",
+      "total_amount": 5000.0,
+      "issued_date": "2025-01-02",
+      "status": "open",
+      "meta": {
+        "demo": true,
+        "built_around_invoice": "1801/24/S-3641"
+      },
+      "lines": [
+        {
+          "line_no": 1,
+          "description": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z",
+          "quantity": 1,
+          "unit_price": 4900.0,
+          "amount": 4900.0
+        }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "vendor_id": 1,
+      "invoice_number": "HIST-SS-0001",
+      "invoice_date": "2013-02-20",
+      "currency": "USD",
+      "subtotal": 1500.0,
+      "tax": 0.0,
+      "total": 1500.0,
+      "po_id": 5,
+      "decision": "approve",
+      "status": "approved",
+      "source_file": "demo/historic-invoice-0001.pdf",
+      "file_hash": "demo-historic-hash-0001",
+      "created_at": "2013-02-20T09:00:00Z",
+      "lines": []
+    }
+  ],
+  "ledger_entries": [
+    {
+      "id": 1,
+      "po_id": 5,
+      "invoice_id": 1,
+      "amount": 1500.0,
+      "type": "commit",
+      "created_at": "2013-02-20T09:00:01Z"
+    }
+  ]
+}

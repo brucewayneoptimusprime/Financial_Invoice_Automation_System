@@ -11,7 +11,7 @@ from datetime import date, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.config import get_settings
 from app.enums import Decision, InvoiceStatus, LedgerType, POStatus, VendorStatus
@@ -82,11 +82,29 @@ class SeedLedgerEntry(_Strict):
 
 
 class SeedFile(_Strict):
-    placeholder_notice: str = Field(alias="_PLACEHOLDER", min_length=1)
+    """A seed is EITHER the M0 placeholder (`_PLACEHOLDER` notice: not real, only for schema tests) OR a demo dataset
+    (`_DATASET` description: hand-written data built around the real sample invoices). Exactly one of the two."""
+
+    placeholder_notice: str | None = Field(default=None, alias="_PLACEHOLDER", min_length=1)
+    dataset_notice: str | None = Field(default=None, alias="_DATASET", min_length=1)
     vendors: list[SeedVendor] = Field(default_factory=list)
     purchase_orders: list[SeedPO] = Field(default_factory=list)
     invoices: list[SeedInvoice] = Field(default_factory=list)
     ledger_entries: list[SeedLedgerEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _exactly_one_notice(self) -> "SeedFile":
+        if (self.placeholder_notice is None) == (self.dataset_notice is None):
+            raise ValueError("a seed file needs exactly one of _PLACEHOLDER (placeholder data) or _DATASET (demo data)")
+        return self
+
+    @property
+    def kind(self) -> str:
+        return "placeholder" if self.placeholder_notice is not None else "demo"
+
+    @property
+    def notice(self) -> str:
+        return self.placeholder_notice or self.dataset_notice or ""
 
 
 def _minor(value: Decimal | None) -> int | None:
@@ -109,7 +127,7 @@ def load_seed(conn: sqlite3.Connection, path: Path | None = None) -> SeedFile:
     """Insert the seed file into an empty, initialised DB. All-or-nothing."""
     path = Path(path) if path is not None else get_settings().seed_path
     seed = parse_seed(path)
-    logger.warning("Loading seed %s - %s", path.name, seed.placeholder_notice)
+    (logger.warning if seed.kind == "placeholder" else logger.info)("Loading %s seed %s - %s", seed.kind, path.name, seed.notice)
 
     with conn:
         for v in seed.vendors:

@@ -58,8 +58,13 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Reset the database to the seed state.")
     parser.add_argument("--db", type=Path, default=None, help="database path (default from config)")
-    parser.add_argument("--seed", type=Path, default=None, help="seed file (default from config)")
+    parser.add_argument("--seed", type=Path, default=None, help="seed file (default from config: the M0 placeholder seed)")
+    parser.add_argument("--demo", action="store_true", help="use the demo dataset (data/seed_demo.json) instead of the placeholder")
     args = parser.parse_args()
+    if args.demo and args.seed is not None:
+        parser.error("--demo and --seed are mutually exclusive")
+    if args.demo:
+        args.seed = get_settings().demo_seed_path
     reset_database(args.db, args.seed)
     print(f"Database reset to seed state: {args.db or get_settings().db_path}")
 

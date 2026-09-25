@@ -40,7 +40,8 @@ def health(request: Request) -> dict:
             "session_ceiling_usd": str(st.settings.cost_ceiling_per_session_usd),
             "run_ceiling_usd": str(st.settings.cost_ceiling_per_run_usd),
             "db_path": str(st.db_path), "replay_dir": None if st.replay_dir is None else str(st.replay_dir),
-            "queue_length": st.worker.queue_length, "max_file_bytes": st.settings.max_file_bytes}
+            "queue_length": st.worker.queue_length, "max_file_bytes": st.settings.max_file_bytes,
+            "max_files_per_upload": st.settings.ui_max_files_per_upload}
 
 
 @router.post("/runs", status_code=202)

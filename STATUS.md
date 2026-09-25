@@ -4,13 +4,25 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-5 of 7 done** (the "Why" fix; PO backend; PO screens + manual form; PO drafter; text and document tabs).
-- Next: PO stage 6 (multi-invoice upload, and upload from the PO detail page).
-- No live calls. The first real PO drafts (text/document) are your live check after stage 7.
+- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-6 of 7 done. Stopped at stage 7: your manual browser check** (see "How to check it" below). Nothing past stage 7 is started.
+- No live calls were made. The first real PO drafts (text/document) are your own live check.
 
 ## Test count and result
-- Backend: **2009 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43, stage 4 added 50.
-- Frontend: **50 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6); `tsc --noEmit` clean; `vite build` OK.
+- Backend: **2009 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43, stage 4 added 50 (stage 6 extended one assertion).
+- Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## How to check it (PO stage 7, yours)
+Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; pip install openpyxl; cd backend; python -m app.api.serve --replay ..\dataecordings --reset-demo` (use `--live` instead for real PO drafts). Window 2: `cd C:\Zamp_ai_Automationrontend; npm run dev`. Open http://localhost:5173.
+- **Why fix:** open any invoice result; the "Why" bullets are plain sentences, "Technical details" shows the ids; the review-queue item too.
+- **Purchase orders tab:** the 6 demo POs with balances (PO-SS-005: 9,000.00 total, 7,500.00 balance); open one.
+- **New PO > Form:** errors block Save, warnings do not; "New vendor..." says status new; save -> the PO's page ("Entered by: Form").
+- **Describe in text / Upload a document:** on `--replay` these return "no recorded response" (there are no PO recordings), which shows the failure path; on `--live` they draft (about $0.01 per text, $0.02-0.03 per document) and nothing is saved until Save.
+- **Multi-upload:** choose several invoices at once on Invoices; each gets its own row and decision. From a PO page, "Upload invoices" keeps you on the upload page with the "matching is automatic" note.
+- Smoke check done here on a replay server (scratch DB): a form-saved PO appeared in the list with source manual; a text draft came back `replay_miss`; two uploaded invoices ran; PO-SS-001's page showed the review run and 5,338.08 awaiting review.
+
+## What changed (PO stage 6: multi-invoice upload)
+- Invoices screen accepts several files (drop or picker, cap `ui_max_files_per_upload` = 20, now also in `/api/health`). One `POST /api/runs` per file, in order; each is its own run in the existing queue with its own decision; a rejected file fails alone. A "This upload" list shows each file (waiting / uploading / queued / running / decision, matched PO, link to its run), polled every 1.5 s. A single file still goes straight to its live run view.
+- From a PO page, "Upload invoices" opens the same upload with a note that matching is automatic; nothing about the PO is sent with the upload; rows that matched another PO say "(not this PO)".
 
 ## What changed (PO stage 5: text and document tabs)
 - New PO screen: tabs Form | Describe in text | Upload a document. Text and document produce a draft (spinner while the model works), then the SAME `POForm` pre-filled: model-filled fields show "from the model" + confidence + evidence status + the source quote (click opens the rendered page for PDF/image drafts); fields the source did not state are empty and marked "not in the source"; warnings (no currency stated, several POs, text addressed to an AI, ambiguous vendor) and the draft's notes above the form; "Nothing has been saved" stated; the vendor suggestion pre-selected or a new vendor proposed (created only on Save). Save sends the form values plus the draft id.
@@ -46,6 +58,7 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuses without a mode), upload -> one-at-a-time worker, run view from SQLite, page images, SSE stream tailing `audit_events`; React UI with the live 7-stage timeline and the result view. To run it for your stage-5 check: window 1 `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`; window 2 `cd C:\Zamp_ai_Automation\frontend; npm run dev`; open http://localhost:5173.
 
 ## Decisions I need from the user
+- Your PO stage-7 browser check (and, when you want, the live PO-draft check).
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11

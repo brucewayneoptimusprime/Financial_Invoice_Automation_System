@@ -21,7 +21,7 @@ def test_health_reports_the_mode_and_limits(tmp_path):
     with api(tmp_path) as c:
         h = c.get("/api/health").json()
     assert h["mode"] == "offline" and h["model"] == "claude-sonnet-5" and h["session_spent_usd"] == "0"
-    assert h["session_ceiling_usd"] == "5.00" and h["queue_length"] == 0 and h["max_file_bytes"] == 20 * 1024 * 1024
+    assert h["session_ceiling_usd"] == "5.00" and h["queue_length"] == 0 and h["max_file_bytes"] == 20 * 1024 * 1024 and h["max_files_per_upload"] == 20
 
 
 # -------------------------------------------------------------------------------------------- upload

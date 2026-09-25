@@ -28,6 +28,7 @@ export interface Health {
   run_ceiling_usd: string;
   queue_length: number;
   max_file_bytes: number;
+  max_files_per_upload?: number;
 }
 
 export interface RunRow {

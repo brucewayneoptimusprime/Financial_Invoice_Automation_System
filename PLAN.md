@@ -323,6 +323,7 @@ Edge rules: an approve is re-verified inside the transaction (PO balance re-read
 - Keep `data/seed.json` (the M0 placeholder) untouched; all M0/M1 tests keep reading it.
 - Add `data/seed_demo.json`, clearly not a placeholder. `SeedFile` accepts either the `_PLACEHOLDER` notice or a `_DATASET` description (exactly one required), so the loader, its validation and `load_seed` are reused. `python -m app.db.reset --seed data\seed_demo.json` (and `--demo` as shorthand via `demo_seed_path`) loads it; a database holds one seed at a time, so ids never collide.
 - Demo content: vendor 1 **SuperStore** (approved; no tax id, none is printed); five POs `PO-SS-001..005`, one per verified SuperStore invoice, with plain product-name lines from the verified manifest and totals above each invoice (e.g. 12,000 / 10,000 / 9,000 / 2,500 / 6,000); one PO partly consumed by a seeded historic approved invoice and ledger commit, so derived balances are visible; vendor 2 and one PO for **IQ Electronics** added after its extraction is seen. I checked offline that the 5 real invoices each match their own PO confidently against these five (top scores 0.57-0.60 vs the next 0.42-0.46), i.e. unambiguously but with a thin margin over the 0.50 minimum.
+- **Seed rule (owner, 2026-09-25): PO line descriptions must resemble the real invoice line text, not be shortened.** Measured: the IQ line "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801" scored 0 line overlap against a PO line "APPLE IP 16 PRO MAX" (similarity below the 0.6 minimum), which alone dropped a correct vendor+amount match under the 0.50 minimum. The demo seed will carry the full printed product text (without page furniture such as "Del.: 1801" only if the test shows it still matches).
 - **Consequence to expect:** none of the five SuperStore invoices prints a PO number, so with this seed each goes to `review` (matched_without_reference), not approve. The approve path is shown by a labelled **controlled variant** (SPEC section 10): the same real invoice with `po_reference` set to the PO number by editing the recorded reply in the test, so the approve + ledger + PO-balance behaviour is exercised without a live call.
 
 ## 7. CLI
@@ -349,7 +350,7 @@ Edge rules: an approve is re-verified inside the transaction (PO balance re-read
 4. `cli.py`, six-invoice end-to-end, STATUS.md with each invoice's decision and one-line reasoning; then stop.
 
 ## 10. Decisions needed from the owner
-1. IQ Electronics file path, and go-ahead for the one live scan run (plan section "Prerequisite").
+1. ~~IQ Electronics file path and the live scan run~~ **DONE** (2026-09-25): the scan is `data/invoices/image_based_invoice.jpg`, extracted live and re-recorded with extract-v4; see STATUS.md for what it showed (including an open currency finding).
 2. Explainer/drafter model: default to the configured `claude-sonnet-5` (priced, cost negligible). Recommendation: yes; a cheaper model only if you add its price.
 3. Explanation is stored as an `audit_events` row and review evidence is the run's audit events (no new columns; SPEC section 5 unchanged). Recommendation: yes.
 4. Draft `to` stays NULL (no vendor contact data); a blocked-vendor reject makes an internal `notification`, not an email to the vendor. Recommendation: yes.

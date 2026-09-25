@@ -196,3 +196,33 @@ def test_the_old_reply_is_held_back_by_the_date_the_tax_and_no_longer_the_curren
     low = res["r_extraction_confidence"]
     assert [x["field"] for x in low.detail["low_confidence"]] == ["invoice_date"]            # currency is not in the list any more
     assert res["r_arithmetic"].outcome.value == "flag" and ctx_run.decision.value == "review"
+
+
+# ------------------------------------------------------------- the same scan re-recorded live with extract-v4
+
+def v4_reply() -> dict:
+    from tests.extraction.real import REAL
+    return json.loads((REAL / "iq_electronics.v4.reply.json").read_text(encoding="utf-8"))
+
+
+def test_the_live_v4_reply_has_null_tax_flagged_included_and_the_rates_in_the_notes(tmp_path):
+    """Recorded live with extract-v4 (5,363 in / 1,292 out): the tax fix works on a real model."""
+    ctx, cfg, out = run_reply(tmp_path, v4_reply())
+    inv = out.invoice
+    assert inv.tax.value is None and inv.tax.included_in_total is True
+    assert "CGST% and SGST% (9.00 each) are printed as rates" in inv.extraction_notes
+    assert inv.total.value == D("4900.00") and inv.vendor_tax_id.value == GSTIN
+    assert inv.invoice_date.confidence == 0.5 and out.meta.grounding == {"unavailable": 8}
+
+
+def test_the_live_v4_reply_did_not_return_the_currency_which_the_rules_treat_as_missing(tmp_path):
+    """A real finding: the words "Rupees ... only" were not returned as a currency this time (the v3 call did return INR).
+    Currency is a required field, so this scan would be asked back from the vendor although the currency is printed."""
+    ctx, cfg, out = run_reply(tmp_path, v4_reply())
+    assert out.invoice.currency.value is None and out.invoice.subtotal.value is None
+    ctx_run, res, _ = pipeline(out.invoice, iq_facts(), run_id="iq-v4")
+    assert res["r_arithmetic"].outcome.value == "pass"                       # null tax + included + no subtotal: only line math runs
+    required = res["r_required_fields"]
+    assert required.outcome.value == "flag" and required.detail["missing"] == ["currency"]
+    assert ctx_run.decision.value == "request_info"
+

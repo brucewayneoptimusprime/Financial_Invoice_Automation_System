@@ -184,3 +184,31 @@ document yourself, then change it to `true`.
   ]
 }
 ```
+
+## image_based_invoice.jpg
+- draft extracted by claude-sonnet-5 (prompt extract-v4): CHECK EVERY VALUE against the document, then set "verified" to true
+```expected
+{
+  "verified": false,
+  "vendor_name": "IQ (A unit of Electronics Mart India Ltd.)",
+  "vendor_tax_id": "36AAFCE1683D1ZT",
+  "vendor_address": "D. No: 6-1-91/10, Ground Floor, Next to Telephone Bhavan, Secretariat Road, Saifabad, Hyderabad – 500 004, Telangana, India.",
+  "document_type": "invoice",
+  "invoice_number": "1801/24/S-3641",
+  "invoice_date": "2025-01-05",
+  "currency": null,
+  "po_reference": null,
+  "subtotal": null,
+  "tax": null,
+  "total": "4900.00",
+  "line_items": [
+    {
+      "description": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801",
+      "quantity": "1",
+      "unit_price": "4900.00",
+      "amount": "4900.00"
+    }
+  ],
+  "adjustments": []
+}
+```

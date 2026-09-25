@@ -25,6 +25,7 @@ SS_10963, SS_24429, IQ = "superstore_10963", "superstore_24429", "iq_electronics
 
 def api_settings(tmp_path, **kw):
     kw.setdefault("api_upload_dir", tmp_path / "uploads")
+    kw.setdefault("po_drafts_dir", tmp_path / "po_drafts")
     kw.setdefault("sse_poll_ms", 20)
     kw.setdefault("sse_heartbeat_s", 0.2)
     return cfg(tmp_path, **kw)
@@ -47,12 +48,13 @@ class ScriptedRuns:
         return run_pipeline(path, conn, client=run_client, settings=settings, run_id=run_id, source_name=source_name)
 
 
-def build_app(tmp_path, *, run_fn=None, settings=None, mode="offline"):
+def build_app(tmp_path, *, run_fn=None, settings=None, mode="offline", inner_client=None, tracker=None):
+    """`inner_client` (a fake) replaces the OfflineClient, e.g. to script PO drafts; use a mode other than offline with it."""
     settings = settings or api_settings(tmp_path)
     db = tmp_path / "app.db"
     reset_database(db, DEMO)
-    tracker = CostTracker(Decimal("0.25"), Decimal("5"))
-    client = MeteredClient(OfflineClient(), tracker, settings.llm_prices)
+    tracker = tracker or CostTracker(Decimal("0.25"), Decimal("5"))
+    client = MeteredClient(inner_client or OfflineClient(), tracker, settings.llm_prices)
     worker = RunWorker(db, client, settings, run_fn=run_fn or ScriptedRuns())
     app = create_app(settings, mode=mode, client=client, db_path=db, tracker=tracker, worker=worker)
     return app, worker, db, settings
@@ -62,7 +64,7 @@ def build_app(tmp_path, *, run_fn=None, settings=None, mode="offline"):
 def api(tmp_path, **kw):
     app, worker, db, settings = build_app(tmp_path, **kw)
     with TestClient(app) as c:
-        c.worker, c.db_path, c.settings = worker, db, settings
+        c.worker, c.db_path, c.settings, c.tracker = worker, db, settings, app.state.api.tracker
         yield c
 
 

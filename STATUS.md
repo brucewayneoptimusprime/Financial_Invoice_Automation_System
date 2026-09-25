@@ -4,13 +4,19 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-3 of 7 done** (the "Why" fix; the PO backend; the PO screens with the manual form).
-- Next: PO stage 4 (the PO drafter: wire schema, prompt, document readers, the two draft endpoints).
+- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-4 of 7 done** (the "Why" fix; the PO backend; the PO screens with the manual form; the PO drafter).
+- Next: PO stage 5 (text and document tabs on the shared form).
 - No live calls. The first real PO drafts (text/document) are your live check after stage 7.
 
 ## Test count and result
-- Backend: **1959 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43 (`tests/po`).
+- Backend: **2009 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43, stage 4 added 50.
 - Frontend: **44 passed** (vitest; stage 1 added 8, stage 3 added 11); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (PO stage 4: the PO drafter; model calls only through fakes)
+- `app/po/`: `wire.py` (union-free PO schema), `prompts.py` (`po-draft-v1`, fingerprint pinned in a test), `drafter.py` (call, one repair retry, post-processing, grounding, reader-instruction scan; a failure is a `failed` draft, never an exception), `readers.py` (PDF/PNG/JPG via the invoice ingest; DOCX, XLSX, CSV text; refusals), `service.py` (draft -> form pre-fill, per-field marks, vendor suggestion or proposed new vendor, the form's own issues, the draft file).
+- `grounding.ground_item`: a public one-item wrapper over the existing invoice grounding (no behaviour change for invoices).
+- Endpoints: `POST /api/pos/drafts/text`, `POST /api/pos/drafts/document`, `GET /api/pos/drafts/{id}/pages/{n}`. Offline: 503. They write nothing to the database (tested across every table); only Save does.
+- SPEC section 11 item 73. New dependency `openpyxl` (in `pyproject.toml`).
 
 ## What changed (PO stage 3: PO screens, manual form)
 - Top navigation: Invoices | Purchase orders. Routes `/pos`, `/pos/new`, `/pos/:id`.
@@ -38,9 +44,10 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-72 (PO entry). Earlier: 69-71 (M4), 61-68 (M3).
+72-73 (PO entry, PO drafting). Earlier: 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
+- PO drafting (text and document) has run only against scripted replies; the prompt has no live evidence until your live check. A replay server has no PO recordings, so on replay every draft comes back failed (`replay_miss`); use `--live` for real drafts.
 - The "Why" parser depends on the template wording; the contract test fails first if it changes.
 - The real explainer/drafter have never run live. Extraction varies between calls.
 - The IQ manifest entry is still an unverified draft (`currency` should be `"INR"` when you verify it).

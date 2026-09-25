@@ -332,3 +332,23 @@ def ground_invoice(invoice: ExtractedInvoice, page_texts: dict[int, str | None],
         system = "\n".join(f"[system] {n}" for n in result.notes)
         invoice.extraction_notes = f"{invoice.extraction_notes}\n{system}" if invoice.extraction_notes else system
     return result
+
+
+# ------------------------------------------------------------------------------------- one item, for other callers
+
+@dataclass
+class _Evidence:
+    source_text: str | None
+    page: int | None
+
+
+def ground_item(kind: str, value: Any, source_text: str | None, page: int | None, page_texts: dict[int, str | None],
+                text_usable: bool, settings: Settings | None = None) -> tuple[G, int | None, float | None]:
+    """(status, page where the evidence was found, confidence cap or None) for ONE item, with exactly the invoice rules.
+
+    For callers outside invoice extraction (the PO drafter). `kind` is string | date | currency | amount | line; for `line`
+    the value is (numbers, quantity, description) as for invoice line items."""
+    settings = settings or get_settings()
+    claim = _Claim(kind, _Evidence(source_text, page), kind, value)
+    status, found_page = _classify(claim, _Pages(page_texts, text_usable), settings)
+    return status, found_page, _cap_for(status, settings)

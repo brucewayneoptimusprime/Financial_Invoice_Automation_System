@@ -1,15 +1,21 @@
 """Drafts for request_info and reject: a vendor email (never sent) or, when the vendor must not be written to, an internal note.
 
-Stage 2 provides the deterministic template draft (also the Stage 3 fallback). Only facts with a vendor-facing category are ever
-used in a vendor email; vendor status, internal ids, rule ids, severities and thresholds never appear in one.
+`draft_for` asks the model for the email and accepts it only if it passes the checks (checks.py); otherwise it returns the
+deterministic template. Only facts with a vendor-facing category are ever used in a vendor email; vendor status, internal ids, rule
+ids, severities and thresholds never appear in one. An internal notification is always a template.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.enums import Decision
-from app.pipeline.digest import Fact, TrailDigest
-from app.pipeline.templates import (CHECK_LABELS, DUPLICATE_LABELS, FAILURE_LABELS, FIELD_LABELS, SIGNATURE, join_labels)
+from app.pipeline.checks import check_draft
+from app.pipeline.digest import TrailDigest
+from app.pipeline.explain import skip_reason
+from app.pipeline.prompts import draft_schema, draft_system
+from app.pipeline.requests import request_line
+from app.pipeline.roles import call_role
+from app.pipeline.templates import SIGNATURE
 
 
 @dataclass(frozen=True)
@@ -34,43 +40,6 @@ def draft_kind(digest: TrailDigest, settings: Settings) -> str:
         if f.rule_id and f.outcome_key in settings.no_vendor_email_outcomes.get(f.rule_id, ()):
             return "notification"
     return "vendor_email" if digest.vendor_facing else "notification"
-
-
-def _label(field_name: str) -> str:
-    return FIELD_LABELS.get(field_name, field_name.replace("_", " "))
-
-
-def request_line(f: Fact) -> str:
-    """One vendor-safe sentence for a vendor-facing fact (no internal ids, rule ids or severities)."""
-    cat, detail = f.category, f.data.get("detail", {})
-    if cat == "missing_fields":
-        return f"Missing or unreadable information: {join_labels([_label(i) for i in f.items])}."
-    if cat == "unclear_fields":
-        return f"We could not read these values with enough certainty; please confirm them: {join_labels([_label(i) for i in f.items])}."
-    if cat == "po_reference":
-        ref = detail.get("po_reference")
-        if f.outcome_key == "reference_not_found" and ref:
-            return f"The purchase order reference {ref} on the invoice does not match any purchase order in our records; please confirm the correct one."
-        return "Please tell us which purchase order (PO) number this invoice relates to."
-    if cat == "arithmetic":
-        failed = [c for c in detail.get("checks", []) if not c.get("ok")]
-        if failed:
-            c = failed[0]
-            what = CHECK_LABELS.get(c["check"], "the amounts")
-            return (f"The amounts on the invoice do not add up: {what} gives {c['expected']} but the invoice shows {c['actual']}. "
-                    "Please send a corrected invoice.")
-        return "The amounts on the invoice do not add up. Please send a corrected invoice."
-    if cat == "currency":
-        return (f"The invoice currency ({detail.get('invoice_currency')}) differs from the currency of the purchase order "
-                f"({detail.get('po_currency')}); please confirm the correct currency.")
-    if cat == "document_type":
-        return f"The document appears to be a {str(detail.get('document_type', 'document')).replace('_', ' ')} rather than an invoice; please send the invoice."
-    if cat == "duplicate":
-        return f"This looks like a duplicate: {DUPLICATE_LABELS.get(f.outcome_key or '', 'we appear to have received it before')}."
-    if cat == "unreadable_file":
-        code = f.items[0] if f.items else ""
-        return f"We could not process the file: {FAILURE_LABELS.get(code, 'it could not be read')}. Please send it again."
-    return f.text
 
 
 def _greeting(digest: TrailDigest) -> tuple[str, str, str]:
@@ -105,6 +74,23 @@ def template_draft(digest: TrailDigest, settings: Settings, fallback_reason: str
     return Draft("vendor_email", None, subject, body, "template", requested, fallback_reason=fallback_reason, attempts=attempts)
 
 
-def draft_for(digest: TrailDigest, settings: Settings, **_ignored) -> Draft:
-    """Stage 2: the template. (Stage 3 adds the model call in front of this, with this as the fallback.)"""
-    return template_draft(digest, settings)
+def draft_for(digest: TrailDigest, settings: Settings | None = None, ctx=None, client=None, run_id: str | None = None) -> Draft:
+    """The model's vendor email if it passes the checks, else the deterministic template. The model sees only the vendor-safe
+    request lines and the invoice as extracted, never internal facts."""
+    settings = settings or get_settings()
+    if draft_kind(digest, settings) == "notification":
+        return template_draft(digest, settings, fallback_reason="internal note: no model is used")
+    reason = skip_reason(ctx, client, settings, settings.draft_with_llm)
+    if reason is not None:
+        return template_draft(digest, settings, fallback_reason=reason)
+    inv = next(iter(digest.kind("invoice")), None)
+    payload = {"decision": digest.decision.value, "invoice": {k: v for k, v in (inv.data if inv else {}).items() if v},
+               "requests": [{"id": f.id, "category": f.category, "text": request_line(f)} for f in digest.vendor_facing]}
+    res = call_role(client, system=draft_system(settings), payload=payload, schema=draft_schema(),
+                    model=settings.drafter_model or settings.model_name, max_output_tokens=settings.drafter_max_output_tokens,
+                    run_id=run_id, purpose="draft", check=lambda reply: check_draft(reply, digest, settings))
+    usage = dict(model=res.model, tokens_in=res.tokens_in, tokens_out=res.tokens_out, cost_usd=res.cost_usd, attempts=res.attempts)
+    if res.reply is None:
+        return replace(template_draft(digest, settings, fallback_reason=res.fallback_reason), **usage)
+    return Draft("vendor_email", None, res.reply["subject"].strip(), res.reply["body"].strip(), "llm",
+                 tuple(request_line(f) for f in digest.vendor_facing), **usage)

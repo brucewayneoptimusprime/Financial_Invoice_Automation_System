@@ -20,6 +20,14 @@ from app.models.run import RunContext
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?|\.\d+")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 FLOOR_IDS = (FLOOR_RULE_ID, REFERENCE_FLOOR_RULE_ID)
+_MAX_DOCUMENT_TEXT = 80
+
+
+def clean(text: str | None) -> str | None:
+    """Text that came from the invoice, made safe to place in a fact: control characters gone, whitespace collapsed, length capped."""
+    if text is None:
+        return None
+    return " ".join("".join(ch if ch.isprintable() else " " for ch in text).split())[:_MAX_DOCUMENT_TEXT]
 
 
 def numbers_in(text: str) -> set[str]:
@@ -115,7 +123,7 @@ def _rule_items(rule_id: str, detail: dict[str, Any]) -> tuple[str, ...]:
 
 def _vendor_fact(ctx: RunContext, fid: str) -> Fact:
     ex = ctx.extracted
-    name = None if ex is None else ex.vendor_name.value
+    name = None if ex is None else clean(ex.vendor_name.value)
     vm = ctx.matched_vendor
     if vm is None:
         return Fact(fid, "vendor", "Vendor matching was not run.", "no vendor match")
@@ -164,8 +172,9 @@ def _invoice_fact(ctx: RunContext, fid: str) -> Fact | None:
     if ex is None:
         return None
     bits = []
-    if ex.invoice_number.value:
-        bits.append(f"number {ex.invoice_number.value}")
+    number = clean(ex.invoice_number.value)
+    if number:
+        bits.append(f"number {number}")
     if ex.invoice_date.value:
         bits.append(f"dated {ex.invoice_date.value.isoformat()}")
     if ex.total.value is not None:
@@ -173,9 +182,9 @@ def _invoice_fact(ctx: RunContext, fid: str) -> Fact | None:
     if not bits:
         return None
     return Fact(fid, "invoice", "Invoice as extracted: " + ", ".join(bits) + ".", "invoice",
-                data={"number": ex.invoice_number.value, "date": None if ex.invoice_date.value is None else ex.invoice_date.value.isoformat(),
+                data={"number": number, "date": None if ex.invoice_date.value is None else ex.invoice_date.value.isoformat(),
                       "total": None if ex.total.value is None else str(ex.total.value), "currency": ex.currency.value,
-                      "vendor_name": ex.vendor_name.value})
+                      "vendor_name": clean(ex.vendor_name.value)})
 
 
 def build_digest(ctx: RunContext, settings: Settings, rule_names: dict[str, str] | None = None) -> TrailDigest:

@@ -227,6 +227,15 @@ class Settings(BaseSettings):
     # rule id -> outcome keys that mean the vendor must NOT be emailed (an internal notification is drafted instead)
     no_vendor_email_outcomes: dict[str, list[str]] = Field(default_factory=lambda: {"r_vendor_status": ["blocked"]})
     review_reason_max_chars: int = Field(default=500, ge=50)
+    # Explainer and drafter (LLM roles): None = the extraction model. Same client, same cost ceilings as extraction.
+    explain_with_llm: bool = True
+    draft_with_llm: bool = True
+    explainer_model: str | None = None
+    drafter_model: str | None = None
+    explainer_max_output_tokens: int = Field(default=700, ge=100)
+    drafter_max_output_tokens: int = Field(default=900, ge=100)
+    explanation_max_sentences: int = Field(default=8, ge=2)
+    draft_max_words: int = Field(default=180, ge=40)
 
     # Engine
     locked_rule_ids: frozenset[str] = LOCKED_RULE_IDS

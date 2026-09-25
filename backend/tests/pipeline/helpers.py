@@ -29,6 +29,10 @@ def scripted(reply: dict | str, *, input_tokens=6800, output_tokens=920):
 
 
 def cfg(tmp_path, **kw):
+    """Settings for pipeline tests. The explainer and drafter models are OFF unless a test turns them on, so the scripted
+    client's replies are never consumed by them by accident."""
+    kw.setdefault("explain_with_llm", False)
+    kw.setdefault("draft_with_llm", False)
     return make_settings(tmp_path, **kw)
 
 

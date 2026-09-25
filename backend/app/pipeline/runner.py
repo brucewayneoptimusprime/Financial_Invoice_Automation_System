@@ -26,6 +26,8 @@ from app.enums import Decision, Outcome
 from app.extraction.stage import run_extract_stage
 from app.ingest.stage import run_ingest_stage
 from app.ingest.store import new_run_id
+from app.llm.client import build_llm_client
+from app.llm.errors import LLMConfigError
 from app.llm.types import LLMClient
 from app.models.audit import AuditEvent
 from app.models.run import RunContext, StageResult
@@ -95,6 +97,12 @@ def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | No
     ctx = RunContext(run_id=new_run_id(), source_file=Path(path).name)
     result = PipelineResult(run_id=ctx.run_id, status="running", ctx=ctx)
     notify = on_stage or (lambda name, stage: None)
+
+    if client is None:                                                    # one metered client for extraction, explainer and drafter
+        try:
+            client = build_llm_client(settings)
+        except LLMConfigError:
+            client = None                                                 # extraction degrades with a clear message; the template is used
 
     ingest = run_ingest_stage(ctx, Path(path), settings)                 # may raise: nothing has been written to the database
     result.stages["ingest"] = ingest

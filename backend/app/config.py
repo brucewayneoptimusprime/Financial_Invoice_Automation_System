@@ -64,6 +64,18 @@ DEFAULT_CURRENCY_SYMBOL_MAP: dict[str, str] = {
 }
 
 
+# Currency NAMES as words on a page ("Rupees Four Thousand only") -> ISO code. Consulted by the grounding check only, so a
+# currency read correctly from words is not called a mismatch. Deliberately small; a bare "dollars" follows the "$" mapping.
+DEFAULT_CURRENCY_NAME_MAP: dict[str, str] = {
+    "rupee": "INR", "rupees": "INR", "indian rupee": "INR", "indian rupees": "INR",
+    "dollar": "USD", "dollars": "USD", "us dollar": "USD", "us dollars": "USD", "united states dollar": "USD",
+    "united states dollars": "USD", "australian dollar": "AUD", "australian dollars": "AUD",
+    "canadian dollar": "CAD", "canadian dollars": "CAD",
+    "euro": "EUR", "euros": "EUR", "pound": "GBP", "pounds": "GBP", "pound sterling": "GBP", "pounds sterling": "GBP",
+    "yen": "JPY", "swiss franc": "CHF", "swiss francs": "CHF",
+}
+
+
 class GroundingCaps(BaseModel):
     """Confidence ceilings applied by the grounding check (effective = min(current confidence, cap); never raised)."""
 
@@ -201,6 +213,7 @@ class Settings(BaseSettings):
     currency_symbol_map: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_CURRENCY_SYMBOL_MAP))
     # A currency read from a bare symbol ($, EUR sign...) is a mapping, not a reading: its effective confidence is this
     # value whatever the model said (the model's raw score is kept in model_confidence). See SPEC section 11.
+    currency_name_map: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_CURRENCY_NAME_MAP))
     currency_symbol_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
     grounding: GroundingCaps = Field(default_factory=GroundingCaps)
     injection_patterns: tuple[str, ...] = DEFAULT_INJECTION_PATTERNS

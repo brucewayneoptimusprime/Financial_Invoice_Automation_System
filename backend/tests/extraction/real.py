@@ -13,7 +13,8 @@ from tests.extraction.helpers import settings
 from tests.llm.fakes import FakeLLMClient, ok_response
 
 REAL = Path(__file__).resolve().parents[1] / "fixtures" / "real"
-NAMES = ("superstore_10963", "superstore_24429")
+NAMES = ("superstore_10963", "superstore_24429")           # the label-separated native PDFs
+IQ = "iq_electronics"                                      # a scanned photo: no text layer, Indian GST, amounts in words
 
 
 def real_reply(name: str) -> dict:
@@ -21,12 +22,13 @@ def real_reply(name: str) -> dict:
 
 
 def real_pdf(name: str) -> Path:
-    return REAL / f"{name}.pdf"
+    """The real document for `name`: a PDF, or a photo (.jpg) for the scanned IQ Electronics invoice."""
+    return next(p for p in (REAL / f"{name}.pdf", REAL / f"{name}.jpg") if p.is_file())
 
 
 def real_ingest(tmp_path, name: str, **kw):
     """(ctx with ingest set, settings) for one real PDF, using the real ingest stage."""
-    ctx = RunContext(run_id=f"real-{name[-5:]}", source_file=f"{name}.pdf")
+    ctx = RunContext(run_id=f"real-{name[-5:]}", source_file=real_pdf(name).name)
     cfg = settings(tmp_path, **kw)
     run_ingest_stage(ctx, real_pdf(name), cfg)
     return ctx, cfg

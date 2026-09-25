@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from app.extraction.wire import wire_schema
 from app.llm.types import LLMPart, image_part, text_part
 
-PROMPT_VERSION = "extract-v3"
+PROMPT_VERSION = "extract-v4"
 
 SYSTEM_PROMPT = """You are the document-reading component of an accounts-payable system. Your only job is to READ one vendor invoice - given as page images and, when available, the embedded text of each page - and return what is printed on it as JSON matching the provided schema. You do not decide anything: separate software checks the result and makes every decision.
 
@@ -27,7 +27,7 @@ CORE RULES
 OUTPUT FORMAT
 - `fields` is an array with EXACTLY ONE entry for each of these 11 names: vendor_name, vendor_tax_id, vendor_address, document_type, invoice_number, invoice_date, currency, po_reference, subtotal, tax, total. Every entry has `name`, `found` (true or false), `value` (a string), `page` (integer, 1-based; 0 when not found), `source_text` (a string), `confidence` (0 to 1) and `flag`. Set found to true only when the value is actually printed on the document and you have filled `value`.
 - Placeholders for a field that is not present: found false, value "", page 0, source_text "", confidence 0, flag "unknown". For document_type use the value "unknown".
-- `flag` and the other tri-state flags use the strings "yes", "no" or "unknown" (never null). `flag` only carries meaning for po_reference (explicit) and tax (included_in_total); use "unknown" for every other name. document_quality.contains_reader_instructions is also yes, no or unknown, and document_quality.type is native, scanned or unknown.
+- `flag` and the other tri-state flags use the strings "yes", "no" or "unknown" (never null). `flag` only carries meaning for po_reference (explicit) and tax (included_in_total); use "unknown" for every other name. The tax flag is kept even when tax itself is not found; every other flag is ignored when found is false. document_quality.contains_reader_instructions is also yes, no or unknown, and document_quality.type is native, scanned or unknown.
 - Amounts, quantities and unit prices are strings ("" when not present). Line items and adjustments are arrays (empty when there are none); their optional strings are "" and their page is 0 when not present.
 - extraction_notes is a string: "" when there is nothing to report.
 
@@ -40,7 +40,7 @@ FIELD DEFINITIONS
 - currency: the ISO 4217 code if one is printed (USD, EUR, INR, ...). If only a symbol or abbreviation is printed (such as $, €, £, ₹, Rs, Rs.), return exactly that symbol as printed. Do not guess between currencies that share a symbol.
 - po_reference: the customer's PURCHASE-ORDER number, and only if it is printed with a purchase-order label (PO, P.O., Purchase Order, PO No, Customer PO, ...). An "Order ID", "Order No", "Sales Order", "Reference" or similar is NOT a purchase-order reference. If there is no purchase-order label, po_reference.found is false. Set the entry's `flag` (explicit) to yes whenever a value is returned and to unknown when found is false. Never infer a purchase order.
 - subtotal: the amount before tax and before shipping/discount adjustments, as the invoice states it (often Subtotal, Net Amount, Taxable Value).
-- tax: the TOTAL tax charged on the invoice. If only component taxes are printed (for example CGST + SGST, state + county, several VAT lines), add them and return the sum, and state the components and the sum in extraction_notes. The tax entry's `flag` (included_in_total) is yes only if the invoice says the total already includes this tax, no if it is added on top, and unknown if it does not say.
+- tax: the TOTAL tax AMOUNT charged on the invoice, as an amount printed on the document. If several component tax AMOUNTS are printed (for example a CGST amount and an SGST amount, state + county, several VAT lines), add those printed amounts and return the sum, and state the components and the sum in extraction_notes. If only tax RATES or percentages are printed (for example CGST 9% and SGST 9%, VAT 20%) and no tax amount, set tax found to false: NEVER compute a tax amount yourself, never multiply a rate by an amount, whatever the arithmetic would give. Put the printed rates in extraction_notes. The tax entry's `flag` (included_in_total) is yes only if the invoice says, or its figures clearly show, that the total already includes this tax, no if it is added on top, and unknown if you cannot tell. Fill `flag` with your best read even when tax is not found (for a rate-only invoice whose total equals the sum of the lines, the tax is most likely included: yes).
 - total: the FINAL amount payable for this invoice: after discounts, including tax and shipping. It is commonly labelled Total, Grand Total, Amount Due, Balance Due or Amount Payable, but it is not the subtotal. If a separate "Balance Due" differs from the invoice total (for example because payments were already applied), return the invoice total as `total` and describe the difference in extraction_notes.
 - document_type: what the document is: invoice, credit_note, proforma, quote, statement, receipt or other (unknown if it cannot be told).
 - line_items: every billed line, in order: description, item_code (SKU or part number if printed), quantity, unit_price, and amount as printed for that line. Do not invent lines and do not merge lines.

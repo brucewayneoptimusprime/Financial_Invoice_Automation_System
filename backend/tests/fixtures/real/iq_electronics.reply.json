@@ -1,0 +1,126 @@
+{
+  "fields": [
+    {
+      "name": "vendor_name",
+      "found": true,
+      "value": "IQ (A unit of Electronics Mart India Ltd.)",
+      "page": 1,
+      "source_text": "(A unit of Electronics Mart India Ltd.)",
+      "confidence": 0.85,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_tax_id",
+      "found": true,
+      "value": "36AAFCE1683D1ZT",
+      "page": 1,
+      "source_text": "GSTIN  : 36AAFCE1683D1ZT",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "vendor_address",
+      "found": true,
+      "value": "D. No: 6-1-91/10, Ground Floor, Next to Telephone Bhavan, Secretariat Road, Saifabad, Hyderabad – 500 004, Telangana, India.",
+      "page": 1,
+      "source_text": "D. No: 6-1-91/10, Ground Floor, Next to Telephone Bhavan, Secretariat Road, Saifabad, Hyderabad – 500 004, Telangana, India.",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "document_type",
+      "found": true,
+      "value": "invoice",
+      "page": 1,
+      "source_text": "TAX INVOICE",
+      "confidence": 0.95,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_number",
+      "found": true,
+      "value": "1801/24/S-3641",
+      "page": 1,
+      "source_text": "Invoice No  : 1801/24/S-3641",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "invoice_date",
+      "found": true,
+      "value": "2025-01-05",
+      "page": 1,
+      "source_text": "Invoice Date :05-01-2025",
+      "confidence": 0.9,
+      "flag": "unknown"
+    },
+    {
+      "name": "currency",
+      "found": true,
+      "value": "INR",
+      "page": 1,
+      "source_text": "Rupees   Four Thousand Nine Hundred  only",
+      "confidence": 0.85,
+      "flag": "unknown"
+    },
+    {
+      "name": "po_reference",
+      "found": false,
+      "value": "",
+      "page": 0,
+      "source_text": "",
+      "confidence": 0,
+      "flag": "unknown"
+    },
+    {
+      "name": "subtotal",
+      "found": true,
+      "value": "4900.00",
+      "page": 1,
+      "source_text": "Total :  1               4,900.00",
+      "confidence": 0.7,
+      "flag": "unknown"
+    },
+    {
+      "name": "tax",
+      "found": true,
+      "value": "882.00",
+      "page": 1,
+      "source_text": "CGST% 9.00 SGST% 9.00",
+      "confidence": 0.55,
+      "flag": "unknown"
+    },
+    {
+      "name": "total",
+      "found": true,
+      "value": "4900.00",
+      "page": 1,
+      "source_text": "Total Amount   4,900.00",
+      "confidence": 0.85,
+      "flag": "unknown"
+    }
+  ],
+  "line_items": [
+    {
+      "description": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801",
+      "item_code": "42029200",
+      "quantity": "1",
+      "unit_price": "4900.00",
+      "amount": "4900.00",
+      "page": 1,
+      "source_text": "APPLE IP 16 PRO MAX SL CS MGS PLM MYYW3Z Del.: 1801   42029200   1   4900.00   9.00   9.00      4900.00",
+      "confidence": 0.75
+    }
+  ],
+  "adjustments": [],
+  "document_quality": {
+    "type": "scanned",
+    "issues": [
+      "skewed",
+      "blurry",
+      "partially_hidden"
+    ],
+    "contains_reader_instructions": "no"
+  },
+  "extraction_notes": "The total (4900.00) equals the line item amount before tax, but CGST 9%+SGST 9% are listed as percentages without a computed tax amount printed; the stated Total Amount of 4,900.00 appears to already reflect the line total without adding tax separately, suggesting tax may be included or the invoice math is inconsistent. Tax value of 882.00 was computed as 9%+9% of 4900.00 (441+441) since no explicit tax amount column value was printed, only percentages; flagged for review. Signature/stamp area obscures some vendor address text at bottom of form."
+}

@@ -149,6 +149,16 @@ def _currency_symbols(code: str, settings: Settings) -> list[str]:
     return [symbol for symbol, mapped in settings.currency_symbol_map.items() if mapped == code]
 
 
+def _names_in(text: str, code: str, settings: Settings) -> bool:
+    """Is the currency named in words ("Rupees", "US dollars")? Whole words, case-insensitive. Only the LONGEST names count: in
+    "Australian Dollars" the word "dollars" alone (USD) is part of a longer name (AUD), so it does not vouch for USD."""
+    found = [name for name in settings.currency_name_map
+             if re.search(rf"(?<![A-Za-z]){re.escape(name)}(?![A-Za-z])", text, re.IGNORECASE)]
+    longest = [n for n in found if not any(n != other and re.search(rf"(?<![A-Za-z]){re.escape(n)}(?![A-Za-z])", other, re.IGNORECASE)
+                                            for other in found)]
+    return any(settings.currency_name_map[n] == code for n in longest)
+
+
 def _value_agrees_with_source(kind: str, value: Any, source: str, settings: Settings) -> bool:
     """G1: does the value follow from the item's own snippet?"""
     if kind == "amount":
@@ -158,7 +168,7 @@ def _value_agrees_with_source(kind: str, value: Any, source: str, settings: Sett
     if kind == "currency":
         if re.search(rf"(?<![A-Za-z]){re.escape(value)}(?![A-Za-z])", source, re.IGNORECASE):
             return True
-        return any(symbol in source for symbol in _currency_symbols(value, settings))
+        return any(symbol in source for symbol in _currency_symbols(value, settings)) or _names_in(source, value, settings)
     if kind == "doctype":
         return True                                            # a classification, not text copied from the page
     a, b = alnum(str(value)), alnum(source)
@@ -175,7 +185,7 @@ def _value_on_page(kind: str, value: Any, pages: _Pages, n: int, settings: Setti
         text = pages.texts[n]
         if re.search(rf"(?<![A-Za-z]){re.escape(value)}(?![A-Za-z])", text, re.IGNORECASE):
             return True
-        return any(symbol in text for symbol in _currency_symbols(value, settings))
+        return any(symbol in text for symbol in _currency_symbols(value, settings)) or _names_in(text, value, settings)
     needle = alnum(str(value))
     return bool(needle) and needle in pages.alnum(n)
 

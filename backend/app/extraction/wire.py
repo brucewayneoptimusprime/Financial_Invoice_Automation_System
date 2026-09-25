@@ -141,7 +141,10 @@ def _entry_to_contract(name: str, entry: dict, notes: list[str]) -> dict[str, An
     page, conf = _page(entry, where), _confidence(entry, where)
     source = _text(entry, "source_text", where)
     if not found:
-        return _not_found(name)                          # placeholders are ignored, whatever they contain
+        out = _not_found(name)                           # placeholders are ignored, whatever they contain...
+        if name == "tax":
+            out["included_in_total"] = flag_value        # ...except the tax flag: a rate-only invoice has no tax amount but the
+        return out                                       # model's read of "is tax inside the total" is still useful
     if not value.strip() or (name == "document_type" and value == UNKNOWN):
         if not value.strip():
             notes.append(f"{name}: found=true but the value was empty; treated as not found")

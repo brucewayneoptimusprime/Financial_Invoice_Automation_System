@@ -40,7 +40,7 @@ def test_final_severity_table():
     table = {r.id: (r.severity_on_trigger, r.params.get("severity_by_outcome", {})) for r in BUILTIN.values()}
     assert table == {
         "r_vendor_status": (1, {"new": 1, "blocked": 3, "unknown": 1, "ambiguous": 1}),
-        "r_po_found": (1, {"no_reference": 2, "reference_not_found": 1, "no_confident_match": 1}),
+        "r_po_found": (1, {"no_reference": 2, "reference_not_found": 2, "no_confident_match": 1, "matched_without_reference": 1}),
         "r_po_ambiguity": (1, {}),
         "r_vendor_po_mismatch": (1, {}),
         "r_currency_mismatch": (1, {}),

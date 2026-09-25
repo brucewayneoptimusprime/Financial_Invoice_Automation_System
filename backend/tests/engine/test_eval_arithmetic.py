@@ -156,3 +156,28 @@ def test_severity_default_and_override():
     assert ev("arithmetic_consistency", make_ctx(extracted=make_extracted(**bad)), {}, severity=2).severity == 2
     r = ev("arithmetic_consistency", make_ctx(extracted=make_extracted(**bad)), {"severity_by_outcome": {"mismatch": 3}})
     assert r.severity == 3
+
+
+@pytest.mark.parametrize("qty,price,amount,why", [
+    (5, "461.48", "1845.94", "the quantity is wrong (5 x 461.48 = 2,307.40)"),
+    (4, "471.48", "1845.94", "the unit price is wrong (4 x 471.48 = 1,885.92)"),
+    (4, "461.48", "1854.94", "digits transposed in the amount"),
+    (4, "461.48", "1845.96", "4 cents out: beyond the 3 cents the rounding allowance gives 4 units"),
+    (4, "461.48", "1845.88", "4 cents out the other way"),
+    (10, "0.33", "3.50", "20 cents out on 10 units (allowance 6 cents)"),
+])
+def test_a_genuine_quantity_or_price_error_still_triggers_the_rule(qty, price, amount, why):
+    """The per-unit rounding allowance is for half-cent rounding, not for mistakes."""
+    r = run(line_items=[line(qty=qty, price=price, amount=amount)], subtotal=amount, tax="0.00", total=amount)
+    assert r.outcome is Outcome.FLAG and r.outcome_key == "mismatch" and "line_math" in r.detail["failed"], why
+
+
+@pytest.mark.parametrize("amount", ["1845.92", "1845.93", "1845.94", "1845.95"])
+def test_the_allowance_boundary_for_four_units_is_three_cents(amount):
+    r = run(line_items=[line(qty=4, price="461.48", amount=amount)], subtotal=amount, tax="0.00", total=amount)
+    assert r.outcome is Outcome.PASS, amount                                        # 1845.92 +- 0.03
+
+
+def test_a_wrong_total_is_still_caught_when_the_line_math_is_within_the_allowance():
+    r = run(line_items=[line(qty=4, price="461.48", amount="1845.94")], subtotal="1845.94", tax="0.00", total="1845.99")
+    assert r.outcome is Outcome.FLAG and r.detail["failed"] == ["subtotal_plus_tax_equals_total"]

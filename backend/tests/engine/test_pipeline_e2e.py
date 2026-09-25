@@ -33,10 +33,17 @@ def test_match_stage_records_scores_and_breakdown_in_the_trail():
     assert match.events[2].outcome is Outcome.PASS and "Matched PO-A-1" in match.events[2].message
 
 
-def test_invoice_without_a_po_reference_matches_on_other_signals_and_approves():
+def test_no_po_reference_but_a_confident_unambiguous_match_goes_to_review_not_request_info():
     ctx, res, _ = pipeline(make_extracted(po_reference=None), make_facts())
-    assert ctx.match_status is MatchStatus.MATCHED and ctx.decision is Decision.APPROVE
-    assert "other signals" in res["r_po_found"].message
+    assert ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-A-1"
+    assert triggered(res) == {"r_po_found": "matched_without_reference"} and ctx.decision is Decision.REVIEW
+    assert res["r_po_found"].severity == 1 and res["engine_floor"].outcome is Outcome.PASS
+
+
+def test_a_stated_reference_that_matches_no_po_asks_the_vendor():
+    ctx, res, _ = pipeline(make_extracted(po_reference="ZZ-000"), make_facts(pos=[make_po(vendor_id=99)]))
+    assert ctx.match_status is not MatchStatus.MATCHED and triggered(res)["r_po_found"] == "reference_not_found"
+    assert res["r_po_found"].severity == 2 and ctx.decision is Decision.REQUEST_INFO
 
 
 def test_ambiguous_match_goes_to_review_even_though_every_other_rule_passes():
@@ -51,7 +58,7 @@ def test_ambiguous_match_goes_to_review_even_though_every_other_rule_passes():
 def test_unknown_vendor_and_unknown_po_are_reviewed_never_approved():
     ex = make_extracted(vendor_name="Nobody Known Trading", po_reference="ZZ-000", line_items=[])
     ctx, res, _ = pipeline(ex, make_facts())
-    assert ctx.match_status is MatchStatus.NO_CANDIDATES and ctx.decision is not Decision.APPROVE
+    assert ctx.match_status is MatchStatus.NO_CANDIDATES and ctx.decision is Decision.REQUEST_INFO
     assert triggered(res)["r_vendor_status"] == "unknown" and triggered(res)["r_po_found"] == "reference_not_found"
 
 

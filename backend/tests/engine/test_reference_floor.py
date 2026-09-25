@@ -74,7 +74,8 @@ def test_an_exact_but_inferred_reference_is_still_exact():
 @pytest.mark.parametrize("ref", [None, field(None, 0.99)])
 def test_no_reference_at_all_is_not_a_reference_match(ref):
     ctx, res, _ = pipeline(make_extracted(po_reference=ref), one_po())
-    assert not applied(res) and ctx.decision is Decision.APPROVE
+    assert not applied(res)                                                     # the reference floor has nothing to say...
+    assert ctx.decision is Decision.REVIEW and res["r_po_found"].outcome_key == "matched_without_reference"   # ...r_po_found does
 
 
 # ------------------------------------------------------------------------------ other inexact forms and situations

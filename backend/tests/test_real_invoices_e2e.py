@@ -11,10 +11,10 @@ from tests.real_e2e import facts_for, run_real, trail
 
 NAMES = ("superstore_10963", "superstore_24429")
 
-ALL_PASS = [
+MATCHED_NO_REFERENCE = [
     ("r_arithmetic", "pass", 0, "consistent"), ("r_currency_mismatch", "pass", 0, "match"), ("r_document_type", "pass", 0, "allowed"),
     ("r_duplicate_exact", "pass", 0, "no_duplicate"), ("r_duplicate_fuzzy", "pass", 0, "no_near_duplicate"),
-    ("r_extraction_confidence", "pass", 0, "confident"), ("r_po_ambiguity", "pass", 0, "unambiguous"), ("r_po_found", "pass", 0, "found"),
+    ("r_extraction_confidence", "pass", 0, "confident"), ("r_po_ambiguity", "pass", 0, "unambiguous"), ("r_po_found", "flag", 1, "matched_without_reference"),
     ("r_po_status", "pass", 0, "open"), ("r_required_fields", "pass", 0, "complete"), ("r_tolerance_pct", "pass", 0, "within_balance"),
     ("r_vendor_po_mismatch", "pass", 0, "match"), ("r_vendor_status", "pass", 0, "approved"),
     ("engine_floor", "pass", 0, "floor_not_applied"), ("engine_floor_reference", "pass", 0, "reference_floor_not_applied"),
@@ -32,10 +32,12 @@ NO_PO = [
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_a_clean_real_invoice_with_a_matching_po_is_approved_with_every_rule_passing(tmp_path, name):
+def test_a_real_invoice_with_no_po_reference_and_a_confident_match_goes_to_review_on_that_one_rule(tmp_path, name):
+    """Neither invoice prints a PO number (Order ID is not one). The match is strong, so a person confirms it."""
     ctx = run_real(tmp_path, name, facts_for(name))
-    assert ctx.decision is Decision.APPROVE and ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-SS-1"
-    assert trail(ctx) == ALL_PASS
+    assert ctx.decision is Decision.REVIEW and ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-SS-1"
+    assert trail(ctx) == MATCHED_NO_REFERENCE
+    assert {rid for rid, outcome, *_ in trail(ctx) if outcome in ("flag", "fail")} == {"r_po_found"}
     assert ctx.matched_vendor.vendor_id == 1 and ctx.matched_vendor.method == "exact_name"
     assert not ctx.extraction_meta.degraded and ctx.extraction_meta.injection_suspected is False
 
@@ -90,3 +92,14 @@ def test_the_same_file_submitted_twice_is_a_duplicate(tmp_path):
     again = run_real(tmp_path / "second", "superstore_10963", facts)
     assert again.decision is Decision.REJECT
     assert {rid for rid, outcome, *_ in trail(again) if outcome in ("flag", "fail")} >= {"r_duplicate_exact"}
+
+
+@pytest.mark.parametrize("field,value", [("quantity", "5"), ("unit_price", "471.48"), ("amount", "1854.94")])
+def test_a_real_line_item_mistake_is_caught_by_the_arithmetic_and_never_approved(tmp_path, field, value):
+    """The allowance for unit prices rounded to the cent must not hide a genuine error on a real invoice."""
+    def mistake(reply):
+        reply["line_items"][0][field] = value
+
+    ctx = run_real(tmp_path, "superstore_24429", facts_for("superstore_24429"), edit=mistake)
+    arithmetic = next(r for r in ctx.rule_results if r.rule_id == "r_arithmetic")
+    assert arithmetic.outcome.value == "flag" and ctx.decision is not Decision.APPROVE

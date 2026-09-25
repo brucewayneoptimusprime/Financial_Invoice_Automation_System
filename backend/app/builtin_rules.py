@@ -18,7 +18,7 @@ def builtin_rules(settings: Settings) -> list[Rule]:
         ("r_vendor_status", "Vendor is approved (not blocked)", "vendor_status", 1,
          {"severity_by_outcome": {"new": 1, "blocked": 3, "unknown": 1, "ambiguous": 1}}),
         ("r_po_found", "Invoice matches a purchase order", "po_found", 1,
-         {"severity_by_outcome": {"no_reference": 2, "reference_not_found": 1, "no_confident_match": 1}}),
+         {"severity_by_outcome": {"no_reference": 2, "reference_not_found": 2, "no_confident_match": 1, "matched_without_reference": 1}}),
         ("r_po_ambiguity", "PO match is unambiguous", "po_ambiguity", 1, {}),
         ("r_vendor_po_mismatch", "Invoice vendor matches the PO's vendor", "vendor_po_mismatch", 1, {}),
         ("r_currency_mismatch", "Invoice currency matches the PO's currency", "currency_mismatch", 1, {}),

@@ -85,9 +85,25 @@ def test_po_found_passes_for_an_ambiguous_match_because_ambiguity_has_its_own_ru
     assert r.outcome is Outcome.PASS
 
 
-def test_matched_without_a_reference_says_so():
-    r = ev_builtin("r_po_found", make_ctx(extracted=make_extracted(po_reference=None)))
-    assert r.outcome is Outcome.PASS and "other signals" in r.message
+@pytest.mark.parametrize("ref", [None, field(None, 0.99), " "])
+def test_matched_without_a_reference_is_a_suggestion_for_a_person_to_confirm(ref):
+    r = ev_builtin("r_po_found", make_ctx(extracted=make_extracted(po_reference=ref)))
+    assert (r.outcome, r.severity, r.outcome_key) == (Outcome.FLAG, 1, "matched_without_reference")
+    assert "PO-A-1" in r.message and "confirm" in r.message and r.detail["po_reference"] in (None, " ")
+
+
+def test_the_three_po_reference_cases_side_by_side():
+    stated_but_unmatched = ev_builtin("r_po_found", make_ctx(matched=False, extracted=make_extracted(po_reference="PO-ZZZ-9")))
+    no_reference_confident_match = ev_builtin("r_po_found", make_ctx(extracted=make_extracted(po_reference=None)))
+    no_reference_no_match = ev_builtin("r_po_found", make_ctx(matched=False, extracted=make_extracted(po_reference=None)))
+    assert (stated_but_unmatched.outcome_key, stated_but_unmatched.severity) == ("reference_not_found", 2)          # request_info
+    assert (no_reference_confident_match.outcome_key, no_reference_confident_match.severity) == ("matched_without_reference", 1)  # review
+    assert (no_reference_no_match.outcome_key, no_reference_no_match.severity) == ("no_reference", 2)               # request_info
+
+
+def test_an_ambiguous_match_without_a_reference_is_left_to_the_ambiguity_rule():
+    r = ev_builtin("r_po_found", make_ctx(match_status=MatchStatus.AMBIGUOUS, extracted=make_extracted(po_reference=None)))
+    assert r.outcome is Outcome.PASS
 
 
 @pytest.mark.parametrize("ref", [None, field(None, 0.99), " "])
@@ -97,9 +113,9 @@ def test_no_reference_and_no_match_asks_the_vendor(ref):
     assert (r.outcome, r.severity, r.outcome_key) == (Outcome.FLAG, 2, "no_reference")
 
 
-def test_reference_that_matches_nothing_is_flagged_for_review():
+def test_a_stated_reference_that_matches_nothing_asks_the_vendor():
     r = ev_builtin("r_po_found", make_ctx(matched=False, extracted=make_extracted(po_reference="PO-ZZZ-9")))
-    assert (r.severity, r.outcome_key) == (1, "reference_not_found") and "PO-ZZZ-9" in r.message
+    assert (r.severity, r.outcome_key) == (2, "reference_not_found") and "PO-ZZZ-9" in r.message
 
 
 def test_low_score_candidate_that_resembles_the_reference():
@@ -271,3 +287,10 @@ def test_end_to_end_blocked_near_tie_goes_to_review_with_the_risk_spelled_out():
     ctx, res, _ = pipeline(make_extracted(vendor_name="Acme Tradin"), facts)
     assert ctx.matched_vendor.ambiguous and ctx.matched_vendor.candidate_vendor_ids == [1, 2]
     assert res["r_vendor_status"].detail["blocked_candidate"] is True and ctx.decision is Decision.REVIEW
+
+
+def test_low_score_with_no_reference_at_all_still_asks_the_vendor():
+    ctx = make_ctx(matched=False, match_status=MatchStatus.LOW_SCORE, extracted=make_extracted(po_reference=None))
+    ctx.candidates = [cand(score=0.3, reasons=["vendor:match"])]
+    r = ev_builtin("r_po_found", ctx)
+    assert (r.outcome_key, r.severity) == ("no_reference", 2)

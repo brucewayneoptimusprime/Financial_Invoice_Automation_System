@@ -32,10 +32,13 @@ def facts_for(name: str, *, with_po: bool = True, po_total: str | None = None, n
     return make_facts(vendors=[vendor], pos=pos)
 
 
-def run_real(tmp_path, name: str, facts):
-    """Returns the finished RunContext."""
+def run_real(tmp_path, name: str, facts, edit=None):
+    """Returns the finished RunContext. `edit(reply)` may change the recorded reply first (to simulate a model mistake)."""
     ctx, cfg = real_ingest(tmp_path, name)
-    client = FakeLLMClient(ok_response(json.dumps(real_reply(name), ensure_ascii=False), input_tokens=6800, output_tokens=920))
+    reply = real_reply(name)
+    if edit is not None:
+        edit(reply)
+    client = FakeLLMClient(ok_response(json.dumps(reply, ensure_ascii=False), input_tokens=6800, output_tokens=920))
     run_extract_stage(ctx, client, cfg)
     ctx.facts = facts
     run_match_stage(ctx)

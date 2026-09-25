@@ -86,6 +86,11 @@ def po_found(ctx: RunContext, params: dict[str, Any]):
         else:
             how = f"by other signals (the stated reference '{ref_value}' matches no PO)"
         detail["top_score"] = None if top is None else top.score
+        if status == MatchStatus.MATCHED and is_missing(ref_value):
+            # A strong suggestion, not a confirmation: nobody stated which PO this is. A human confirms it.
+            return flag(params, "matched_without_reference",
+                        f"The invoice has no PO reference; purchase order {top.po_number if top else 'n/a'} is a confident, "
+                        "unambiguous match on vendor, amount and lines. A person should confirm it.", detail)
         return ok(f"A purchase order was found ({top.po_number if top else 'n/a'}) {how}.", detail, "found")
     # NO_CANDIDATES / LOW_SCORE
     if (code := system_side_failure(ctx)) is not None:

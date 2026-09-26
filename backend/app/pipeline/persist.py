@@ -136,6 +136,25 @@ def save_invoice(conn: sqlite3.Connection, ctx: RunContext, decision: Decision) 
     return SavedInvoice(invoice_id=invoice_id, lines=len(ex.line_items), notes=notes)
 
 
+def save_line_matches(conn: sqlite3.Connection, run_id: str, invoice_id: int, line_matches) -> int:
+    """One invoice_line_matches row per invoice line, for the reviewer's line picker (schema v2). Only when a PO was matched.
+    Returns how many rows were written."""
+    if line_matches is None or line_matches.po_id is None:
+        return 0
+    ids = {r["line_no"]: r["id"] for r in conn.execute("SELECT id, line_no FROM invoice_lines WHERE invoice_id = ?", (invoice_id,))}
+    n = 0
+    for m in line_matches.lines:
+        line_id = ids.get(m.invoice_line_no)
+        if line_id is None:
+            continue
+        conn.execute("INSERT INTO invoice_line_matches (run_id, invoice_id, invoice_line_id, po_id, status, po_line_id, score, candidates) "
+                     "VALUES (?,?,?,?,?,?,?,?)",
+                     (run_id, invoice_id, line_id, line_matches.po_id, m.status.value, m.po_line_id, m.score,
+                      json.dumps([c.model_dump(mode="json") for c in m.candidates])))
+        n += 1
+    return n
+
+
 # ------------------------------------------------------------------------------- ledger, review queue, drafts
 
 def po_balance_minor(conn: sqlite3.Connection, po_id: int) -> int:

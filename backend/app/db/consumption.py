@@ -4,6 +4,7 @@ The ledger stays the ONLY source of a PO's balance. These helpers keep the alloc
 consumption rows add up to exactly the entry's amount.
 """
 import sqlite3
+from decimal import Decimal
 from typing import Iterable
 
 from app.enums import MatchedBy
@@ -68,3 +69,20 @@ def schema_statements(sql: str) -> Iterable[str]:
             buf = []
     if buf:
         yield "\n".join(buf)
+
+
+def po_consumption_summary(conn: sqlite3.Connection, po_id: int) -> tuple[dict[int, tuple[Decimal, int]], int]:
+    """({po_line_id: (consumed quantity, consumed amount in cents)} for line-assigned rows, cents consumed against the PO total).
+    Commits minus reversals. Quantities are decimal TEXT, summed here as Decimals (never in SQL)."""
+    by_line: dict[int, tuple[Decimal, int]] = {}
+    unassigned = 0
+    for r in conn.execute("SELECT po_line_id, quantity, amount FROM po_consumption WHERE po_id = ?", (po_id,)):
+        if r["po_line_id"] is None:
+            unassigned += r["amount"]
+            continue
+        qty, amt = by_line.get(r["po_line_id"], (Decimal(0), 0))
+        if r["quantity"] is not None:
+            q = Decimal(r["quantity"])
+            qty += q if r["amount"] > 0 else -abs(q)
+        by_line[r["po_line_id"]] = (qty, amt + r["amount"])
+    return by_line, unassigned

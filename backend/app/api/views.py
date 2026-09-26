@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from app.money import from_minor
+from app.po.views import po_lines_with_consumption
 from app.pipeline.summary import STAGE_COMPLETED, STAGE_STARTED, STAGES
 
 RUN_COLUMNS = ("id", "source_file", "status", "started_at", "finished_at", "final_decision", "tokens_in", "tokens_out", "cost_usd", "model")
@@ -94,6 +95,37 @@ def page_path(runs_dir: Path, run_id: str, n: int) -> Path | None:
     return None
 
 
+def line_match_view(conn: sqlite3.Connection, run_id: str, events: list[dict], invoice: dict | None) -> dict:
+    """The data the reviewer's line picker needs (the picker itself is the follow-up): per invoice line its automatic status and
+    its top candidate PO lines with their text, prices and remaining quantity/amount, all the PO's lines, and the PO-level split.
+    Remaining values are as of NOW (other runs may have consumed since); the scores are as of the run."""
+    ev = _first(events, "po_lines_matched")
+    summary = {} if ev is None else ev["detail"]
+    view: dict = {"mode": summary.get("mode"), "bundled_hint": summary.get("bundled_hint", False), "reason": summary.get("reason"),
+                  "po": None, "lines": [], "po_lines": [], "po_consumption": None}
+    po_id = summary.get("po_id")
+    if po_id is None or invoice is None:
+        return view
+    po = conn.execute("SELECT id, po_number, currency FROM purchase_orders WHERE id = ?", (po_id,)).fetchone()
+    po_lines, split = po_lines_with_consumption(conn, po_id)
+    by_id = {pl["id"]: pl for pl in po_lines}
+    view.update(po=None if po is None else {"id": po["id"], "po_number": po["po_number"], "currency": po["currency"]},
+                po_lines=po_lines, po_consumption=split)
+    rows = conn.execute(
+        "SELECT m.*, il.line_no, il.description, il.quantity, il.unit_price, il.amount AS line_amount FROM invoice_line_matches m "
+        "JOIN invoice_lines il ON il.id = m.invoice_line_id WHERE m.run_id = ? ORDER BY il.line_no", (run_id,)).fetchall()
+    for r in rows:
+        candidates = []
+        for c in json.loads(r["candidates"]):
+            pl = by_id.get(c.get("po_line_id"), {})
+            candidates.append({**c, **{k: pl.get(k) for k in ("description", "quantity", "unit_price", "amount", "consumed_quantity",
+                                                              "consumed_amount", "remaining_quantity", "remaining_amount")}})
+        view["lines"].append({"invoice_line_id": r["invoice_line_id"], "invoice_line_no": r["line_no"], "description": r["description"],
+                              "quantity": r["quantity"], "unit_price": r["unit_price"], "amount": _money(r["line_amount"]),
+                              "status": r["status"], "po_line_id": r["po_line_id"], "score": r["score"], "candidates": candidates})
+    return view
+
+
 def run_view(conn: sqlite3.Connection, run_id: str, runs_dir: Path) -> dict | None:
     run = run_row(conn, run_id)
     if run is None:
@@ -158,5 +190,6 @@ def run_view(conn: sqlite3.Connection, run_id: str, runs_dir: Path) -> dict | No
         "pages": page_numbers(runs_dir, run_id),
         "stage_costs": stage_costs,
         "error": None if error_ev is None else {"message": error_ev["message"], "error_type": error_ev["detail"].get("error_type")},
+        "line_matches": line_match_view(conn, run_id, events, invoice),
         "event_count": len(events),
     }

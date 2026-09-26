@@ -4,14 +4,42 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4 and PO integration stages 1-6 committed; **your two browser checks (M4 stage 5, PO stage 7) are still open**.
-- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stages 1-3 of 4 done** (schema v2 + migration; the line matcher; the `r_po_line_price` rule).
-- Next: stage 4 (line-match persistence, the picker's data in the run view and PO detail, the four synthetic fixtures, the six-invoice before/after table), then stop for your review.
+- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **all 4 stages done. Stopped for your review** (the approve/reject wiring and the picker UI are the follow-up; nothing of them is started).
 - **Your `data\app.db` is still schema version 1** (4 runs, 1 ledger entry). The new code refuses to open it until you run `python -m app.db.migrate` (from `backend\`, with the venv active; it makes a backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Backend: **2075 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 (+1 in stage 3), stage 2 added 30, stage 3 added 14. Existing tests changed only for new tables/events/rule counts, **except ONE decision** (see stage 3 below).
+- Backend: **2082 passed, 0 failed, 2 deselected** (`pytest -W error`); the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). Frontend unchanged (54 passed).
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## The six real invoices, before and after this build
+Replay of the extract-v5 recordings, each run against a fresh demo database; "before" = commit `ffc0c05` (the code just before line items, run from a temporary git worktree), "after" = this build. Explainer/drafter: templates on replay.
+
+| Invoice | Decision before | Decision after | PO | Line match (after) | `r_po_line_price` | Triggered checks (identical before/after) |
+|---|---|---|---|---|---|---|
+| SuperStore 10963 | review | **review** | PO-SS-001 | line_level: line 1 -> PO line 1, score 1.00 | within_tolerance | r_po_found matched_without_reference |
+| SuperStore 24429 | review | **review** | PO-SS-002 | line_level: 1 -> 1, 1.00 | within_tolerance | r_po_found matched_without_reference |
+| SuperStore 14021 | review | **review** | PO-SS-003 | line_level: 1 -> 1, 1.00 | within_tolerance | r_po_found matched_without_reference |
+| SuperStore 6459 | review | **review** | PO-SS-004 | line_level: 1 -> 1, 1.00 | within_tolerance | r_po_found matched_without_reference |
+| SuperStore 14130 | review | **review** | PO-SS-005 | line_level: 1 -> 1, 1.00 | within_tolerance | r_po_found matched_without_reference |
+| IQ Electronics scan | review | **review** | PO-IQ-2025-001 | line_level: 1 -> 1, 1.00 | within_tolerance | engine_floor, r_extraction_confidence low_confidence, r_po_found matched_without_reference |
+
+Results per run: 15 before, 16 after (the new rule). No decision, PO match or triggered check changed. The labelled SYNTHETIC approve variant (24429 with PO-SS-002 edited in) still approves and now also writes one total-only `po_consumption` row (tested). With the older v4 replies pinned in `test_six_invoices.py`, IQ has no matched PO (no currency), so its line matching is `not_evaluable` (tested).
+
+## The four synthetic line-item scenarios (`tests/pipeline/test_line_items_synthetic.py`)
+Generated Northwind invoice as a PNG, the recorded-style Northwind reply edited per scenario and labelled `[SYNTHETIC LINE-ITEM SCENARIO ...]`, a test-only vendor and 3-line PO-5001 (demo seed untouched):
+
+| Scenario | Line match | `r_po_line_price` | Decision |
+|---|---|---|---|
+| clean (Widget A 10 x 60, B 5 x 80 vs PO A/B/C) | line_level: 1 -> 1, 2 -> 2 (1.00 each) | within_tolerance | approve; ledger commit + one total-only `auto` consumption row |
+| ambiguous (vs PO "Widget A (blue)" / "(green)" / B) | partial: line 1 ambiguous (0.86 vs 0.84), line 2 -> 3 | within_tolerance on line 2; line 1 skipped | approve (decision 3: line matching changes no decision yet) |
+| bundled (one line "Goods as per purchase order PO-5001") | total_only, bundled hint, no_match | not_evaluable | approve (whole-PO match by reference unaffected) |
+| price (Widget A billed 66.00 vs PO 60.00) | line_level, line 1 scored 0.93 | **price_above_po**: D 6.00 > A 0.60 | **review** (the only triggered check) |
+
+## What changed (line-item stage 4: stored line matches and the picker's data)
+- The act stage writes `invoice_line_matches` (one row per invoice line when a PO was matched; SPEC section 11 item 77); the act summary counts them.
+- `GET /api/runs/{id}` has `line_matches` (per invoice line: status, automatic choice, top-3 candidate PO lines with text, prices, consumed/remaining; all PO lines; the PO split). `GET /api/pos/{id}` lines carry consumed/remaining quantity and amount, and `amounts` carries `consumed_by_lines` / `consumed_without_line`.
+- Three table-set assertions extended for the new rows (`test_runner`, `test_stage_events` x2), one PO-detail equality extended.
 
 ## What changed (line-item stage 3: `r_po_line_price`)
 - `app/engine/evaluators/po_line_price.py` (SPEC section 11 item 76), registered as the 14th builtin rule: params `pct` 1.0, `abs` 1.00, `mode lesser_of`, `direction above`, severity 1; outcomes `within_tolerance` / `price_above_po` / `price_below_po` (only with `both`) / `not_evaluable`.
@@ -81,13 +109,16 @@ Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; pip install o
 FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuses without a mode), upload -> one-at-a-time worker, run view from SQLite, page images, SSE stream tailing `audit_events`; React UI with the live 7-stage timeline and the result view. To run it for your stage-5 check: window 1 `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`; window 2 `cd C:\Zamp_ai_Automation\frontend; npm run dev`; open http://localhost:5173.
 
 ## Decisions I need from the user
+- **Review this line-item build** before the follow-up (approve/reject + picker UI). Open questions for it: whether `partial` / `ambiguous` line matches should force review (decision 3 deferred it), and how the reviewer's line choice writes consumption.
 - Your PO stage-7 browser check (and, when you want, the live PO-draft check).
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-74-76 (schema v2, line matching, `r_po_line_price`). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+74-77 (schema v2, line matching, `r_po_line_price`, picker data). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
+- Line matching: short descriptions one letter apart ("Widget A" vs "Widget B") score 0.88 on description alone; price, quantity and amount keep such a line far below a match (0.575 < 0.75 in the tests) and it is listed only as a low candidate. Real POs with near-identical names and identical prices would come out ambiguous, which is the safe side.
+- Consumption per line is recorded only from the follow-up on; until then every approve is allocated to the PO total (`matched_by auto`, no line).
 - PO drafting (text and document) has run only against scripted replies; the prompt has no live evidence until your live check. A replay server has no PO recordings, so on replay every draft comes back failed (`replay_miss`); use `--live` for real drafts.
 - The "Why" parser depends on the template wording; the contract test fails first if it changes.
 - The real explainer/drafter have never run live. Extraction varies between calls.

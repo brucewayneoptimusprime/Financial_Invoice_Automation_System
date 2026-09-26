@@ -226,6 +226,9 @@ def _act(conn: sqlite3.Connection, writer: AuditWriter, ctx: RunContext, setting
         writes.append(WriteRecord("invoices", saved.invoice_id, f"decision {decision.value}, status {persist.STATUS_FOR_DECISION[decision].value}"))
         if saved.lines:
             writes.append(WriteRecord("invoice_lines", None, f"{saved.lines} line(s)"))
+        matched_lines = persist.save_line_matches(conn, ctx.run_id, saved.invoice_id, ctx.line_matches)
+        if matched_lines:
+            writes.append(WriteRecord("invoice_line_matches", None, f"{matched_lines} line(s), mode {ctx.line_matches.mode}"))
         writer.write([_event(ACT_STAGE, "invoice_saved", Outcome.INFO, f"Invoice saved (id {saved.invoice_id}) with status "
                              f"{persist.STATUS_FOR_DECISION[decision].value}.", {"invoice_id": saved.invoice_id, "lines": saved.lines,
                                                                                  "notes": saved.notes})])
@@ -269,6 +272,8 @@ def _act(conn: sqlite3.Connection, writer: AuditWriter, ctx: RunContext, setting
         tables = Counter(w.table for w in writes)
         if saved.lines:
             tables["invoice_lines"] = saved.lines
+        if matched_lines:
+            tables["invoice_line_matches"] = matched_lines
         saved_draft = draft if (plan.draft and draft is not None) else None
         writer.write([completed_event("act", "flagged" if withheld is not None else "ok",
                                       0 if act_started is None else _elapsed_ms(act_started),

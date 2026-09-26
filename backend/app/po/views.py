@@ -4,8 +4,10 @@ The balance is always derived from the ledger (`get_po_balance_minor`), never re
 """
 import json
 import sqlite3
+from decimal import Decimal
 from typing import Any
 
+from app.db.consumption import po_consumption_summary
 from app.db.queries import get_po_balance_minor
 from app.money import from_minor
 
@@ -72,9 +74,7 @@ def po_detail(conn: sqlite3.Connection, po_id: int) -> dict[str, Any] | None:
         return None
     balance = get_po_balance_minor(conn, po_id)
     committed = po["total_amount"] - balance
-    lines = [{"line_no": r["line_no"], "description": r["description"], "quantity": r["quantity"], "unit_price": r["unit_price"],
-              "amount": _m(r["amount"])}
-             for r in conn.execute("SELECT * FROM po_lines WHERE po_id = ? ORDER BY line_no", (po_id,))]
+    lines, split = po_lines_with_consumption(conn, po_id)
     invoices = []
     awaiting = 0
     for r in conn.execute(
@@ -95,10 +95,26 @@ def po_detail(conn: sqlite3.Connection, po_id: int) -> dict[str, Any] | None:
                "vendor_status": po["vendor_status"], "vendor_tax_id": po["vendor_tax_id"], "currency": po["currency"],
                "issued_date": po["issued_date"], "status": po["status"]},
         "amounts": {"total": _m(po["total_amount"]), "committed": _m(committed), "balance": _m(balance),
-                    "awaiting_review": _m(awaiting), "over_billed": balance < 0},
+                    "awaiting_review": _m(awaiting), "over_billed": balance < 0, **split},
         "lines": lines,
         "invoices": invoices,
         "ledger": ledger,
         "considered_in": _considered(conn, po_id, po["po_number"]),
         "provenance": meta,
     }
+
+
+def po_lines_with_consumption(conn: sqlite3.Connection, po_id: int) -> tuple[list[dict], dict[str, Any]]:
+    """The PO's lines with consumed and remaining quantity/amount (line-assigned consumption only; derived, never stored), and the
+    PO-level split: consumed against lines vs against the PO total with no line."""
+    by_line, unassigned = po_consumption_summary(conn, po_id)
+    lines = []
+    for r in conn.execute("SELECT * FROM po_lines WHERE po_id = ? ORDER BY line_no", (po_id,)):
+        cq, ca = by_line.get(r["id"], (Decimal(0), 0))
+        qty = None if r["quantity"] is None else Decimal(r["quantity"])
+        lines.append({"id": r["id"], "line_no": r["line_no"], "description": r["description"], "quantity": r["quantity"],
+                      "unit_price": r["unit_price"], "amount": _m(r["amount"]),
+                      "consumed_quantity": str(cq), "consumed_amount": _m(ca),
+                      "remaining_quantity": None if qty is None else str(qty - cq),
+                      "remaining_amount": None if r["amount"] is None else _m(r["amount"] - ca)})
+    return lines, {"consumed_by_lines": _m(sum(a for _, a in by_line.values())), "consumed_without_line": _m(unassigned)}

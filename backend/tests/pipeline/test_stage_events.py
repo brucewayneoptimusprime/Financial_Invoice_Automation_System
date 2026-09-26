@@ -86,7 +86,7 @@ def test_summaries_carry_the_key_outputs(db, tmp_path):
     assert s["validate"]["results"] == 16 and s["validate"]["counts"]["flag"] >= 1 and "r_po_found" in s["validate"]["triggered"]
     assert s["decide"]["decision"] == "review"
     assert s["explain"]["source"] == "template"
-    assert s["act"] == {"decision": "review", "rows_written": {"invoices": 1, "invoice_lines": 1, "review_queue": 1},
+    assert s["act"] == {"decision": "review", "rows_written": {"invoices": 1, "invoice_lines": 1, "invoice_line_matches": 1, "review_queue": 1},
                         "downgraded_to_review": False, "draft_kind": None}
 
 
@@ -96,7 +96,8 @@ def test_approve_act_summary_counts_the_ledger_rows(db, tmp_path):
     _, pairs = timing(db, r.run_id)
     act = next(d for k, d in pairs if k == "stage_completed" and d["stage"] == "act")
     assert act["status"] == "ok" and act["summary"]["rows_written"] == {"invoices": 1, "invoice_lines": 1, "ledger_entries": 1,
-                                                                        "purchase_orders": 1, "po_consumption": 1}
+                                                                        "purchase_orders": 1, "po_consumption": 1,
+                                                                        "invoice_line_matches": 1}
 
 
 def test_summaries_contain_no_page_text_invoice_text_or_model_free_text(db, tmp_path):

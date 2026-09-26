@@ -68,7 +68,7 @@ def test_a_real_invoice_with_no_po_reference_is_reviewed_and_writes_exactly_the_
     q = one(db, "SELECT * FROM review_queue WHERE run_id = ?", r.run_id)
     assert q["status"] == "open" and q["resolution"] is None and q["reason"].startswith("Review: r_po_found (matched_without_reference)")
     assert one(db, "SELECT status FROM purchase_orders WHERE id = 1")["status"] == "open"                        # PO untouched
-    assert {w.table for w in r.writes} == {"invoices", "invoice_lines", "review_queue"}
+    assert {w.table for w in r.writes} == {"invoices", "invoice_lines", "invoice_line_matches", "review_queue"}
 
 
 def test_the_explanation_is_stored_in_the_trail_and_names_the_rule_that_held_the_invoice(db, tmp_path):

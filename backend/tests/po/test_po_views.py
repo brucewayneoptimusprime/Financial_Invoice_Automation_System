@@ -34,8 +34,11 @@ def test_detail_of_a_seeded_po_with_a_historic_invoice(tmp_path):
     with api(tmp_path) as c:
         d = c.get(f"/api/pos/{po_id(c, 'PO-SS-005')}").json()
     assert d["po"]["vendor"] == "SuperStore" and d["amounts"] == {"total": "9000.00", "committed": "1500.00", "balance": "7500.00",
-                                                                   "awaiting_review": "0.00", "over_billed": False}
+                                                                   "awaiting_review": "0.00", "over_billed": False,
+                                                                   "consumed_by_lines": "0.00", "consumed_without_line": "1500.00"}
     assert len(d["lines"]) == 1 and d["ledger"][0]["amount"] == "1500.00"
+    ln = d["lines"][0]                                                  # the legacy commit consumed the total, not the line
+    assert (ln["consumed_quantity"], ln["consumed_amount"], ln["remaining_quantity"], ln["remaining_amount"]) == ("0", "0.00", "7", ln["amount"])
     assert d["invoices"][0]["historic"] is True and d["invoices"][0]["invoice_number"] == "HIST-SS-0001"
 
 

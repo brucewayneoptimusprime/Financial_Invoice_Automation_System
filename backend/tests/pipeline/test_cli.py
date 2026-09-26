@@ -45,6 +45,7 @@ def record(env, name, reply, rec, remove_pos=False):
     conn = demo_db(env / "recording", f"rec-{name}.db")
     if remove_pos:
         with persist.transaction(conn):
+            conn.execute("DELETE FROM po_consumption")          # schema v2: allocation rows first
             conn.execute("DELETE FROM ledger_entries")
             conn.execute("UPDATE invoices SET po_id = NULL")
             conn.execute("DELETE FROM po_lines")
@@ -134,6 +135,7 @@ def test_a_request_for_information_prints_the_full_draft_and_says_nothing_was_se
     record(env, SS, v4(SS), rec, remove_pos=True)
     conn = demo_db(env, "app.db")
     with persist.transaction(conn):
+        conn.execute("DELETE FROM po_consumption")          # schema v2: allocation rows first
         conn.execute("DELETE FROM ledger_entries")
         conn.execute("UPDATE invoices SET po_id = NULL")
         conn.execute("DELETE FROM po_lines")

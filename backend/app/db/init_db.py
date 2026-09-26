@@ -1,8 +1,8 @@
 """Create the schema (idempotent) and seed builtin rules and default settings.
 
-Migrations are deliberately simple: PRAGMA user_version tracks SCHEMA_VERSION. A fresh DB gets
-schema.sql applied; an up-to-date DB is left alone; any other version is an error until a real
-migration exists.
+PRAGMA user_version tracks SCHEMA_VERSION. A fresh DB gets schema.sql (version 1) and schema_v2.sql (line-item PO consumption)
+applied; an up-to-date DB is left alone. A version-1 DB is NOT migrated silently: `python -m app.db.migrate` does it, with a
+backup (owner decision 8). Any other version is an error.
 """
 import argparse
 import json
@@ -12,17 +12,46 @@ from pathlib import Path
 from app.builtin_rules import builtin_rules
 from app.config import Settings, get_settings
 from app.db.connection import connect
+from app.db.consumption import schema_statements
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
+SCHEMA_V2_PATH = Path(__file__).with_name("schema_v2.sql")
+MIGRATE_HINT = "python -m app.db.migrate"
+
+
+class SchemaOutdated(RuntimeError):
+    """The database is an older schema version that has a migration."""
+
+
+def schema_version(conn: sqlite3.Connection) -> int:
+    return conn.execute("PRAGMA user_version").fetchone()[0]
+
+
+def check_schema(conn: sqlite3.Connection, db_path: Path | str | None = None) -> None:
+    """For programs that open an existing database (serve, the pipeline CLI): refuse an old or unknown schema, clearly."""
+    version = schema_version(conn)
+    where = f" ({db_path})" if db_path else ""
+    if version == SCHEMA_VERSION:
+        return
+    if version == 1:
+        raise SchemaOutdated(f"The database{where} is schema version 1; this version of the software needs version {SCHEMA_VERSION} "
+                             f"(line-item PO consumption). Migrate it (a backup is made first):  {MIGRATE_HINT}"
+                             + (f" --db {db_path}" if db_path else "") + "   or start fresh with --reset-demo.")
+    raise RuntimeError(f"Database schema version {version}{where} is not supported (expected {SCHEMA_VERSION}).")
 
 
 def init_db(conn: sqlite3.Connection, settings: Settings | None = None) -> None:
     settings = settings or get_settings()
-    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    version = schema_version(conn)
     if version == 0:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        with conn:
+            for statement in schema_statements(SCHEMA_V2_PATH.read_text(encoding="utf-8")):
+                conn.execute(statement)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    elif version == 1:
+        raise SchemaOutdated(f"Database schema version 1 needs migrating to {SCHEMA_VERSION}: run {MIGRATE_HINT}")
     elif version != SCHEMA_VERSION:
         raise RuntimeError(f"Database schema version {version} != expected {SCHEMA_VERSION}; no migration available")
     _seed_defaults(conn, settings)

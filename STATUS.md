@@ -3,13 +3,23 @@
 Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M3 complete. **M4 stages 1-4 committed; M4 stage 5 (your manual browser check on replay) is still open** and gets its own commit when you confirm it.
-- **PO integration** (feature work before M5/M6, at your priority; plan approved with all 9 decisions as recommended): **stages 1-6 of 7 done. Stopped at stage 7: your manual browser check** (see "How to check it" below). Nothing past stage 7 is started.
-- No live calls were made. The first real PO drafts (text/document) are your own live check.
+- M0-M3 complete. M4 stages 1-4 and PO integration stages 1-6 committed; **your two browser checks (M4 stage 5, PO stage 7) are still open**.
+- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stage 1 of 4 done** (schema v2, migration with backup, allocation invariant).
+- Next: stage 2 (the line matcher in the match stage).
+- **Your `data\app.db` is still schema version 1** (4 runs, 1 ledger entry). The new code refuses to open it until you run `python -m app.db.migrate` (from `backend\`, with the venv active; it makes a backup first) or start the server with `--reset-demo`.
+- No live calls.
 
 ## Test count and result
-- Backend: **2009 passed, 0 failed, 2 deselected** (`pytest -W error`); PO stage 1 added 5, stage 2 added 43, stage 4 added 50 (stage 6 extended one assertion).
+- Backend: **2030 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 (`tests/test_schema_v2.py`) and adjusted 6 existing tests for the new tables (listed below); no decision assertion changed.
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (line-item stage 1: schema v2)
+- `app/db/schema_v2.sql`: `po_consumption` and `invoice_line_matches` (SPEC section 5 and section 11 item 74). No existing table changed.
+- `app/db/consumption.py`: `backfill_consumption` (one `legacy` row against the PO total per unallocated ledger entry), `consumption_problems` (the invariant), `record_consumption`.
+- `app/db/migrate.py`: `python -m app.db.migrate [--db PATH]` backs up the file, then in ONE transaction creates the tables, backfills, verifies and sets version 2; any problem rolls back (tested: the tables and the version change are undone, the backup is kept). A v2 database is left alone.
+- `init_db` creates v2 directly; `init_db`, `serve` and the pipeline CLI refuse a v1 database with the migrate command in the message. The seed loader backfills the seeded commits (demo: one `legacy` row of 1,500.00 on PO-SS-005; balances unchanged).
+- The approve path now also writes one `po_consumption` row (against the PO total, `matched_by auto`) beside its ledger commit, in the same transaction.
+- Existing tests adjusted (setup or table lists only): `test_db_init` (two more tables), `test_enum_drift` (three new CHECK lists mapped to `LedgerType`, `MatchedBy`, `LineMatchStatus`), `test_reset` and three pipeline setups (delete allocation rows before ledger rows), `tests/helpers.SEED_TABLES` (+ `po_consumption`), `test_stage_events` (the approve's act summary counts the consumption row).
 
 ## How to check it (PO stage 7, yours)
 Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; pip install openpyxl; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo` (use `--live` instead for real PO drafts). Window 2: `cd C:\Zamp_ai_Automation\frontend; npm run dev`. Open http://localhost:5173.
@@ -62,7 +72,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-72-73 (PO entry, PO drafting). Earlier: 69-71 (M4), 61-68 (M3).
+74 (schema v2). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - PO drafting (text and document) has run only against scripted replies; the prompt has no live evidence until your live check. A replay server has no PO recordings, so on replay every draft comes back failed (`replay_miss`); use `--live` for real drafts.

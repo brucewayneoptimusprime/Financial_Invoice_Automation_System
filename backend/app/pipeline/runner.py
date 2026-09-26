@@ -24,7 +24,8 @@ from app.config import Settings, get_settings
 from app.engine.engine import run_decide_stage, run_validate_stage
 from app.engine.loader import load_facts, load_rules
 from app.engine.matching import run_match_stage
-from app.enums import Decision, Outcome
+from app.db.consumption import record_consumption
+from app.enums import Decision, MatchedBy, Outcome
 from app.extraction.stage import run_extract_stage
 from app.ingest.stage import run_ingest_stage
 from app.ingest.store import check_run_id, new_run_id
@@ -235,10 +236,14 @@ def _act(conn: sqlite3.Connection, writer: AuditWriter, ctx: RunContext, setting
             po_id, po_number = ctx.matched_po.po_id, ctx.matched_po.po_number
             before = persist.po_balance_minor(conn, po_id)
             entry_id = persist.commit_ledger(conn, po_id, saved.invoice_id, commit_minor)
+            # the allocation of that commit: against the PO total, no specific line (per-line allocation is the follow-up)
+            record_consumption(conn, ledger_entry_id=entry_id, po_id=po_id, invoice_id=saved.invoice_id, run_id=ctx.run_id,
+                               amount_minor=commit_minor, matched_by=MatchedBy.AUTO)
             after = persist.po_balance_minor(conn, po_id)
             status = persist.set_po_status_after_commit(conn, po_id)
             result.po_number, result.po_balance = po_number, (from_minor(before), from_minor(after))
             writes.append(WriteRecord("ledger_entries", entry_id, f"commit {from_minor(commit_minor):,.2f} on {po_number}"))
+            writes.append(WriteRecord("po_consumption", None, "against the PO total (no specific line)"))
             writes.append(WriteRecord("purchase_orders", po_id, f"{po_number} status {status}; derived balance {from_minor(before):,.2f} -> {from_minor(after):,.2f}"))
             writer.write([_event(ACT_STAGE, "ledger_committed", Outcome.PASS, f"Committed {from_minor(commit_minor):,.2f} to {po_number}; "
                                  f"balance {from_minor(before):,.2f} -> {from_minor(after):,.2f}.",

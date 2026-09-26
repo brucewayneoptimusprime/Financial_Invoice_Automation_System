@@ -1,4 +1,4 @@
-SEED_TABLES = ["vendors", "purchase_orders", "po_lines", "invoices", "invoice_lines", "ledger_entries"]
+SEED_TABLES = ["vendors", "purchase_orders", "po_lines", "invoices", "invoice_lines", "ledger_entries", "po_consumption"]
 
 
 def snapshot(conn, tables):

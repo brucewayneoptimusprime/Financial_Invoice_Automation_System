@@ -22,6 +22,7 @@ def test_reset_returns_database_to_exact_seed_state(db_path):
     # Mutate everything a live run could touch.
     with c:
         c.execute("UPDATE vendors SET status = 'blocked' WHERE id = 1")
+        c.execute("DELETE FROM po_consumption WHERE ledger_entry_id = 1")      # schema v2: the allocation goes with it
         c.execute("DELETE FROM ledger_entries WHERE id = 1")
         c.execute("INSERT INTO ledger_entries (po_id, invoice_id, amount, type) VALUES (2, 1, 100, 'commit')")
         c.execute("INSERT INTO runs (id, source_file, status) VALUES ('run-1', 'x.pdf', 'completed')")

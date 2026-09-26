@@ -39,6 +39,7 @@ def explanation_event(db, run_id):
 
 def remove_pos(db):
     with persist.transaction(db):
+        db.execute("DELETE FROM po_consumption")          # schema v2: allocation rows first
         db.execute("DELETE FROM ledger_entries")
         db.execute("UPDATE invoices SET po_id = NULL")
         db.execute("DELETE FROM po_lines")

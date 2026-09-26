@@ -719,7 +719,7 @@ The PO prompt and schema are separate from the invoice ones, so `extract-v5` and
 
 ---
 
-# Line-item PO consumption plan (2026-09-26, awaiting owner approval; no code for it exists)
+# Line-item PO consumption plan (2026-09-26; all 10 decisions approved as recommended; build stages 1-4, stop after 4)
 
 **Where this sits.** Builds on PO integration (stages 1-6 committed; its stage 7 and M4 stage 5 are your open browser checks).
 

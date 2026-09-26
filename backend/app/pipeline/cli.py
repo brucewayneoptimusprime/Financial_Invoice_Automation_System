@@ -20,6 +20,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.db.connection import connect
+from app.db.init_db import check_schema
 from app.db.reset import reset_database
 from app.extraction.eval import LiveNotAllowed, build_client
 from app.extraction.preflight import SCHEMA_EXIT_CODE, is_schema_rejection, schema_rejection_message
@@ -202,6 +203,11 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = connect(db_path)
     try:
+        try:
+            check_schema(conn, db_path)
+        except RuntimeError as exc:                                      # SchemaOutdated names the migrate command
+            print(f"NOT RUN: {exc}")
+            return EXIT_USAGE
         try:
             result = run_pipeline(args.file, conn, client=client, settings=settings)
         except IngestRejected as exc:

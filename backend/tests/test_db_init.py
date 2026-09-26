@@ -10,6 +10,7 @@ from app.db.init_db import SCHEMA_VERSION, init_db
 EXPECTED_TABLES = {
     "vendors", "purchase_orders", "po_lines", "invoices", "invoice_lines", "ledger_entries",
     "runs", "audit_events", "rules", "review_queue", "drafts", "settings",
+    "po_consumption", "invoice_line_matches",          # schema v2 (line-item PO consumption)
 }
 
 

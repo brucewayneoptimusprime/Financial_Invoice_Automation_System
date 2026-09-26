@@ -16,6 +16,8 @@ from pathlib import Path
 
 from app.api.clients import build_api_client
 from app.config import get_settings
+from app.db.connection import connect
+from app.db.init_db import check_schema
 from app.db.reset import reset_database
 from app.llm.budget import CostTracker
 from app.llm.errors import LLMConfigError
@@ -77,6 +79,14 @@ def main(argv: list[str] | None = None) -> int:
     elif not Path(db_path).is_file():
         print(f"The database {db_path} does not exist. Create it with:  python -m app.db.reset --demo   (or pass --reset-demo)")
         return EXIT_USAGE
+    conn = connect(db_path)
+    try:
+        check_schema(conn, db_path)
+    except RuntimeError as exc:                                          # SchemaOutdated names the migrate command
+        print(f"NOT STARTED: {exc}")
+        return EXIT_USAGE
+    finally:
+        conn.close()
 
     tracker = CostTracker(settings.cost_ceiling_per_run_usd, settings.cost_ceiling_per_session_usd)
     try:

@@ -102,3 +102,18 @@ class MatchStatus(StrEnum):
     NO_CANDIDATES = "no_candidates"
     LOW_SCORE = "low_score"
     AMBIGUOUS = "ambiguous"
+
+
+class MatchedBy(StrEnum):
+    """Who allocated a PO consumption row (line-item consumption, schema v2)."""
+    AUTO = "auto"
+    MANUAL_REVIEWER = "manual_reviewer"
+    LEGACY = "legacy"                     # backfilled from a whole-PO ledger commit made before schema v2 (owner decision 1)
+
+
+class LineMatchStatus(StrEnum):
+    """Per invoice line, against the matched PO's lines."""
+    MATCHED = "matched"
+    AMBIGUOUS = "ambiguous"
+    NO_MATCH = "no_match"
+    NOT_EVALUABLE = "not_evaluable"

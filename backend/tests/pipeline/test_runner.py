@@ -173,6 +173,7 @@ def test_the_same_file_again_is_a_duplicate_reject_and_never_commits_twice(db, t
 
 def remove_pos(conn):
     with persist.transaction(conn):
+        conn.execute("DELETE FROM po_consumption")          # schema v2: allocation rows first
         conn.execute("DELETE FROM ledger_entries")
         conn.execute("UPDATE invoices SET po_id = NULL")
         conn.execute("DELETE FROM po_lines")

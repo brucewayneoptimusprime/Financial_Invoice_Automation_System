@@ -14,6 +14,7 @@ from pathlib import Path
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.config import get_settings
+from app.db.consumption import backfill_consumption
 from app.enums import Decision, InvoiceStatus, LedgerType, POStatus, VendorStatus
 from app.money import to_minor
 
@@ -172,4 +173,5 @@ def load_seed(conn: sqlite3.Connection, path: Path | None = None) -> SeedFile:
                 "INSERT INTO ledger_entries (id, po_id, invoice_id, amount, type, created_at) VALUES (?,?,?,?,?,?)",
                 (e.id, e.po_id, e.invoice_id, to_minor(e.amount), e.type.value, _ts(e.created_at)),
             )
+        backfill_consumption(conn)           # seeded commits are history: consumption against the PO total (matched_by legacy)
     return seed

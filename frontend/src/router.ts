@@ -1,7 +1,9 @@
-// A small history router: "/" (upload), "/runs/:id", "/pos", "/pos/new", "/pos/:id". No dependency needed for that.
+// A small history router: "/" (dashboard), "/invoices" (upload), "/runs/:id", "/pos", "/pos/new", "/pos/:id", "/review",
+// "/review/:id". No dependency needed for that.
 import { useEffect, useState } from "react";
 
 export type Route =
+  | { name: "dashboard" }
   | { name: "upload" }
   | { name: "run"; id: string }
   | { name: "pos" }
@@ -13,7 +15,8 @@ export type Route =
 
 export function parse(path: string): Route {
   const p = path.replace(/\/+$/, "") || "/";
-  if (p === "/") return { name: "upload" };
+  if (p === "/") return { name: "dashboard" };
+  if (p === "/invoices") return { name: "upload" };
   let m = /^\/runs\/([A-Za-z0-9_-]{1,64})$/.exec(p);
   if (m) return { name: "run", id: m[1] };
   if (p === "/pos") return { name: "pos" };

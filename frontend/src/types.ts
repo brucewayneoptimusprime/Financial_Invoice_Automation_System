@@ -265,3 +265,20 @@ export interface ApproveResult {
   po: { id: number; po_number: string; balance_before: string; balance_after: string; status: string };
   allocations: AllocRowView[]; pro_rata: boolean; notes: string[];
 }
+
+// ---------------------------------------------------------------------------------------------- dashboard
+
+export interface DashboardRun extends RunRow {
+  invoice_number: string | null; invoice_currency: string | null; invoice_total: string | null; invoice_status: string | null; vendor: string | null;
+}
+
+export interface Dashboard {
+  generated_at: string;
+  runs: { processed: number; failed: number; running: number; by_decision: Record<Decision, number> };
+  outcomes: { approved: number; in_review: number; awaiting_info: number; rejected: number; pending: number };
+  review: { open_count: number; oldest_open: ReviewListItem[] };
+  spend: { invoice_runs_usd: string; po_drafts_usd: string; total_usd: string; runs_counted: number; drafts_counted: number };
+  pos: { count: number; by_status: Record<string, number>;
+         currencies: { currency: string; count: number; total_value: string; consumed: string; balance: string; consumed_without_line: string }[] };
+  recent_runs: DashboardRun[];
+}

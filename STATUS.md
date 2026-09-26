@@ -4,15 +4,28 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4, PO integration 1-6, line-item consumption 1-4 and review actions 1-3 committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4), the review of the line-item build, and whether you want a demo loader for the line-choice path.
-- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stage 1 of 3 done** (the `GET /api/dashboard` endpoint).
-- Next: stage 2 (the route/nav move and the dashboard screen).
+- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stages 1-2 of 3 done. Stopped at stage 3: your manual browser check** (see "How to check the dashboard" below).
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Frontend: **65 passed** (vitest; review actions stage 3 added 11); `tsc --noEmit` clean; `vite build` OK.
+- Frontend: **72 passed** (vitest; dashboard stage 2 added 7; review actions added 11); `tsc --noEmit` clean; `vite build` OK.
 - Backend: **2140 passed, 0 failed, 2 deselected** (`pytest -W error`); dashboard stage 1 added 11 (`tests/api/test_dashboard.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## How to check the dashboard (stage 3, yours)
+Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`. Window 2: `cd C:\Zamp_ai_Automation\frontend; npm run dev`. Open http://localhost:5173.
+- `/` is now the **Dashboard** (nav: Dashboard | Invoices | Purchase orders | Review queue). With a fresh demo database it shows 0 invoices, "No invoices yet: upload one", and the seeded POs: 6 POs, a USD card (39,500.00 total, 1,500.00 consumed, all of it not assigned to a line) and an INR card (5,000.00).
+- **Invoices** is now at `/invoices` (upload + recent runs, as before). Upload a few of the six; back on the dashboard: invoices processed, the decision chips and bar, the review queue count, the recent runs, the items waiting for review (each links to its item).
+- Approve one review item, then look again: the system decisions stay the same, the "Now, after review" line moves (1 approved), the USD consumed figure rises.
+- LLM spend shows $0 on replay (replayed calls are not charged); after a `--live` run it shows the invoice runs and any PO drafts.
+- The PO page's "Upload invoices" now opens `/invoices?po=...`.
+
+## What changed (dashboard stage 2: the screen)
+- Routes: `/` -> dashboard, `/invoices` -> the upload screen (it was `/`). Updated links: brand and 404 -> dashboard; "← New invoice" and "Upload an invoice" on the run page -> `/invoices`; the PO page's "Upload invoices" -> `/invoices?po=<id>`. Nav gains **Dashboard** (highlighted on `/`); Invoices is highlighted on `/invoices` and on run pages.
+- `screens/Dashboard.tsx`: stat cards (invoices processed + failed/running, decisions with chips + a CSS-only proportion bar that is `aria-hidden` next to the written counts + the "now, after review" line, review queue count linking to `/review`, LLM spend with the split), a Purchase orders section (count + status chips, one card per currency: total value, consumed, balance, not assigned to a line), and two lists (recent runs with decision and "now ..." when a reviewer changed the outcome; waiting for review with the plain reason and ready / line choices / cannot approve). Refreshes every 10 s. Empty state points to `/invoices`.
+- `Stat` moved from the PO page into `components/common.tsx` (same look, an optional sub-line); the only new CSS is the dashboard grid and the bar.
+- Fixtures `dashboard_empty.json` / `dashboard_busy.json` recorded from the real endpoint (offline; the busy one includes the labelled synthetic approve and request_info variants and one reviewer approval).
 
 ## What changed (dashboard stage 1: the endpoint)
 - `app/api/dashboard.py` + `GET /api/dashboard?recent=8&review=5` (SPEC section 11 item 79): runs (processed / failed / running, the system decision per decision), outcomes now (after human review), review (open count + oldest open items via the review service), spend (invoice runs + PO drafts), POs (count, by status, per currency: total value, consumed, balance, consumed without a line), recent runs. Read-only (tested: no table changes).
@@ -146,6 +159,7 @@ Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; pip install o
 FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuses without a mode), upload -> one-at-a-time worker, run view from SQLite, page images, SSE stream tailing `audit_events`; React UI with the live 7-stage timeline and the result view. To run it for your stage-5 check: window 1 `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`; window 2 `cd C:\Zamp_ai_Automation\frontend; npm run dev`; open http://localhost:5173.
 
 ## Decisions I need from the user
+- **Your stage-3 browser check of the dashboard.**
 - **Your stage-4 browser check of review actions** (and whether you want the demo loader for the line-choice path).
 - **Review this line-item build** before the follow-up (approve/reject + picker UI). Open questions for it: whether `partial` / `ambiguous` line matches should force review (decision 3 deferred it), and how the reviewer's line choice writes consumption.
 - Your PO stage-7 browser check (and, when you want, the live PO-draft check).

@@ -1,5 +1,5 @@
 // Thin, typed wrappers over the local API. All paths are relative: Vite proxies /api to the backend.
-import type { ApprovePreview, ApproveResult, AuditEvent, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -139,3 +139,5 @@ export const approveItem = (id: number, stateToken: string, allocations: LineCho
     `/api/review-queue/${id}/approve`, { confirm: true, state_token: stateToken, allocations, note: note || null });
 export const rejectItem = (id: number, reason: string | null) =>
   act<{ status: string }>(`/api/review-queue/${id}/reject`, { confirm: true, reason: reason || null });
+
+export const getDashboard = (recent = 8, review = 5) => fetch(`/api/dashboard?recent=${recent}&review=${review}`).then((r) => json<Dashboard>(r));

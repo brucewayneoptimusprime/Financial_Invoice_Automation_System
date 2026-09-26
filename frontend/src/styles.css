@@ -432,3 +432,27 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .option-text { display: grid; gap: 2px; min-width: 0; }
 .option-text select { margin-top: 4px; max-width: 100%; }
 .done { border-color: color-mix(in srgb, var(--pass) 40%, var(--border)); }
+/* ------------------------------------------------------------------ dashboard */
+.dashboard { display: grid; gap: 20px; }
+.dashboard .page-head { margin-bottom: 0; }
+.dashboard .stats { margin-bottom: 0; }
+.stat-wide { grid-column: span 2; }
+.stat-sub { margin-top: 6px; font-size: 12px; color: var(--muted); }
+a.stat-link { color: var(--text); text-decoration: none; }
+a.stat-link:hover { border-color: var(--accent); }
+.decision-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 8px; background: var(--neutral-soft); gap: 2px; }
+.decision-bar .seg { flex-basis: 0; min-width: 4px; }
+.seg-approve { background: var(--pass); } .seg-review { background: var(--flag); } .seg-info { background: var(--info); } .seg-reject { background: var(--fail); }
+.decision-counts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.decision-counts li { display: flex; align-items: center; gap: 6px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mini { margin: 6px 0 0; display: grid; gap: 3px; font-size: 13px; }
+.mini > div { display: flex; justify-content: space-between; gap: 12px; }
+.mini dt { color: var(--muted); }
+.mini dd { margin: 0; font-weight: 600; }
+.dash-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.run-chips { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.review-link { grid-template-columns: 1fr auto; }
+.review-link .run-file { white-space: normal; }
+.review-link .queue-reason { display: block; font-weight: 400; color: var(--text-2); margin-top: 2px; }
+@media (max-width: 900px) { .dash-lists { grid-template-columns: 1fr; } .stat-wide { grid-column: auto; } }

@@ -69,7 +69,7 @@ export function RunScreen({ runId }: { runId: string }) {
   }, [runId, state.end, state.connection]);
 
   if (missing) {
-    return <div className="empty"><h1>Run not found</h1><p>There is no run {runId}. <a {...linkProps("/")}>Upload an invoice</a></p></div>;
+    return <div className="empty"><h1>Run not found</h1><p>There is no run {runId}. <a {...linkProps("/invoices")}>Upload an invoice</a></p></div>;
   }
 
   const file = view?.run.source_file ?? state.sourceFile;
@@ -78,7 +78,7 @@ export function RunScreen({ runId }: { runId: string }) {
   return (
     <div className="run">
       <div className="run-title">
-        <a {...linkProps("/")} className="back">← New invoice</a>
+        <a {...linkProps("/invoices")} className="back">← New invoice</a>
         <h1>{file ?? "Invoice"}</h1>
         <div className="run-sub">
           <span className="mono" title="Run id">{runId.slice(0, 8)}</span>

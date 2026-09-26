@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, getPO } from "../api";
-import { Chip, Disclosure, Section } from "../components/common";
+import { Chip, Disclosure, Section, Stat } from "../components/common";
 import { DECISION, FIELD_LABEL, humanize, money, score, usd, when } from "../format";
 import { linkProps } from "../router";
 import { StatusChip } from "./POList";
@@ -9,10 +9,6 @@ import type { Decision, PODetail } from "../types";
 function DecisionChip({ d }: { d: Decision | null }) {
   if (!d) return <span className="dim">—</span>;
   return <Chip tone={DECISION[d].tone}>{DECISION[d].label}</Chip>;
-}
-
-function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: string }) {
-  return <div className={`stat ${tone ? `stat-${tone}` : ""}`}><div className="label">{label}</div><div className="stat-value num">{value}</div></div>;
 }
 
 function Provenance({ p }: { p: Record<string, unknown> }) {
@@ -88,7 +84,7 @@ export function PODetailScreen({ id }: { id: number }) {
       {d.amounts.over_billed && <p className="warn">Over-billed: approved invoices exceed the PO total (within the tolerance the rules allowed).</p>}
 
       <Section title="Invoices matched to this PO" id="po-invoices"
-               aside={<a className="btn-ghost" {...linkProps(`/?po=${d.po.id}`)}>Upload invoices</a>}>
+               aside={<a className="btn-ghost" {...linkProps(`/invoices?po=${d.po.id}`)}>Upload invoices</a>}>
         <p className="dim small">Matching is automatic. An invoice appears here only when the matcher confidently matched it to this PO; review
           items do not use the balance until someone approves them.</p>
         {d.invoices.length === 0 ? <p className="dim">No invoice has been matched to this PO yet.</p> : (

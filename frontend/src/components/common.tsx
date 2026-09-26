@@ -82,3 +82,14 @@ export function Disclosure({ summary, children, defaultOpen = false, className =
     </div>
   );
 }
+
+// A stat card (moved from the PO detail page so the dashboard uses the same one).
+export function Stat({ label, value, tone, sub }: { label: string; value: ReactNode; tone?: string; sub?: ReactNode }) {
+  return (
+    <div className={`stat ${tone ? `stat-${tone}` : ""}`}>
+      <div className="label">{label}</div>
+      <div className="stat-value num">{value}</div>
+      {sub && <div className="stat-sub">{sub}</div>}
+    </div>
+  );
+}

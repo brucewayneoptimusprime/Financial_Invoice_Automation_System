@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getHealth, listReview } from "./api";
 import { linkProps, useRoute } from "./router";
+import { DashboardScreen } from "./screens/Dashboard";
 import { UploadScreen } from "./screens/Upload";
 import { RunScreen } from "./screens/Run";
 import { POListScreen } from "./screens/POList";
@@ -49,7 +50,8 @@ export function App() {
           Invoice Agent
         </a>
         <nav className="nav" aria-label="Main">
-          <a {...linkProps("/")} className={route.name === "upload" || route.name === "run" ? "active" : undefined}>Invoices</a>
+          <a {...linkProps("/")} className={route.name === "dashboard" ? "active" : undefined}>Dashboard</a>
+          <a {...linkProps("/invoices")} className={route.name === "upload" || route.name === "run" ? "active" : undefined}>Invoices</a>
           <a {...linkProps("/pos")} className={route.name.startsWith("po") ? "active" : undefined}>Purchase orders</a>
           <a {...linkProps("/review")} className={route.name.startsWith("review") ? "active" : undefined}>
             Review queue{openReviews ? <span className="count" aria-label={`${openReviews} open`}>{openReviews}</span> : null}
@@ -65,6 +67,7 @@ export function App() {
         </div>
       </header>
       <main className="page">
+        {route.name === "dashboard" && <DashboardScreen />}
         {route.name === "upload" && <UploadScreen key={window.location.search} health={health} />}
         {route.name === "run" && <RunScreen key={route.id} runId={route.id} />}
         {route.name === "pos" && <POListScreen />}
@@ -75,7 +78,7 @@ export function App() {
         {route.name === "missing" && (
           <div className="empty">
             <h1>Page not found</h1>
-            <p><a {...linkProps("/")}>Back to upload</a></p>
+            <p><a {...linkProps("/")}>Back to the dashboard</a></p>
           </div>
         )}
       </main>

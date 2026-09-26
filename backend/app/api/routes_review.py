@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from app.api import views
 from app.api.main import ApiState
 from app.api.worker import open_db
-from app.review import service
+from app.review import actions, service
 
 router = APIRouter()
 
@@ -53,3 +53,24 @@ def get_item(request: Request, item_id: int):
     if detail is None:
         return _error(404, "not_found", "No such review item.")
     return detail
+
+
+def _act(request: Request, fn, *args):
+    st = _state(request)
+    with closing(open_db(st.db_path, st.settings)) as conn:
+        try:
+            return fn(conn, *args)
+        except actions.ActionError as exc:
+            return JSONResponse(exc.body(), status_code=exc.status)
+
+
+@router.post("/review-queue/{item_id}/approve")
+def approve_item(request: Request, item_id: int, body: actions.ApproveRequest):
+    """ONE item. Nothing is guessed: a missing line choice is a 422 listing what is needed."""
+    return _act(request, lambda conn: actions.approve(conn, item_id, body, _state(request).settings))
+
+
+@router.post("/review-queue/{item_id}/reject")
+def reject_item(request: Request, item_id: int, body: actions.RejectRequest):
+    """ONE item. Never writes a ledger entry or an allocation."""
+    return _act(request, lambda conn: actions.reject(conn, item_id, body))

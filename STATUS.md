@@ -4,14 +4,24 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4, PO integration stages 1-6 and line-item consumption stages 1-4 committed. Open with you: M4 stage 5 and PO stage 7 (browser checks) and the review of the line-item build.
-- **Review actions + line allocation** (plan approved, all 10 decisions as recommended): **stage 1 of 4 done** (the allocation planner and the two GET endpoints).
-- Next: stage 2 (the approve and reject endpoints).
+- **Review actions + line allocation** (plan approved, all 10 decisions as recommended): **stages 1-2 of 4 done** (allocation planner + GET endpoints; approve and reject).
+- Next: stage 3 (frontend: review queue, item screen with the approve flow, reject, PO page figure).
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Backend: **2105 passed, 0 failed, 2 deselected** (`pytest -W error`); review actions stage 1 added 23 (`tests/review`). Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). Frontend unchanged (54 passed).
+- Backend: **2128 passed, 0 failed, 2 deselected** (`pytest -W error`); review actions stage 1 added 23, stage 2 added 23 (`tests/review`); no existing test changed. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). Frontend unchanged (54 passed).
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (review actions stage 2: approve and reject)
+- `app/review/actions.py` + `POST /api/review-queue/{id}/approve` and `/reject` (SPEC section 11 item 78): one transaction each; re-verification (blockers, `state_token`), the allocation plan with the reviewer's choices, ledger commit, consumption rows (invariant checked before commit), PO status, invoice status, item resolved, audit events on the run. Reject never writes a ledger entry or an allocation.
+- **Your five required tests** (`tests/review/test_review_actions.py`), all passing:
+  1. all lines confident -> zero input: real invoice 10963 approved with `allocations: []`: one commit 5,338.08; `auto` row on PO-SS-001 line 1 (5,141.76, qty 4) + remainder 196.32 against the PO total; PO partially_billed, balance 6,000.00 -> 661.92; invoice approved; item resolved; `final_decision` still review. Also the synthetic clean scenario (two automatic lines).
+  2. mixed confident + ambiguous -> 422 `allocation_required` listing exactly the ambiguous line with its 3 candidates, NOTHING written; resubmitted with a choice -> 200, the chosen line `manual_reviewer`, the other `auto`.
+  3. over the remaining amount -> 422 `allocation_invalid`: "Invoice line 1 (1000.00) does not fit PO line 2: 400.00 remaining, allowance 8.00." Nothing written. The boundary (exactly remaining + allowance) is accepted, one cent over is refused.
+  4. unassigned -> the PO page's `consumed_without_line` 0.00 -> 1,105.00 (the line + the remainder), every line's remaining amount and quantity unchanged, balance 395.00.
+  5. reject -> no `ledger_entries` or `po_consumption` row; invoice rejected; item resolved/rejected; events `human_rejected`, `review_resolved`.
+- Also tested: stale token -> 409 with a fresh preview (balance 5,990.00 after an injected commit) and nothing written, then approvable with the new token; double approve / approve-after-reject / reject-after-approve -> 409; each blocker -> 409 with reject still possible; a fault after the ledger insert rolls everything back; every invalid-choice code; `confirm` required (400); unknown item 404; the audit trail continues the run's seq; resolved items leave the open list; no bulk endpoint exists (only the four review paths).
 
 ## What changed (review actions stage 1: allocation planner + GET endpoints)
 - `app/pipeline/allocation.py`: the pure planner used by BOTH the preview and (stage 2) the approval. Confident lines that still fit -> automatic rows; other lines -> the reviewer's choice (any line of the PO, or "no specific line"), with the per-line fit check = `evaluate_tolerance` on the PO line's remaining amount minus what earlier lines of the same approval took, using `r_tolerance_pct`'s current params; the remainder (tax, shipping) -> one row against the PO total; a negative remainder scales the lines pro rata; lines without an amount are not allocated; a PO with no amount-bearing lines takes everything on its total without asking.
@@ -121,7 +131,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-74-77 (schema v2, line matching, `r_po_line_price`, picker data). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+78 (review actions). Earlier: 74-77 (schema v2, line matching, `r_po_line_price`, picker data), 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - Line matching: short descriptions one letter apart ("Widget A" vs "Widget B") score 0.88 on description alone; price, quantity and amount keep such a line far below a match (0.575 < 0.75 in the tests) and it is listed only as a low candidate. Real POs with near-identical names and identical prices would come out ambiguous, which is the safe side.

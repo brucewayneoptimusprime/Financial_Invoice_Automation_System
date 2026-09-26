@@ -202,3 +202,24 @@ def test_without_a_token_nothing_changes(tmp_path):
 
 def test_a_blank_token_counts_as_unset():
     assert Settings(_env_file=None, access_token="   ").access_token_value() is None
+
+
+def test_render_free_tier_flow_build_seeds_then_start_opens_it_and_a_fresh_filesystem_refuses(tmp_path, monkeypatch, captured, capsys):
+    """render.yaml on the free tier: the BUILD runs `python -m app.db.reset --demo` with DATA_DIR=data/render (relative to the
+    repository root); the START runs serve, which opens that database. A filesystem without it (the build step not run) refuses:
+    serve never creates one by itself."""
+    from app.db import reset as reset_cli
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DATA_DIR", "data/render")
+    monkeypatch.setenv("SERVE_MODE", "offline")
+    fresh_settings()
+    assert serve.main(["--host", "0.0.0.0", "--port", "10000"]) == serve.EXIT_USAGE and captured == {}
+    assert not (tmp_path / "data" / "render" / "app.db").exists() and "does not exist" in capsys.readouterr().out
+    monkeypatch.setattr("sys.argv", ["reset", "--demo"])
+    fresh_settings()
+    reset_cli.main()                                                      # the build step
+    assert (tmp_path / "data" / "render" / "app.db").is_file()
+    fresh_settings()
+    assert serve.main(["--host", "0.0.0.0", "--port", "10000"]) == 0      # the start step
+    state = captured["app"].state.api
+    assert Path(state.db_path) == Path("data/render/app.db") and Path(state.settings.runs_dir) == Path("data/render/runs")

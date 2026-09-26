@@ -175,8 +175,12 @@ export interface POListRow {
 export interface PODetail {
   po: { id: number; po_number: string; vendor_id: number; vendor: string; vendor_status: string; vendor_tax_id: string | null;
         currency: string; issued_date: string | null; status: string };
-  amounts: { total: string; committed: string; balance: string; awaiting_review: string; over_billed: boolean };
-  lines: { line_no: number; description: string | null; quantity: string | null; unit_price: string | null; amount: string | null }[];
+  amounts: { total: string; committed: string; balance: string; awaiting_review: string; over_billed: boolean;
+             consumed_by_lines?: string; consumed_without_line?: string };
+  lines: { line_no: number; description: string | null; quantity: string | null; unit_price: string | null; amount: string | null;
+           consumed_quantity?: string; consumed_amount?: string | null; remaining_quantity?: string | null; remaining_amount?: string | null }[];
+  allocations?: { id: number; ledger_entry_id: number; po_line_no: number | null; invoice_number: string | null; run_id: string | null;
+                  amount: string; quantity: string | null; type: string; matched_by: string; created_at: string }[];
   invoices: { invoice_id: number; run_id: string | null; historic: boolean; invoice_number: string | null; invoice_date: string | null;
               currency: string | null; total: string | null; decision: Decision | null; status: string; source_file: string | null;
               run_status: string | null; cost_usd: number | null; started_at: string | null }[];
@@ -213,4 +217,51 @@ export interface PODraftView {
   pages: number[];
   model: string | null;
   cost_usd: string;
+}
+
+// ---------------------------------------------------------------------------------------------- review queue
+
+export interface ReviewListItem {
+  id: number; run_id: string; status: "open" | "resolved"; resolution: "approved" | "rejected" | null; resolved_at: string | null;
+  source_file: string; invoice_number: string | null; vendor: string | null; total: string | null; currency: string | null;
+  po_number: string | null; reason: string; queued_at: string; can_approve: boolean; lines_needing_input: number;
+}
+
+export interface LineOption {
+  po_line_id: number; po_line_no: number; description: string | null; unit_price: string | null; remaining_amount: string | null;
+  fits: boolean; code: string | null; remaining: string | null; allowance: string | null; score?: number; reasons?: string[];
+}
+
+export interface NeedsInput {
+  invoice_line_id: number; invoice_line_no: number; description: string | null; quantity: string | null; unit_price: string | null;
+  amount: string | null; status: string; why: string;
+  suggested: { target: "po_line" | "unassigned"; po_line_id?: number };
+  candidates: LineOption[]; other_lines: LineOption[];
+}
+
+export interface AllocRowView {
+  kind: "automatic" | "reviewer_line" | "reviewer_unassigned" | "remainder"; invoice_line_id: number | null; invoice_line_no: number | null;
+  po_line_id: number | null; po_line_no: number | null; amount: string; quantity: string | null; matched_by: string; label: string | null;
+}
+
+export interface ApprovePreview {
+  possible: boolean; blocked_by: { code: string; message: string }[]; warnings: string[];
+  po: { id: number; po_number: string; status: string; currency: string; balance_before: string; balance_after: string } | null;
+  commit_amount: string | null; state_token: string; tolerance: { pct: number; abs: string; mode: "lesser_of" | "greater_of" } | null;
+  automatic: AllocRowView[]; needs_input: NeedsInput[]; rows: AllocRowView[]; remainder: { amount: string; label: string } | null; notes: string[];
+}
+
+export interface ReviewDetail {
+  item: { id: number; run_id: string; reason: string; status: "open" | "resolved"; resolution: string | null; resolved_at: string | null };
+  run: { id: string; source_file: string; status: string; decision: Decision | null; started_at: string; explanation: Explanation | null } | null;
+  invoice: { id: number; invoice_number: string | null; invoice_date: string | null; currency: string | null; total: string | null; status: string } | null;
+  approve: ApprovePreview;
+}
+
+export interface LineChoice { invoice_line_id: number; target: "po_line" | "unassigned"; po_line_id?: number }
+
+export interface ApproveResult {
+  status: "approved"; ledger_entry_id: number; amount: string;
+  po: { id: number; po_number: string; balance_before: string; balance_after: string; status: string };
+  allocations: AllocRowView[]; pro_rata: boolean; notes: string[];
 }

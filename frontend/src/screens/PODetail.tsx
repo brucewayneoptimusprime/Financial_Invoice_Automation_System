@@ -76,7 +76,15 @@ export function PODetailScreen({ id }: { id: number }) {
         <Stat label="Committed (approved invoices)" value={money(d.amounts.committed, cur)} />
         <Stat label="Balance" value={money(d.amounts.balance, cur)} tone={d.amounts.over_billed ? "fail" : "accent"} />
         <Stat label="Awaiting review" value={money(d.amounts.awaiting_review, cur)} tone="flag" />
+        {d.amounts.consumed_without_line !== undefined && (
+          <Stat label="Consumed, not assigned to a line" value={money(d.amounts.consumed_without_line, cur)} />
+        )}
       </div>
+      {d.amounts.consumed_without_line !== undefined && (
+        <p className="dim small">Of the committed amount, {money(d.amounts.consumed_by_lines, cur)} is assigned to specific PO lines and{" "}
+          {money(d.amounts.consumed_without_line, cur)} is deducted from the PO total without a line (tax, shipping, bundled invoices,
+          reviewer choices and approvals made before line tracking). Both reduce the balance; only the first reduces a line.</p>
+      )}
       {d.amounts.over_billed && <p className="warn">Over-billed: approved invoices exceed the PO total (within the tolerance the rules allowed).</p>}
 
       <Section title="Invoices matched to this PO" id="po-invoices"
@@ -108,11 +116,14 @@ export function PODetailScreen({ id }: { id: number }) {
         {d.lines.length === 0 ? <p className="dim">No lines on this PO.</p> : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>#</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Amount</th></tr></thead>
+              <thead><tr><th>#</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Amount</th>
+                <th className="num">Consumed</th><th className="num">Remaining</th></tr></thead>
               <tbody>
                 {d.lines.map((l) => (
                   <tr key={l.line_no}><td className="dim">{l.line_no}</td><td>{l.description ?? "—"}</td><td className="num">{l.quantity ?? "—"}</td>
-                    <td className="num">{money(l.unit_price)}</td><td className="num">{money(l.amount)}</td></tr>
+                    <td className="num">{money(l.unit_price)}</td><td className="num">{money(l.amount)}</td>
+                    <td className="num">{money(l.consumed_amount)}{l.consumed_quantity && l.consumed_quantity !== "0" ? <span className="dim"> · qty {l.consumed_quantity}</span> : null}</td>
+                    <td className="num">{money(l.remaining_amount)}{l.remaining_quantity ? <span className="dim"> · qty {l.remaining_quantity}</span> : null}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -130,6 +141,27 @@ export function PODetailScreen({ id }: { id: number }) {
           </div>
         )}
       </Section>
+
+      {d.allocations && d.allocations.length > 0 && (
+        <Section title="How the commits are allocated" id="po-allocations">
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Invoice</th><th>To</th><th className="num">Amount</th><th className="num">Qty</th><th>How</th></tr></thead>
+              <tbody>
+                {d.allocations.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.run_id ? <a {...linkProps(`/runs/${a.run_id}`)}>{a.invoice_number ?? "(no number)"}</a> : a.invoice_number ?? "—"}</td>
+                    <td>{a.po_line_no ? `Line ${a.po_line_no}` : <span className="dim">PO total (no specific line)</span>}</td>
+                    <td className="num">{money(a.amount, cur)}</td>
+                    <td className="num">{a.quantity ?? "—"}</td>
+                    <td className="dim">{{ auto: "automatic", manual_reviewer: "reviewer", legacy: "before line tracking" }[a.matched_by] ?? a.matched_by}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
 
       {d.considered_in.length > 0 && (
         <Section title="Also considered in (not matched)" id="po-considered">

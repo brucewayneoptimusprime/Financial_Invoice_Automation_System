@@ -1,0 +1,204 @@
+{
+ "item": {
+  "id": 1,
+  "run_id": "bd663d267e734ec3b51192ae42685bf2",
+  "reason": "Review: r_vendor_status (new): Vendor 'Northwind Trading Co' is new (not yet approved).",
+  "status": "open",
+  "resolution": null,
+  "resolved_at": null
+ },
+ "run": {
+  "id": "bd663d267e734ec3b51192ae42685bf2",
+  "source_file": "scenario_bundled.png",
+  "status": "completed",
+  "decision": "review",
+  "started_at": "2026-09-26T14:27:00Z",
+  "explanation": {
+   "attempts": 0,
+   "cited_facts": [
+    "F2"
+   ],
+   "cost_usd": "0",
+   "fallback_reason": "disabled in configuration",
+   "model": null,
+   "next_step": "A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+   "one_line": "review: r_vendor_status new",
+   "reasons": [
+    {
+     "facts": [
+      "F2"
+     ],
+     "text": "r_vendor_status (Vendor is approved (not blocked)) - new, severity 1: Vendor 'Northwind Trading Co' is new (not yet approved)."
+    }
+   ],
+   "source": "template",
+   "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- r_vendor_status (Vendor is approved (not blocked)) - new, severity 1: Vendor 'Northwind Trading Co' is new (not yet approved). [F2]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+   "tokens_in": 0,
+   "tokens_out": 0
+  }
+ },
+ "invoice": {
+  "id": 2,
+  "invoice_number": "INV-2026-0042",
+  "invoice_date": "2026-03-14",
+  "currency": "USD",
+  "total": "1105.00",
+  "status": "in_review"
+ },
+ "approve": {
+  "possible": true,
+  "blocked_by": [],
+  "warnings": [],
+  "po": {
+   "id": 90,
+   "po_number": "PO-5001",
+   "status": "open",
+   "currency": "USD",
+   "balance_before": "1500.00",
+   "balance_after": "395.00"
+  },
+  "commit_amount": "1105.00",
+  "state_token": "fbc170832d0e1865bed07d57bad0ae45b829bd08ea8f8c148e2a9ef2a8302079",
+  "tolerance": {
+   "pct": 2.0,
+   "abs": "50.00",
+   "mode": "lesser_of"
+  },
+  "automatic": [],
+  "needs_input": [
+   {
+    "invoice_line_id": 1,
+    "invoice_line_no": 1,
+    "description": "Goods as per purchase order PO-5001",
+    "quantity": "1",
+    "unit_price": "1000.00",
+    "amount": "1000.00",
+    "status": "no_match",
+    "why": "no PO line resembles it closely enough",
+    "suggested": {
+     "target": "unassigned"
+    },
+    "candidates": [],
+    "other_lines": [
+     {
+      "po_line_id": 7,
+      "po_line_no": 1,
+      "description": "Widget A",
+      "unit_price": "60.00",
+      "remaining_amount": "600.00",
+      "fits": false,
+      "code": "exceeds_remaining",
+      "remaining": "600.00",
+      "allowance": "12.00"
+     },
+     {
+      "po_line_id": 8,
+      "po_line_no": 2,
+      "description": "Widget B",
+      "unit_price": "80.00",
+      "remaining_amount": "400.00",
+      "fits": false,
+      "code": "exceeds_remaining",
+      "remaining": "400.00",
+      "allowance": "8.00"
+     },
+     {
+      "po_line_id": 9,
+      "po_line_no": 3,
+      "description": "Widget C",
+      "unit_price": "50.00",
+      "remaining_amount": "100.00",
+      "fits": false,
+      "code": "exceeds_remaining",
+      "remaining": "100.00",
+      "allowance": "2.00"
+     }
+    ]
+   }
+  ],
+  "rows": [
+   {
+    "kind": "remainder",
+    "invoice_line_id": null,
+    "invoice_line_no": null,
+    "po_line_id": null,
+    "po_line_no": null,
+    "amount": "1105.00",
+    "quantity": null,
+    "matched_by": "auto",
+    "label": "tax, shipping and other amounts not on a line"
+   }
+  ],
+  "remainder": {
+   "amount": "1105.00",
+   "label": "tax, shipping and other amounts not on a line"
+  },
+  "notes": []
+ },
+ "line_matches": {
+  "mode": "total_only",
+  "bundled_hint": true,
+  "reason": null,
+  "po": {
+   "id": 90,
+   "po_number": "PO-5001",
+   "currency": "USD"
+  },
+  "lines": [
+   {
+    "invoice_line_id": 1,
+    "invoice_line_no": 1,
+    "description": "Goods as per purchase order PO-5001",
+    "quantity": "1",
+    "unit_price": "1000.00",
+    "amount": "1000.00",
+    "status": "no_match",
+    "po_line_id": null,
+    "score": null,
+    "candidates": []
+   }
+  ],
+  "po_lines": [
+   {
+    "id": 7,
+    "line_no": 1,
+    "description": "Widget A",
+    "quantity": "10",
+    "unit_price": "60.00",
+    "amount": "600.00",
+    "consumed_quantity": "0",
+    "consumed_amount": "0.00",
+    "remaining_quantity": "10",
+    "remaining_amount": "600.00"
+   },
+   {
+    "id": 8,
+    "line_no": 2,
+    "description": "Widget B",
+    "quantity": "5",
+    "unit_price": "80.00",
+    "amount": "400.00",
+    "consumed_quantity": "0",
+    "consumed_amount": "0.00",
+    "remaining_quantity": "5",
+    "remaining_amount": "400.00"
+   },
+   {
+    "id": 9,
+    "line_no": 3,
+    "description": "Widget C",
+    "quantity": "2",
+    "unit_price": "50.00",
+    "amount": "100.00",
+    "consumed_quantity": "0",
+    "consumed_amount": "0.00",
+    "remaining_quantity": "2",
+    "remaining_amount": "100.00"
+   }
+  ],
+  "po_consumption": {
+   "consumed_by_lines": "0.00",
+   "consumed_without_line": "0.00"
+  }
+ }
+}

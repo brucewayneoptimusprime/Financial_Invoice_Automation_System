@@ -1,0 +1,15 @@
+{
+ "error": "allocation_invalid",
+ "message": "Some line choices are not valid.",
+ "problems": [
+  {
+   "invoice_line_id": 1,
+   "po_line_id": 8,
+   "code": "exceeds_remaining",
+   "message": "Invoice line 1 (1000.00) does not fit PO line 2: 400.00 remaining, allowance 8.00.",
+   "amount": "1000.00",
+   "remaining": "400.00",
+   "allowance": "8.00"
+  }
+ ]
+}

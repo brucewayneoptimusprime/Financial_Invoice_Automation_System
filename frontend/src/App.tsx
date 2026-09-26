@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { getHealth } from "./api";
+import { getHealth, listReview } from "./api";
 import { linkProps, useRoute } from "./router";
 import { UploadScreen } from "./screens/Upload";
 import { RunScreen } from "./screens/Run";
 import { POListScreen } from "./screens/POList";
 import { PODetailScreen } from "./screens/PODetail";
 import { PONewScreen } from "./screens/PONew";
+import { ReviewListScreen } from "./screens/ReviewList";
+import { ReviewItemScreen } from "./screens/ReviewItem";
 import { usd } from "./format";
 import type { Health } from "./types";
 
@@ -20,6 +22,15 @@ export function App() {
   const route = useRoute();
   const [health, setHealth] = useState<Health | null>(null);
   const [down, setDown] = useState(false);
+  const [openReviews, setOpenReviews] = useState<number | null>(null);
+
+  useEffect(() => {
+    let stop = false;
+    const load = () => listReview("open").then((r) => { if (!stop) setOpenReviews(r.open_count); }).catch(() => {});
+    load();
+    const t = window.setInterval(load, 5000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, []);
 
   useEffect(() => {
     let stop = false;
@@ -40,6 +51,9 @@ export function App() {
         <nav className="nav" aria-label="Main">
           <a {...linkProps("/")} className={route.name === "upload" || route.name === "run" ? "active" : undefined}>Invoices</a>
           <a {...linkProps("/pos")} className={route.name.startsWith("po") ? "active" : undefined}>Purchase orders</a>
+          <a {...linkProps("/review")} className={route.name.startsWith("review") ? "active" : undefined}>
+            Review queue{openReviews ? <span className="count" aria-label={`${openReviews} open`}>{openReviews}</span> : null}
+          </a>
         </nav>
         <div className="topbar-right">
           {health && health.session_spent_usd !== null && (
@@ -56,6 +70,8 @@ export function App() {
         {route.name === "pos" && <POListScreen />}
         {route.name === "poNew" && <PONewScreen health={health} />}
         {route.name === "po" && <PODetailScreen key={route.id} id={route.id} />}
+        {route.name === "review" && <ReviewListScreen />}
+        {route.name === "reviewItem" && <ReviewItemScreen key={route.id} id={route.id} />}
         {route.name === "missing" && (
           <div className="empty">
             <h1>Page not found</h1>

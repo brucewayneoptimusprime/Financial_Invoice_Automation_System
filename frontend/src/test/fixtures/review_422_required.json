@@ -1,0 +1,95 @@
+{
+ "error": "allocation_required",
+ "message": "1 line needs a choice before this invoice can be approved.",
+ "needs_input": [
+  {
+   "invoice_line_id": 2,
+   "invoice_line_no": 1,
+   "description": "Widget A",
+   "quantity": "10",
+   "unit_price": "60.00",
+   "amount": "600.00",
+   "status": "ambiguous",
+   "why": "two or more PO lines are about equally likely",
+   "suggested": {
+    "target": "po_line",
+    "po_line_id": 7
+   },
+   "candidates": [
+    {
+     "po_line_id": 7,
+     "po_line_no": 1,
+     "score": 0.857143,
+     "breakdown": {
+      "description": 0.457143,
+      "price": 0.15,
+      "quantity": 0.15,
+      "amount": 0.1
+     },
+     "reasons": [
+      "description:0.76",
+      "price:same",
+      "quantity:fits",
+      "amount:fits"
+     ],
+     "description": "Widget A (blue)",
+     "unit_price": "60.00",
+     "remaining_amount": "600.00",
+     "fits": true,
+     "code": null,
+     "remaining": "600.00",
+     "allowance": "12.00"
+    },
+    {
+     "po_line_id": 8,
+     "po_line_no": 2,
+     "score": 0.836364,
+     "breakdown": {
+      "description": 0.436364,
+      "price": 0.15,
+      "quantity": 0.15,
+      "amount": 0.1
+     },
+     "reasons": [
+      "description:0.73",
+      "price:same",
+      "quantity:fits",
+      "amount:fits"
+     ],
+     "description": "Widget A (green)",
+     "unit_price": "60.00",
+     "remaining_amount": "600.00",
+     "fits": true,
+     "code": null,
+     "remaining": "600.00",
+     "allowance": "12.00"
+    },
+    {
+     "po_line_id": 9,
+     "po_line_no": 3,
+     "score": 0.575,
+     "breakdown": {
+      "description": 0.525,
+      "price": 0.0,
+      "quantity": 0.0,
+      "amount": 0.05
+     },
+     "reasons": [
+      "description:0.88",
+      "price:differs(25.0%)",
+      "quantity:over",
+      "amount:over"
+     ],
+     "description": "Widget B",
+     "unit_price": "80.00",
+     "remaining_amount": "400.00",
+     "fits": false,
+     "code": "exceeds_remaining",
+     "remaining": "400.00",
+     "allowance": "8.00"
+    }
+   ],
+   "other_lines": []
+  }
+ ]
+}

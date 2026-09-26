@@ -89,6 +89,12 @@ def po_detail(conn: sqlite3.Connection, po_id: int) -> dict[str, Any] | None:
                          "run_status": r["run_status"], "cost_usd": r["cost_usd"], "started_at": r["started_at"] or r["created_at"]})
     ledger = [{"id": r["id"], "type": r["type"], "amount": _m(r["amount"]), "invoice_id": r["invoice_id"], "created_at": r["created_at"]}
               for r in conn.execute("SELECT * FROM ledger_entries WHERE po_id = ? ORDER BY created_at, id", (po_id,))]
+    allocations = [{"id": r["id"], "ledger_entry_id": r["ledger_entry_id"], "po_line_id": r["po_line_id"], "po_line_no": r["line_no"],
+                    "invoice_id": r["invoice_id"], "invoice_number": r["invoice_number"], "run_id": r["run_id"], "amount": _m(r["amount"]),
+                    "quantity": r["quantity"], "type": r["type"], "matched_by": r["matched_by"], "created_at": r["created_at"]}
+                   for r in conn.execute(
+                       "SELECT pc.*, pl.line_no, i.invoice_number FROM po_consumption pc LEFT JOIN po_lines pl ON pl.id = pc.po_line_id "
+                       "LEFT JOIN invoices i ON i.id = pc.invoice_id WHERE pc.po_id = ? ORDER BY pc.ledger_entry_id, pc.id", (po_id,))]
     meta = json.loads(po["meta"] or "{}")
     return {
         "po": {"id": po["id"], "po_number": po["po_number"], "vendor_id": po["vendor_id"], "vendor": po["vendor"],
@@ -99,6 +105,7 @@ def po_detail(conn: sqlite3.Connection, po_id: int) -> dict[str, Any] | None:
         "lines": lines,
         "invoices": invoices,
         "ledger": ledger,
+        "allocations": allocations,
         "considered_in": _considered(conn, po_id, po["po_number"]),
         "provenance": meta,
     }

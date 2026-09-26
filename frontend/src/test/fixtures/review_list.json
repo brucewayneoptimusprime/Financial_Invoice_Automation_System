@@ -1,0 +1,39 @@
+{
+ "items": [
+  {
+   "id": 1,
+   "run_id": "1375a5186d074ad3b39352f1aea8a967",
+   "status": "open",
+   "resolution": null,
+   "resolved_at": null,
+   "source_file": "superstore_10963.pdf",
+   "invoice_number": "10963",
+   "vendor": "SuperStore",
+   "total": "5338.08",
+   "currency": "USD",
+   "po_number": "PO-SS-001",
+   "reason": "Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+   "queued_at": "2026-09-26T14:27:00Z",
+   "can_approve": true,
+   "lines_needing_input": 0
+  },
+  {
+   "id": 2,
+   "run_id": "d09f09100c644ddbac8a700d70a0689e",
+   "status": "open",
+   "resolution": null,
+   "resolved_at": null,
+   "source_file": "scenario_ambiguous.png",
+   "invoice_number": "INV-2026-0042",
+   "vendor": "Northwind Trading Co",
+   "total": "1105.00",
+   "currency": "USD",
+   "po_number": "PO-5001",
+   "reason": "Review: r_vendor_status (new): Vendor 'Northwind Trading Co' is new (not yet approved).",
+   "queued_at": "2026-09-26T14:27:00Z",
+   "can_approve": true,
+   "lines_needing_input": 1
+  }
+ ],
+ "open_count": 2
+}

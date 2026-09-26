@@ -286,3 +286,12 @@ def test_no_bulk_endpoint_exists(tmp_path):
         routes = set(c.get("/api/openapi.json").json()["paths"])
     assert {p for p in routes if p.startswith("/api/review-queue")} == {"/api/review-queue", "/api/review-queue/{item_id}",
                                                                         "/api/review-queue/{item_id}/approve", "/api/review-queue/{item_id}/reject"}
+
+
+def test_the_po_page_lists_the_allocation_rows(tmp_path):
+    with api(tmp_path, run_fn=runs_with_scenarios()) as c:
+        iid = item_for(c, run_and_wait(c, SS_10963))
+        approve(c, iid)
+        rows = c.get("/api/pos/1").json()["allocations"]
+    assert [(r["po_line_no"], r["amount"], r["quantity"], r["matched_by"], r["invoice_number"]) for r in rows] == [
+        (1, "5141.76", "4", "auto", "10963"), (None, "196.32", None, "auto", "10963")]

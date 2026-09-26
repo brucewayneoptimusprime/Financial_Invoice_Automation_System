@@ -1,0 +1,120 @@
+{
+ "po": {
+  "id": 90,
+  "po_number": "PO-5001",
+  "vendor_id": 90,
+  "vendor": "Northwind Trading Co",
+  "vendor_status": "new",
+  "vendor_tax_id": "12-3456789",
+  "currency": "USD",
+  "issued_date": "2026-03-01",
+  "status": "partially_billed"
+ },
+ "amounts": {
+  "total": "1500.00",
+  "committed": "1105.00",
+  "balance": "395.00",
+  "awaiting_review": "0.00",
+  "over_billed": false,
+  "consumed_by_lines": "0.00",
+  "consumed_without_line": "1105.00"
+ },
+ "lines": [
+  {
+   "id": 7,
+   "line_no": 1,
+   "description": "Widget A",
+   "quantity": "10",
+   "unit_price": "60.00",
+   "amount": "600.00",
+   "consumed_quantity": "0",
+   "consumed_amount": "0.00",
+   "remaining_quantity": "10",
+   "remaining_amount": "600.00"
+  },
+  {
+   "id": 8,
+   "line_no": 2,
+   "description": "Widget B",
+   "quantity": "5",
+   "unit_price": "80.00",
+   "amount": "400.00",
+   "consumed_quantity": "0",
+   "consumed_amount": "0.00",
+   "remaining_quantity": "5",
+   "remaining_amount": "400.00"
+  },
+  {
+   "id": 9,
+   "line_no": 3,
+   "description": "Widget C",
+   "quantity": "2",
+   "unit_price": "50.00",
+   "amount": "100.00",
+   "consumed_quantity": "0",
+   "consumed_amount": "0.00",
+   "remaining_quantity": "2",
+   "remaining_amount": "100.00"
+  }
+ ],
+ "invoices": [
+  {
+   "invoice_id": 2,
+   "run_id": "bd663d267e734ec3b51192ae42685bf2",
+   "historic": false,
+   "invoice_number": "INV-2026-0042",
+   "invoice_date": "2026-03-14",
+   "currency": "USD",
+   "total": "1105.00",
+   "decision": "review",
+   "status": "approved",
+   "source_file": "scenario_bundled.png",
+   "run_status": "completed",
+   "cost_usd": 0.0,
+   "started_at": "2026-09-26T14:27:00Z"
+  }
+ ],
+ "ledger": [
+  {
+   "id": 2,
+   "type": "commit",
+   "amount": "1105.00",
+   "invoice_id": 2,
+   "created_at": "2026-09-26T14:27:00Z"
+  }
+ ],
+ "allocations": [
+  {
+   "id": 2,
+   "ledger_entry_id": 2,
+   "po_line_id": null,
+   "po_line_no": null,
+   "invoice_id": 2,
+   "invoice_number": "INV-2026-0042",
+   "run_id": "bd663d267e734ec3b51192ae42685bf2",
+   "amount": "1000.00",
+   "quantity": null,
+   "type": "commit",
+   "matched_by": "manual_reviewer",
+   "created_at": "2026-09-26T14:27:00Z"
+  },
+  {
+   "id": 3,
+   "ledger_entry_id": 2,
+   "po_line_id": null,
+   "po_line_no": null,
+   "invoice_id": 2,
+   "invoice_number": "INV-2026-0042",
+   "run_id": "bd663d267e734ec3b51192ae42685bf2",
+   "amount": "105.00",
+   "quantity": null,
+   "type": "commit",
+   "matched_by": "auto",
+   "created_at": "2026-09-26T14:27:00Z"
+  }
+ ],
+ "considered_in": [],
+ "provenance": {
+  "test_only": true
+ }
+}

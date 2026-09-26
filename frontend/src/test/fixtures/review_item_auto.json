@@ -1,0 +1,179 @@
+{
+ "item": {
+  "id": 1,
+  "run_id": "1375a5186d074ad3b39352f1aea8a967",
+  "reason": "Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+  "status": "open",
+  "resolution": null,
+  "resolved_at": null
+ },
+ "run": {
+  "id": "1375a5186d074ad3b39352f1aea8a967",
+  "source_file": "superstore_10963.pdf",
+  "status": "completed",
+  "decision": "review",
+  "started_at": "2026-09-26T14:27:00Z",
+  "explanation": {
+   "attempts": 0,
+   "cited_facts": [
+    "F2"
+   ],
+   "cost_usd": "0",
+   "fallback_reason": "disabled in configuration",
+   "model": null,
+   "next_step": "A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+   "one_line": "review: r_po_found matched_without_reference",
+   "reasons": [
+    {
+     "facts": [
+      "F2"
+     ],
+     "text": "r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."
+    }
+   ],
+   "source": "template",
+   "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F2]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+   "tokens_in": 0,
+   "tokens_out": 0
+  }
+ },
+ "invoice": {
+  "id": 2,
+  "invoice_number": "10963",
+  "invoice_date": "2013-03-07",
+  "currency": "USD",
+  "total": "5338.08",
+  "status": "in_review"
+ },
+ "approve": {
+  "possible": true,
+  "blocked_by": [],
+  "warnings": [],
+  "po": {
+   "id": 1,
+   "po_number": "PO-SS-001",
+   "status": "open",
+   "currency": "USD",
+   "balance_before": "6000.00",
+   "balance_after": "661.92"
+  },
+  "commit_amount": "5338.08",
+  "state_token": "fbc170832d0e1865bed07d57bad0ae45b829bd08ea8f8c148e2a9ef2a8302079",
+  "tolerance": {
+   "pct": 2.0,
+   "abs": "50.00",
+   "mode": "lesser_of"
+  },
+  "automatic": [
+   {
+    "kind": "automatic",
+    "invoice_line_id": 1,
+    "invoice_line_no": 1,
+    "po_line_id": 1,
+    "po_line_no": 1,
+    "amount": "5141.76",
+    "quantity": "4",
+    "matched_by": "auto",
+    "label": null
+   }
+  ],
+  "needs_input": [],
+  "rows": [
+   {
+    "kind": "automatic",
+    "invoice_line_id": 1,
+    "invoice_line_no": 1,
+    "po_line_id": 1,
+    "po_line_no": 1,
+    "amount": "5141.76",
+    "quantity": "4",
+    "matched_by": "auto",
+    "label": null
+   },
+   {
+    "kind": "remainder",
+    "invoice_line_id": null,
+    "invoice_line_no": null,
+    "po_line_id": null,
+    "po_line_no": null,
+    "amount": "196.32",
+    "quantity": null,
+    "matched_by": "auto",
+    "label": "tax, shipping and other amounts not on a line"
+   }
+  ],
+  "remainder": {
+   "amount": "196.32",
+   "label": "tax, shipping and other amounts not on a line"
+  },
+  "notes": []
+ },
+ "line_matches": {
+  "mode": "line_level",
+  "bundled_hint": false,
+  "reason": null,
+  "po": {
+   "id": 1,
+   "po_number": "PO-SS-001",
+   "currency": "USD"
+  },
+  "lines": [
+   {
+    "invoice_line_id": 1,
+    "invoice_line_no": 1,
+    "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+    "quantity": "4",
+    "unit_price": "1285.44",
+    "amount": "5141.76",
+    "status": "matched",
+    "po_line_id": 1,
+    "score": 1.0,
+    "candidates": [
+     {
+      "po_line_id": 1,
+      "po_line_no": 1,
+      "score": 1.0,
+      "breakdown": {
+       "description": 0.6,
+       "price": 0.15,
+       "quantity": 0.15,
+       "amount": 0.1
+      },
+      "reasons": [
+       "description:1.00(contained)",
+       "price:same",
+       "quantity:fits",
+       "amount:fits"
+      ],
+      "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+      "quantity": "4",
+      "unit_price": "1285.44",
+      "amount": "5141.76",
+      "consumed_quantity": "0",
+      "consumed_amount": "0.00",
+      "remaining_quantity": "4",
+      "remaining_amount": "5141.76"
+     }
+    ]
+   }
+  ],
+  "po_lines": [
+   {
+    "id": 1,
+    "line_no": 1,
+    "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+    "quantity": "4",
+    "unit_price": "1285.44",
+    "amount": "5141.76",
+    "consumed_quantity": "0",
+    "consumed_amount": "0.00",
+    "remaining_quantity": "4",
+    "remaining_amount": "5141.76"
+   }
+  ],
+  "po_consumption": {
+   "consumed_by_lines": "0.00",
+   "consumed_without_line": "0.00"
+  }
+ }
+}

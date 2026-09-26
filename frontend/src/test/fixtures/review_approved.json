@@ -1,0 +1,44 @@
+{
+ "status": "approved",
+ "ledger_entry_id": 2,
+ "amount": "5338.08",
+ "po": {
+  "id": 1,
+  "po_number": "PO-SS-001",
+  "balance_before": "6000.00",
+  "balance_after": "661.92",
+  "status": "partially_billed"
+ },
+ "allocations": [
+  {
+   "kind": "automatic",
+   "invoice_line_id": 1,
+   "invoice_line_no": 1,
+   "po_line_id": 1,
+   "po_line_no": 1,
+   "amount": "5141.76",
+   "quantity": "4",
+   "matched_by": "auto",
+   "label": null
+  },
+  {
+   "kind": "remainder",
+   "invoice_line_id": null,
+   "invoice_line_no": null,
+   "po_line_id": null,
+   "po_line_no": null,
+   "amount": "196.32",
+   "quantity": null,
+   "matched_by": "auto",
+   "label": "tax, shipping and other amounts not on a line"
+  }
+ ],
+ "pro_rata": false,
+ "notes": [],
+ "review_item": {
+  "id": 1,
+  "status": "resolved",
+  "resolution": "approved",
+  "resolved_at": "2026-09-26T14:27:00Z"
+ }
+}

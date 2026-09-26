@@ -1,7 +1,6 @@
 // Thin, typed wrappers over the local API. All paths are relative: Vite proxies /api to the backend.
-import type { AuditEvent, Health, NewVendorInput, PendingView, PODetail, PODraftView, POInput, POIssue, POListRow, RunRow, RunView,
-              ValidateResult,
-              Vendor } from "./types";
+import type { ApprovePreview, ApproveResult, AuditEvent, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+              POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -119,3 +118,24 @@ export async function draftFromDocument(file: File): Promise<PODraftView> {
   return fetch("/api/pos/drafts/document", { method: "POST", body: form }).then((r) => json<PODraftView>(r));
 }
 export const draftPageUrl = (draftId: string, n: number) => `/api/pos/drafts/${encodeURIComponent(draftId)}/pages/${n}`;
+
+// ---------------------------------------------------------------------------------------------- review queue (one item at a time)
+export const listReview = (status: "open" | "resolved" = "open") =>
+  fetch(`/api/review-queue?status=${status}`).then((r) => json<{ items: ReviewListItem[]; open_count: number }>(r));
+export const getReviewItem = (id: number | string) => fetch(`/api/review-queue/${encodeURIComponent(String(id))}`).then((r) => json<ReviewDetail>(r));
+
+export interface ActionOutcome<T> { ok: boolean; status: number; body: T & { error?: string; message?: string } }
+
+async function act<T>(url: string, body: unknown): Promise<ActionOutcome<T>> {
+  const r = await post(url, body);
+  let parsed: any = {};
+  try { parsed = await r.json(); } catch { /* not JSON */ }
+  return { ok: r.ok, status: r.status, body: parsed };
+}
+
+export const approveItem = (id: number, stateToken: string, allocations: LineChoice[], note: string | null) =>
+  act<ApproveResult & { needs_input?: NeedsInput[]; problems?: { invoice_line_id: number; message: string; code: string }[];
+                        preview?: ApprovePreview; blocked_by?: { code: string; message: string }[] }>(
+    `/api/review-queue/${id}/approve`, { confirm: true, state_token: stateToken, allocations, note: note || null });
+export const rejectItem = (id: number, reason: string | null) =>
+  act<{ status: string }>(`/api/review-queue/${id}/reject`, { confirm: true, reason: reason || null });

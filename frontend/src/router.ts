@@ -7,6 +7,8 @@ export type Route =
   | { name: "pos" }
   | { name: "poNew" }
   | { name: "po"; id: number }
+  | { name: "review" }
+  | { name: "reviewItem"; id: number }
   | { name: "missing" };
 
 export function parse(path: string): Route {
@@ -18,6 +20,9 @@ export function parse(path: string): Route {
   if (p === "/pos/new") return { name: "poNew" };
   m = /^\/pos\/(\d{1,12})$/.exec(p);
   if (m) return { name: "po", id: Number(m[1]) };
+  if (p === "/review") return { name: "review" };
+  m = /^\/review\/(\d{1,12})$/.exec(p);
+  if (m) return { name: "reviewItem", id: Number(m[1]) };
   return { name: "missing" };
 }
 

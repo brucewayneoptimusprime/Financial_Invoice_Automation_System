@@ -943,7 +943,7 @@ Today this is one row in the demo seed (HIST-SS-0001, 1,500.00 on PO-SS-005), pl
 
 ---
 
-# Review actions + line allocation plan (2026-09-26, awaiting owner approval; no code for it exists)
+# Review actions + line allocation plan (2026-09-26; all 10 decisions approved as recommended; build stages 1-3, stop at 4)
 
 **Where this sits.** Follows line-item consumption stages 1-4 (committed). It builds the review-queue part of M5 early: approve/reject, the queue screen and the approve flow. M5's dashboard, drafts "mark as sent" and settings are not in it.
 

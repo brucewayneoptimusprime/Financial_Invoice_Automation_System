@@ -3,14 +3,21 @@
 Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M3 complete. M4 stages 1-4 and PO integration stages 1-6 committed; **your two browser checks (M4 stage 5, PO stage 7) are still open**.
-- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **all 4 stages done. Stopped for your review** (the approve/reject wiring and the picker UI are the follow-up; nothing of them is started).
-- **Your `data\app.db` is still schema version 1** (4 runs, 1 ledger entry). The new code refuses to open it until you run `python -m app.db.migrate` (from `backend\`, with the venv active; it makes a backup first) or start the server with `--reset-demo`.
+- M0-M3 complete. M4 stages 1-4, PO integration stages 1-6 and line-item consumption stages 1-4 committed. Open with you: M4 stage 5 and PO stage 7 (browser checks) and the review of the line-item build.
+- **Review actions + line allocation** (plan approved, all 10 decisions as recommended): **stage 1 of 4 done** (the allocation planner and the two GET endpoints).
+- Next: stage 2 (the approve and reject endpoints).
+- **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Backend: **2082 passed, 0 failed, 2 deselected** (`pytest -W error`); the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). Frontend unchanged (54 passed).
+- Backend: **2105 passed, 0 failed, 2 deselected** (`pytest -W error`); review actions stage 1 added 23 (`tests/review`). Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). Frontend unchanged (54 passed).
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (review actions stage 1: allocation planner + GET endpoints)
+- `app/pipeline/allocation.py`: the pure planner used by BOTH the preview and (stage 2) the approval. Confident lines that still fit -> automatic rows; other lines -> the reviewer's choice (any line of the PO, or "no specific line"), with the per-line fit check = `evaluate_tolerance` on the PO line's remaining amount minus what earlier lines of the same approval took, using `r_tolerance_pct`'s current params; the remainder (tax, shipping) -> one row against the PO total; a negative remainder scales the lines pro rata; lines without an amount are not allocated; a PO with no amount-bearing lines takes everything on its total without asking.
+- `app/review/service.py`: loads an item (invoice, stored line matches, PO lines with remaining amounts now), the blockers, the `state_token` (item/invoice/PO status + the PO's ledger and consumption rows), the approve preview (PO balance before/after, commit, tolerance, automatic rows, lines needing input with ranked candidates / other lines / fits / allowance / a suggested choice, the remainder, warnings), the list.
+- `GET /api/review-queue?status=open|resolved&limit=` (open oldest first; `can_approve`, `lines_needing_input`, `open_count`) and `GET /api/review-queue/{id}` (item, run, invoice, approve preview, and the run view's `line_matches`, reused as is).
+- On real invoice 10963: automatic line 1 -> PO-SS-001 line 1 (5,141.76, qty 4) + remainder 196.32; balance 6,000.00 -> 661.92. On the SYNTHETIC ambiguous scenario (vendor made `new` so it is held for review): line 2 automatic, line 1 needs a choice among PO lines 1-3 (line 3 cannot take 600.00).
 
 ## The six real invoices, before and after this build
 Replay of the extract-v5 recordings, each run against a fresh demo database; "before" = commit `ffc0c05` (the code just before line items, run from a temporary git worktree), "after" = this build. Explainer/drafter: templates on replay.

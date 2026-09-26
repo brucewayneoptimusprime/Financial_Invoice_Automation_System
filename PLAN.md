@@ -1261,3 +1261,183 @@ Built in `app/api/dashboard.py` from existing functions; the only new SQL is pla
 6. **A CSS-only proportion bar** for the decision counts: no library, text labels always present. Recommendation: yes; trivial, and it reads faster than four numbers.
 7. **List lengths:** 8 recent runs and 5 open review items, both query parameters. Recommendation: yes.
 8. **`recent_runs` gains vendor, invoice number, total and current status** through a LEFT JOIN. These are new fields only, so `/api/runs` returns them too, and the upload screen's list can use them later. Recommendation: yes; it reuses the one existing runs query instead of writing a second one.
+
+
+---
+
+# Deployment plan: Render (backend) + Vercel (frontend) (2026-09-26, awaiting owner approval; no code for it exists)
+
+**Goal.** Deployable configuration only. No business logic, test expectations or local workflow change: every local command in STATUS.md keeps working exactly as today, because every new setting defaults to today's value when its environment variable is unset.
+
+**Out of scope:** new features; new dependencies (none needed: uvicorn, FastAPI and pydantic-settings are already there; Vercel builds with the existing Vite setup).
+
+**The one real risk to decide first (decision 1).** The app was built local-only with NO authentication (M4 decision 7, SPEC item 70). Deployed publicly in `--live` mode, anyone who finds the URL could:
+- upload invoices that spend your Anthropic key (the $5.00 session ceiling resets on every restart or deploy)
+- approve or reject review items, which writes to the ledger
+- create purchase orders
+
+This plan therefore includes a minimal, opt-in access token (section 3). It is OFF when the variable is unset, so local development is unchanged.
+
+## 1. What exists and is already environment-driven
+Every `Settings` field is read from the environment (pydantic-settings, case-insensitive) and from `.env` locally:
+
+| Setting | Env var | Today | Needed change |
+|---|---|---|---|
+| API key | `ANTHROPIC_API_KEY` | env / `.env` only, blank = unset, scrubbed from logs (SPEC item 42) | **none**: confirmed it stays env-only |
+| database | `DB_PATH` | `<repo>/data/app.db` | none (or derived from `DATA_DIR`, below) |
+| run folders | `RUNS_DIR` | `<repo>/data/runs` | same |
+| upload temp copies | `API_UPLOAD_DIR` | `<repo>/data/uploads` | same |
+| PO draft files | `PO_DRAFTS_DIR` | `<repo>/data/po_drafts` | same |
+| CORS origins | `API_CORS_ORIGINS` | the two Vite dev origins | accept a comma-separated list as well as JSON (decision 5) |
+| bind host / port | `API_HOST` / `API_PORT` | 127.0.0.1 / 8000 | none: the start command passes `--host 0.0.0.0 --port $PORT` |
+| model, prices, ceilings | `MODEL_NAME`, `COST_CEILING_PER_RUN_USD`, `COST_CEILING_PER_SESSION_USD`, ... | config defaults | none |
+
+## 2. Backend changes (small, config-level)
+1. **`DATA_DIR` (decision 3).** When set, it becomes the default parent of the four writable paths: `DATA_DIR/app.db`, `DATA_DIR/runs`, `DATA_DIR/uploads`, `DATA_DIR/po_drafts`. Any of the four can still be set explicitly. Unset, nothing changes.
+   - One setting pointing at the Render disk mount means no path can accidentally land on Render's ephemeral filesystem and vanish on the next deploy.
+   - Implemented as a `model_validator` in `Settings` that fills only the fields NOT given explicitly.
+2. **`SERVE_MODE` = `live` | `replay` | `offline` (decision 2).**
+   - `python -m app.api.serve` reads it when no mode flag is given. A flag always wins. With neither, it still REFUSES to start (exit 5): the live-call rule of SPEC item 68 is unchanged, and the environment variable is just another explicit way to choose.
+   - `replay` needs `REPLAY_DIR`. The recordings are gitignored (they may contain invoice data), so they are not on Render; in production the meaningful modes are `live` and `offline`.
+   - Production (`render.yaml`) sets `SERVE_MODE=live`, as you asked.
+3. **`GET /health`** (root, not under `/api`) for Render's health check.
+   - Returns `{"status": "ok", "db": "ok", "schema_version": 2, "mode": "live"}` with 200. It opens the database read-only and runs `SELECT 1` plus a schema-version check.
+   - Returns 503 with `{"status": "unavailable", "reason": ...}` when the database is missing, unreadable or the wrong version.
+   - No path, no key, no spend. Exempt from the access token.
+   - The existing `/api/health` (mode, spend, limits, DB path) stays as is, behind the token when one is set.
+4. **Access token (decision 1; opt-in).** With `ACCESS_TOKEN` set:
+   - every `/api/*` request needs `Authorization: Bearer <token>`, or `?access_token=<token>` for the EventSource stream and `<img>` page URLs, which cannot send headers
+   - a missing or wrong token gets 401 `{"error": "unauthorized"}`, compared in constant time
+   - `/health` is exempt
+   - it is one small middleware in `main.py`, and CORS allows the `Authorization` header
+
+   Unset (local), no check happens.
+5. **CORS (decision 5):**
+   - `API_CORS_ORIGINS` accepts `https://a.vercel.app,https://b.example` as well as a JSON list.
+   - An optional `API_CORS_ORIGIN_REGEX` (unset by default) can admit Vercel preview URLs (`https://invoice-agent-.*\.vercel\.app`).
+   - Locally nothing is set, so the two Vite dev origins stay the only ones, exactly as now. Methods GET/POST; headers `Content-Type`, `Last-Event-ID`, `Authorization`.
+6. **Nothing ever resets or migrates automatically** (confirmed, and pinned by tests):
+   - `serve` never calls `reset` or `init` on its own. Without `--reset-demo` (which `render.yaml` does NOT use) it only opens an existing database.
+   - A missing database: refuses with the exact command to run.
+   - A v1 database: refuses with the migrate command.
+   - Missing builtin rules are INSERT-OR-IGNOREd, never overwriting (SPEC item 76).
+   - First-time creation and demo seeding are one-time MANUAL commands in the Render Shell (DEPLOY.md, decision 4).
+7. **Python version:** `render.yaml` pins `PYTHON_VERSION=3.12.7` (what the tests run on here).
+
+## 3. Frontend changes
+1. **`VITE_API_BASE`** (build-time):
+   - `src/api.ts` prefixes every URL with `API_BASE = import.meta.env.VITE_API_BASE ?? ""`. That covers the fetch calls, the EventSource stream and the page-image URLs; all live in `api.ts`, and nothing outside it builds an API URL (checked).
+   - Unset (local dev), it is `""`, so the URLs stay relative and Vite's `/api` proxy works exactly as now. On Vercel it is the Render URL, e.g. `https://invoice-agent-api.onrender.com`.
+2. **Access token (only when the backend has one):**
+   - On a 401, a small "Enter the access token" screen appears. The token is kept in `sessionStorage` for the browser tab and attached as `Authorization` (fetch) or `access_token` (EventSource, images).
+   - It is never built into the bundle. Nothing changes locally, because the local backend never returns 401.
+3. **`frontend/vercel.json`:** build `npm run build`, output `dist`, and an SPA fallback so a deep link like `/review/7` or a page refresh loads `index.html`:
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+}
+```
+4. **`frontend/.env.example`** documents `VITE_API_BASE=` (empty = local proxy). The `.gitignore` already allows `.env.example`.
+
+## 4. `render.yaml` (repository root; Render Blueprint)
+```yaml
+services:
+  - type: web
+    name: invoice-agent-api
+    runtime: python
+    plan: starter                      # a persistent disk requires a paid instance type
+    buildCommand: pip install -e .     # editable: the app keeps finding data/seed_demo.json in the repo
+    startCommand: python -m app.api.serve --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SERVE_MODE
+        value: live
+      - key: DATA_DIR
+        value: /var/data               # the disk below; the database, runs, uploads and PO drafts all live here
+      - key: ANTHROPIC_API_KEY
+        sync: false                    # set in the dashboard; never in this file
+      - key: ACCESS_TOKEN
+        sync: false                    # set in the dashboard (decision 1)
+      - key: API_CORS_ORIGINS
+        sync: false                    # your Vercel URL, set in the dashboard after the frontend exists
+    disk:
+      name: invoice-agent-data
+      mountPath: /var/data
+      sizeGB: 1
+```
+- There is no `--reset-demo`, `init` or `migrate` anywhere in it. A test fails if one ever appears.
+- A disk means one instance and a short downtime on each deploy (Render's rule for disks), which is fine for this app.
+
+## 5. `DEPLOY.md` outline (exact dashboard steps)
+1. **Before you start:** a Render account (paid instance type for the disk), a Vercel account, the repo pushed to GitHub, your Anthropic key, and a long random `ACCESS_TOKEN` (a command to generate one is given).
+2. **Render, backend:**
+   1. New > Blueprint, pick the repo; Render reads `render.yaml`.
+   2. Fill the `sync: false` values: `ANTHROPIC_API_KEY`, `ACCESS_TOKEN`; leave `API_CORS_ORIGINS` for step 4.
+   3. Deploy. The first start REFUSES on purpose ("the database does not exist") and the health check fails.
+   4. Render Shell, run ONE of:
+      - `python -m app.db.reset --demo --db /var/data/app.db` (the demo dataset)
+      - `python -m app.db.init_db --db /var/data/app.db` (empty: schema + rules only)
+   5. Manual Deploy > Restart; `/health` turns green.
+   6. Copy the service URL (`https://<name>.onrender.com`).
+3. **Vercel, frontend:**
+   1. New Project, the repo, **Root Directory `frontend`** (Vite is detected; `vercel.json` sets the rest).
+   2. Environment variable `VITE_API_BASE` = the Render URL (no trailing slash), for Production (and Preview if wanted).
+   3. Deploy; copy the Vercel URL.
+4. **Back to Render:** set `API_CORS_ORIGINS` = the Vercel URL (comma-separate several). Optionally `API_CORS_ORIGIN_REGEX` for preview deployments. Save; Render restarts.
+5. **Check:**
+   - open the Vercel URL and enter the access token
+   - the dashboard loads and the LIVE badge shows
+   - upload one invoice (about $0.03)
+   - `https://<render>/health` returns ok
+6. **Operating it:**
+   - the database lives only on the disk, and deploys never touch it
+   - resetting is manual and destructive (the Shell command, with a warning)
+   - migrating is manual (`python -m app.db.migrate --db /var/data/app.db`)
+   - backups: download `/var/data/app.db` from the Shell, or Render disk snapshots
+   - the session cost ceiling ($5.00) resets on every restart, so watch the spend on the dashboard
+   - rotating the token = change the env var (tabs are asked again)
+7. **Local development is unchanged:** the two-window commands in STATUS.md; no env var needed.
+
+## 6. Tests (offline)
+**Backend:**
+- `DATA_DIR` derives the four paths, explicit ones win, unset keeps today's paths
+- `SERVE_MODE` starts in that mode, a flag overrides it, neither refuses with exit 5, `replay` without `REPLAY_DIR` is a usage error
+- `/health`: 200 with a good database; 503 for missing / wrong version; no path or key in the body; reachable without a token
+- CORS: comma list, JSON list, regex, and the local default unchanged
+- access token:
+  - with it set: 401 without it, 200 with header or query, wrong token 401, `/health` exempt, SSE works with `?access_token=`
+  - with it unset: everything as today (the whole existing suite runs with it unset)
+- `serve` never resets: a missing DB refuses and no file is created
+- `render.yaml` parses, its start command has no reset/init/migrate, and its secrets are `sync: false`
+
+**Frontend:**
+- `API_BASE` empty gives relative URLs (today's behaviour); set gives prefixed fetch, EventSource and image URLs
+- a 401 shows the token screen, the token is attached afterwards, and it is stored in `sessionStorage` only
+- `vercel.json` has the SPA rewrite
+
+**Regression:** the full backend (2142) and frontend (79) suites unchanged.
+
+## 7. Build stages (commit after each; STATUS.md rewritten each time)
+1. Backend config: `DATA_DIR`, `SERVE_MODE`, CORS list/regex, `/health`, access-token middleware (off by default) + tests.
+2. Frontend: `VITE_API_BASE`, token screen + tests; `vercel.json`, `.env.example`.
+3. `render.yaml`, `DEPLOY.md`, the config tests; a local "production-like" smoke run (`SERVE_MODE=offline DATA_DIR=<scratch> ACCESS_TOKEN=x`, token checked, `/health`, CORS). Then stop: the actual Render/Vercel setup is yours, following DEPLOY.md.
+
+## 8. Decisions needed from the owner
+1. **Access protection for the public deployment.**
+   - (A) The opt-in `ACCESS_TOKEN` of sections 2.4 and 3.2. **Recommendation.**
+   - (B) No protection: anyone with the URL can spend your key and change the ledger. Not recommended.
+   - (C) Deploy publicly in `offline` mode only (no spend, but also no real extraction) until (A) exists.
+
+   With (A), the production default `SERVE_MODE=live` is reasonable.
+2. **`SERVE_MODE` environment variable** (flags win; neither = refuse, as today). Recommendation: yes.
+3. **`DATA_DIR`** as the single switch for all writable paths, rather than setting four variables separately. Recommendation: yes; it removes the "one path forgot the disk" failure.
+4. **First-time database creation is a manual Render Shell command** (demo seed or empty); `serve` refuses a missing database and never creates, resets or migrates one on its own. Recommendation: yes, as you asked. The alternative, a `--create-if-missing` flag that creates an empty schema only when no file exists, is safe but still automatic.
+5. **CORS:** `API_CORS_ORIGINS` also accepts a comma-separated list, and an optional `API_CORS_ORIGIN_REGEX` admits Vercel preview URLs (off unless set). Recommendation: yes.
+6. **`/health` minimal and public** (status, database reachable, schema version, mode). `/api/health` keeps its details, behind the token. Recommendation: yes.
+7. **A paid Render instance type is needed for the disk.** Render's free web services have no persistent disk, so the SQLite database would be wiped on every deploy or restart. Recommendation: `starter` (or larger).
+8. **Cost exposure:** the $5.00 session ceiling is per server process and resets on restarts or deploys. For a public deployment you may want a lower `COST_CEILING_PER_SESSION_USD` (an env var, no code). Recommendation: set it to what you are comfortable losing between restarts, e.g. 2.00.

@@ -939,3 +939,234 @@ Today this is one row in the demo seed (HIST-SS-0001, 1,500.00 on PO-SS-005), pl
 8. **Migration is an explicit command with an automatic backup;** `serve` and the CLIs refuse a v1 database and name the command. Recommendation: yes. The alternative is to migrate silently at startup, which is friendlier but touches your database without asking.
 9. **Several invoice lines may consume the same PO line** (split deliveries), each reducing the remaining quantity and amount for the next. Recommendation: yes.
 10. **The better description measure (containment + item codes) is used for LINE matching only;** the whole-PO `lines_signal` stays exactly as it is, so PO ranking cannot change. Recommendation: yes. Reusing it for PO ranking is possible later, with its own before/after check.
+
+
+---
+
+# Review actions + line allocation plan (2026-09-26, awaiting owner approval; no code for it exists)
+
+**Where this sits.** Follows line-item consumption stages 1-4 (committed). It builds the review-queue part of M5 early: approve/reject, the queue screen and the approve flow. M5's dashboard, drafts "mark as sent" and settings are not in it.
+
+**"As previously scoped" means**, since no review endpoint was ever planned in detail:
+- SPEC section 8: a review item's approve/reject "writes to the ledger accordingly"
+- section 9.5: open items with approve/reject controls
+- section 11 item 12: `runs.final_decision` never changes; the human outcome goes in `review_queue.resolution` and `invoices.status`
+- item 28: an approval commits the invoice TOTAL; PO status is derived from the ledger
+- the M3 act stage's re-verification inside `BEGIN IMMEDIATE`
+
+This plan turns those into exact contracts.
+
+**Owner decisions carried in (not reopened):**
+- **(1) Decide, then allocate.** Line-match confidence never changes the decision. Allocation happens after the decision, and only on approve.
+- **(2) Automatic vs reviewer lines.** `matched` lines are allocated automatically. Every other line is shown to the reviewer with its ranked candidates plus "deduct from the PO total, no specific line".
+- **(3) The one constraint on a manual assignment:** its amount must fit the chosen PO line's remaining amount, via the existing tolerance check applied per line. The description need not match.
+- **(4) "No specific line" is permanent and legitimate.** The PO page shows it openly.
+- **(5) Reject writes no allocation.**
+
+## 1. Allocation: the rules (one pure function, `pipeline/allocation.py`)
+`plan_allocation(invoice_lines, stored_line_matches, po_lines_now, ledger_amount, allocations_supplied, tolerance_params) -> AllocationPlan`
+
+The same function builds the preview for `GET` and the rows written by `approve`, so what the reviewer sees is what gets written. It reads the STORED `invoice_line_matches` rows (no re-matching) and the PO lines' remaining amounts as of now.
+
+**Per invoice line:**
+
+| Line situation | Who allocates | Result |
+|---|---|---|
+| status `matched`, and its amount fits the matched PO line's remaining amount (per-line check below) | automatic | a consumption row on that PO line: `matched_by auto`, the invoice line's amount and quantity |
+| status `matched` but it does NOT fit (the line was consumed meanwhile) | reviewer (decision 4) | shown with its candidates, the automatic choice pre-selected and marked "no longer fits" |
+| status `ambiguous`, `no_match` (includes every line of a `total_only` invoice) | reviewer | shown with its stored ranked candidates; the top candidate pre-selected when it fits, otherwise "no specific line" pre-selected |
+| no amount, or a zero amount | nobody (decision 6) | nothing to allocate; the value, if any, is part of the remainder; shown as a note |
+| the PO has no described lines, or the invoice has no lines (`not_evaluable`) | automatic | everything goes to "no specific line"; there is nothing to choose, so no input is asked |
+
+**Reviewer choices per line:**
+- `po_line` with ANY line of the matched PO. It can be one of the ranked candidates or any other line of that PO; the description is not checked (owner decision 3). A line without an amount on the PO cannot be checked and is refused (decision 7).
+- `unassigned`: a row with `po_line_id NULL`, `invoice_line_id` set, `quantity NULL`, `matched_by manual_reviewer`.
+
+**The per-line fit check** (owner decision 3), reusing `engine/tolerance.evaluate_tolerance`:
+- `B` = the PO line's remaining amount now (the line amount minus its line-assigned consumption), minus what EARLIER lines of this same approval assign to it (several invoice lines may land on one PO line).
+- `I` = the invoice line amount.
+- `pct`, `abs` and `mode` come from `r_tolerance_pct`'s CURRENT params in the database, so it is the same rule as the whole-PO check, "applied per line instead of per PO total".
+- Fits when `I - B <= allowance`, with allowance = the lesser (or greater) of `pct`% of B and `abs`. With `B <= 0` the percentage part is 0, so in `lesser_of` nothing fits (as for the whole-PO rule, SPEC item 27).
+- The error names the line, `I`, `B` and the allowance.
+
+**The remainder (keeps the allocation invariant, SPEC item 74).** The ledger commit is the invoice TOTAL (item 28), but lines usually add up to the subtotal. Remainder R = total - sum(line allocations).
+- R > 0 (tax, shipping, fees, rounding): one extra row against the PO total, `invoice_line_id NULL`, `matched_by auto`, described as "tax, shipping and other amounts not on a line".
+- R < 0 (a discount or credit larger than tax + shipping): see decision 5.
+- R = 0: no extra row.
+
+The invariant is checked inside the transaction before commit (`consumption_problems` for that entry).
+
+## 2. Endpoints (JSON; local, no auth; the reviewer is recorded as "reviewer (local UI)")
+
+### `GET /api/review-queue?status=open|resolved&limit=` : the list
+```json
+{"items": [{"id": 7, "run_id": "...", "status": "open", "resolution": null, "resolved_at": null,
+            "source_file": "invoice_Scot Wooten_10963.pdf", "invoice_number": "10963", "vendor": "SuperStore",
+            "total": "5338.08", "currency": "USD", "po_number": "PO-SS-001", "reason": "Review: r_po_found (...): ...",
+            "queued_at": "2026-09-26T10:01:00Z", "can_approve": true, "lines_needing_input": 0}]}
+```
+Open items are listed oldest first (a queue); resolved items newest first.
+
+### `GET /api/review-queue/{id}` : one item, with the approve preview
+```json
+{"item": {"id": 7, "status": "open", "reason": "...", "run_id": "..."},
+ "run": {"decision": "review", "explanation": {"...": "..."}, "source_file": "..."},
+ "invoice": {"id": 2, "invoice_number": "10963", "total": "5338.08", "currency": "USD", "status": "in_review"},
+ "approve": {
+   "possible": true, "blocked_by": [],
+   "warnings": [],
+   "po": {"id": 1, "po_number": "PO-SS-001", "status": "open", "balance_before": "6000.00", "balance_after": "661.92"},
+   "commit_amount": "5338.08",
+   "state_token": "3f9c...",
+   "tolerance": {"pct": 2.0, "abs": "50.00", "mode": "lesser_of"},
+   "automatic": [{"invoice_line_id": 12, "invoice_line_no": 1, "po_line_id": 3, "po_line_no": 1, "amount": "5141.76", "quantity": "4"}],
+   "needs_input": [],
+   "remainder": {"amount": "196.32", "label": "tax, shipping and other amounts not on a line"}
+ },
+ "line_matches": {"...": "exactly GET /api/runs/{id}'s line_matches (reused, not recomputed)"}}
+```
+
+**A `needs_input` entry** (the picker's data; candidates come from the stored match, enriched from the run view's builder):
+```json
+{"invoice_line_id": 13, "invoice_line_no": 2, "description": "Widget A", "quantity": "10", "unit_price": "60.00", "amount": "600.00",
+ "status": "ambiguous", "why": "two PO lines are about equally likely",
+ "suggested": {"target": "po_line", "po_line_id": 8},
+ "candidates": [{"po_line_id": 8, "po_line_no": 1, "description": "Widget A (blue)", "score": 0.857, "remaining_amount": "600.00",
+                 "fits": true, "allowance": "12.00", "reasons": ["..."]}],
+ "other_lines": [{"po_line_id": 10, "po_line_no": 3, "description": "Widget B", "remaining_amount": "400.00", "fits": false, "allowance": "8.00"}]}
+```
+The server supplies `fits` and `allowance` per option (computed with the same function) so the client check is the same check.
+
+**Why approve can be blocked** (`possible: false`, `blocked_by` lists all that apply):
+- the item is not open
+- the invoice already has a ledger entry (a double approval)
+- the run did not complete
+- no PO was matched (decision 1)
+- the PO is `closed`
+- the invoice currency is missing or differs from the PO's
+- the invoice total is missing, not positive, or not whole cents
+
+A commit that goes over the PO balance is a WARNING, not a block: a human may approve what the tolerance rule held back, which is the one place severity may be lowered (SPEC principle 2). The balance after the commit is shown, negative if so.
+
+### `POST /api/review-queue/{id}/approve`
+Request:
+```json
+{"confirm": true,
+ "state_token": "3f9c...",
+ "allocations": [{"invoice_line_id": 13, "target": "po_line", "po_line_id": 8},
+                 {"invoice_line_id": 14, "target": "unassigned"}],
+ "note": "optional, up to 500 characters"}
+```
+
+Responses:
+
+| Status | When | Body |
+|---|---|---|
+| **200** | done | `{"status": "approved", "ledger_entry_id", "amount", "po": {"po_number", "balance_before", "balance_after", "status"}, "allocations": [{"invoice_line_id", "po_line_id", "amount", "quantity", "matched_by"}], "remainder": {...}, "review_item": {"status": "resolved", "resolution": "approved"}}` |
+| **422** `allocation_required` | a line that needs input has none | `{"error": "allocation_required", "message": "2 lines need a choice before this invoice can be approved.", "needs_input": [...as in GET...]}`. Nothing is written, and nothing is defaulted |
+| **422** `allocation_invalid` | a supplied choice breaks a rule | `{"error": "allocation_invalid", "problems": [{"invoice_line_id": 13, "po_line_id": 8, "code": "exceeds_remaining", "message": "Line 2 (600.00) does not fit PO line 1: 250.00 remaining, allowance 5.00.", "amount": "600.00", "remaining": "250.00", "allowance": "5.00"}]}`. Codes: `exceeds_remaining`, `not_a_line_of_this_po`, `po_line_has_no_amount`, `automatic_line` (decision 3), `unknown_invoice_line`, `duplicate_line` |
+| **409** `stale` | the PO's ledger or consumption changed since the preview (`state_token` differs), or the item was resolved meanwhile | `{"error": "stale", "message": "...", "preview": {...fresh approve preview...}}`. The UI shows the new numbers and asks again |
+| **409** `not_approvable` | a `blocked_by` reason | the reasons |
+| **400** | `confirm` is not `true` | |
+| **404** | unknown item | |
+
+**`state_token`:** SHA-256 of the PO's ledger rows (id, amount) and consumption rows (id, po_line_id, amount, quantity), plus the item status. It is taken by `GET` and compared inside the transaction.
+
+**Inside ONE `BEGIN IMMEDIATE` transaction, in order:**
+1. Re-read the item, invoice, run and PO; any `blocked_by` reason gives 409 with nothing written.
+2. Compare `state_token` (409 `stale`).
+3. Plan the allocation with the supplied choices (422 on a missing or invalid choice).
+4. Ledger `commit` = invoice total on the PO.
+5. The consumption rows: automatic lines, reviewer lines, the remainder. Verify the invariant for this entry.
+6. PO status from the ledger (`partially_billed` / `fully_billed`; never `closed`).
+7. `invoices.status = approved`.
+8. `review_queue`: `status resolved`, `resolution approved`, `resolved_at`.
+9. Audit events on the run: `review/human_approved` (reviewer, note, commit, balance before/after), one `review/allocation` event (every row, with `matched_by`), `review/review_resolved`. The seq continues after the run's last event.
+
+Any exception rolls everything back. `runs.final_decision` stays `review` (item 12).
+
+### `POST /api/review-queue/{id}/reject`
+- **Request:** `{"confirm": true, "reason": "optional, up to 500 characters"}`
+- **Checks:** the item is open and the invoice has no ledger entry (409 otherwise).
+- **One transaction:** `invoices.status = rejected`; `review_queue` resolved/rejected; audit events `review/human_rejected` + `review/review_resolved`.
+- **Never** a ledger entry or a consumption row (owner decision 5). No vendor email is drafted (decision 8).
+- **Response 200:** `{"status": "rejected", "review_item": {...}}`
+
+**No bulk:** there is no multi-item endpoint, every action needs `confirm: true` and one item id, and the UI offers no multi-select.
+
+## 3. Frontend
+- **Navigation:** Invoices | Purchase orders | **Review queue** (with the open count).
+- **Queue screen (`/review`):** Open / Resolved tabs.
+  - One row per item: file, vendor, invoice number, total, PO, the plain-language reason (the stage-1 parser), queued time, "needs line choices: 2" when relevant.
+  - No checkboxes and no bulk action. A row opens the item.
+- **Item screen (`/review/:id`):**
+  - Left: the run's decision banner and "Why" (the existing components), key fields, and a link to the full run.
+  - Right: the action panel.
+  - **Approve, nothing to choose:** one panel with PO, commit amount, balance before -> after, the automatic allocations (invoice line -> PO line, amount), the remainder row, and warnings. Then one "Confirm approval" button.
+  - **Approve, choices needed:** a card per line needing input, showing the invoice line (text, qty, price, amount) and why it needs a choice.
+    - Options: the ranked candidates as radio buttons (score, PO line text, remaining amount, fits or not), "another line of this PO..." (a select of all its lines), and "No specific line (deduct from the PO total)".
+    - The best guess is pre-selected.
+    - Options that do not fit are shown but disabled, with the numbers ("600.00 does not fit: 250.00 remaining + 5.00 allowance").
+    - The confirm button stays disabled until every line has a valid choice. The automatic lines and the remainder are listed above the cards so the reviewer sees the whole commit.
+    - One submit sends everything.
+    - A 409 `stale` replaces the panel with the fresh preview and says what changed; a 422 shows the server's problems on their lines.
+  - **Reject:** an optional reason and a confirm step. It says plainly: "No ledger entry and no allocation will be written."
+  - **After an action:** the result (commit, balance after, allocations, with links to the PO and the run) and "Next item" (the oldest open one).
+- **Blocked items:** the approve panel shows `blocked_by` in plain words; reject stays available.
+- **PO detail:**
+  - The lines table gains "consumed" and "remaining" (quantity and amount) columns.
+  - The stats row gains **"Consumed, not assigned to a line"** (`consumed_without_line`, already in the API), next to "Committed", with a one-line explanation.
+  - The allocation rows are listed under Ledger (line or "no specific line", `matched_by`, invoice, run link).
+
+## 4. Tests (offline; `pytest -W error` + vitest)
+**Your five required tests:**
+1. **All lines confident:** SuperStore 10963 (real, v5 reply) held for review, then approved with `allocations: []`. Expected: 200; one ledger commit of 5,338.08; one `auto` row on PO-SS-001 line 1 (5,141.76, quantity 4); one remainder row (196.32, no line); the invariant holds; PO `partially_billed`; invoice `approved`; item resolved; `final_decision` still `review`. Plus the synthetic clean scenario (two lines, both automatic).
+2. **Mixed confident + ambiguous blocks until chosen:** the synthetic ambiguous scenario, first held for review.
+   - Approve with no choice gives 422 `allocation_required`, listing exactly the ambiguous line with its candidates and the pre-selected guess.
+   - Nothing is written: ledger, consumption, statuses and the item are unchanged.
+   - Resubmitting with a choice for that line gives 200, with the automatic line `auto` and the chosen line `manual_reviewer`.
+3. **An assignment over the remaining amount is refused clearly:** the target line was partly consumed first, so 422 `allocation_invalid` / `exceeds_remaining` with amount, remaining and allowance in the message, and nothing written. A choice exactly at remaining + allowance is accepted (boundary).
+4. **Unassigned shows up and reduces no line:** approve with `target: unassigned`.
+   - `GET /api/pos/{id}`: `consumed_without_line` rises by that amount (plus the remainder); every line's `remaining_amount` and `remaining_quantity` are unchanged.
+   - The next run's line matching sees the same remaining amounts.
+5. **Reject writes no allocation:** row counts of `ledger_entries` and `po_consumption` are unchanged; the invoice is `rejected`; the item is resolved/rejected; the audit events exist.
+
+**Also:**
+- **Allocation planner (pure):** every row of the section-1 table; several invoice lines on one PO line; any PO line allowed regardless of description; the remainder (positive, zero, negative per decision 5); a line without an amount; `not_evaluable` gives everything to the total; the fit check at B <= 0; `greater_of` / `lesser_of` from the rule's current params.
+- **Re-verification:**
+  - a stale token (another approval on the same PO in between) gives 409 with a fresh preview and nothing written
+  - double approve and approve-after-reject give 409
+  - a closed PO, a currency mismatch or a missing total give 409 `not_approvable`
+  - a fault injected after the ledger insert rolls everything back
+  - `confirm` missing gives 400
+  - an unknown item or bad id gives 404
+- **Validation codes:** `not_a_line_of_this_po`, `po_line_has_no_amount`, `automatic_line`, `unknown_invoice_line`, `duplicate_line`.
+- **Audit and invariants:** the events and their order on the run; `consumption_problems` empty after every approve; `get_po_balance` equals total - ledger; `runs.final_decision` never changes.
+- **List and detail:** ordering; `can_approve` / `lines_needing_input`; the detail's `line_matches` equals the run view's; resolved items.
+- **Frontend (vitest, with fixtures recorded from these endpoints):**
+  - the queue list; the one-click confirm path
+  - the choices path: pre-selection, disabled non-fitting options with their numbers, confirm enabled only when complete, one submit with all choices
+  - a 409 stale refresh; a 422 shown per line
+  - the reject path's statement; the PO page's "consumed, not assigned to a line" figure and line columns
+  - no bulk controls anywhere
+- **Your manual browser check** at the end, as before.
+
+## 5. Build stages (commit after each; STATUS.md rewritten each time)
+1. `allocation.py` (planner + per-line fit + state token) and the two GET endpoints; tests.
+2. Approve and reject endpoints (transaction, re-verification, ledger, consumption, statuses, audit); the five required tests and the rest of section 4's backend list.
+3. Frontend: nav, queue, item screen, approve flow (both paths), reject, PO page figure and columns; vitest.
+4. Your manual browser check; STATUS; then stop.
+
+## 6. Decisions needed from the owner
+1. **Review items with no matched PO** (for example an ambiguous PO match): approve needs a PO to commit against. **Recommendation (A):** approve is blocked for them in this build (`blocked_by: no matched PO`), and reject stays available. (B), letting the reviewer choose one of the run's ranked PO candidates and then allocating against it, needs line matching against a PO that was not matched. That is a real addition, better as its own step.
+2. **Per-line check source:** use `r_tolerance_pct`'s current `pct` / `abs` / `mode` for the per-line allowance ("the existing tolerance check applied per line"). Recommendation: yes. The alternative is separate per-line params on a new setting.
+3. **May the reviewer re-assign a line that was allocated automatically** (`status matched` and it fits)? **Recommendation: no, in this build** (422 `automatic_line`), per your decision 2. It keeps the automatic path free of reviewer input and the audit trail simple. It can be added later as an explicit "change" action.
+4. **An automatic line that no longer fits** its PO line (consumed meanwhile) becomes a reviewer choice rather than over-allocating silently. Recommendation: yes.
+5. **The remainder** between the invoice total (what the ledger commits) and the sum of its lines:
+   - **positive** (tax, shipping, fees): one row against the PO total, labelled as such. Recommendation: yes.
+   - **negative** (a discount or credit bigger than tax + shipping): the line allocations would add up to more than the commit. **Recommendation:** reduce the line allocations pro rata so they add up exactly to the commit (cents rounded down, the last cent on the largest line), recorded in the allocation event. The alternatives, blocking the approve or leaving a negative row, break the invariant or the sign rule.
+6. **Invoice lines with no amount or a zero amount** are not allocated (nothing to consume); their value, if any, stays in the remainder, with a note in the approve panel. Recommendation: yes.
+7. **A PO line with no amount** cannot be checked for fit, so a manual assignment to it is refused (`po_line_has_no_amount`) and the reviewer chooses another line or "no specific line". Recommendation: yes (strict, and consistent with "must fit").
+8. **Reject after review drafts no vendor email** in this build. The reviewer's reason is recorded in the audit trail only; a draft-on-reject option belongs with M5's drafts screen. Recommendation: yes.
+9. **Over the PO balance on a human approve** is a warning, not a block (the human may lower severity; SPEC principle 2). Only the conditions in `blocked_by` block. Recommendation: yes.
+10. **The approve preview shows remaining amounts "as of now"** and the approve re-checks them inside the transaction via `state_token`. A change in between gives 409 and a fresh preview, never a silent recalculation. Recommendation: yes.

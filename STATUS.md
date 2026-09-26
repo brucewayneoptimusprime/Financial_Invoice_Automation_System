@@ -4,15 +4,21 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete; M4, PO integration, line-item consumption, review actions and the dashboard (+ clickable summaries) committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4, dashboard stage 3), the review of the line-item build, and the demo-loader question.
-- **Deployment (Render + Vercel)** (plan approved, all 8 decisions as recommended; the deployed session ceiling is **$1.00**): **stage 1 of 3 done** (backend config).
-- Next: stage 2 (frontend: `VITE_API_BASE`, the access-token screen, `vercel.json`).
+- **Deployment (Render + Vercel)** (plan approved, all 8 decisions as recommended; the deployed session ceiling is **$1.00**): **stages 1-2 of 3 done** (backend config; frontend config).
+- Next: stage 3 (`render.yaml`, `DEPLOY.md`, the local production-like smoke run), then stop.
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Frontend: **79 passed** (vitest; the follow-up added 7, dashboard stage 2 added 7, review actions 11); `tsc --noEmit` clean; `vite build` OK.
+- Frontend: **85 passed** (vitest; deployment stage 2 added 6; no existing test changed); `tsc --noEmit` clean; `vite build` OK.
 - Backend: **2162 passed, 0 failed, 2 deselected** (`pytest -W error`); deployment stage 1 added 20 (`tests/api/test_deploy.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (deployment stage 2: frontend config)
+- `src/apiBase.ts`: `VITE_API_BASE` (build time) prefixes every API URL; unset it is "" and URLs stay relative (the Vite proxy), so local dev is unchanged (a test checks the fetch calls are exactly as before). `src/api.ts` now sends all 12 requests through `apiFetch`, and the event stream and page images through `apiUrl`; nothing outside `api.ts` builds an API URL.
+- Access token: a 401 from the backend opens a small "Access token" dialog (`components/TokenGate.tsx`); the token is kept in `sessionStorage` for the tab (never in the bundle) and sent as `Authorization: Bearer` (fetch) or `?access_token=` (event stream, images). Locally the backend never answers 401, so the dialog never appears.
+- `frontend/vercel.json` (build `npm run build`, output `dist`, SPA fallback so `/review/7` or a refresh loads the app), `frontend/.env.example` (documents `VITE_API_BASE`, empty = local), `src/vite-env.d.ts` (types the variable).
+- Checked: a build with `VITE_API_BASE=https://invoice-agent-api.onrender.com` contains that URL; a default build contains no `onrender.com`.
 
 ## What changed (deployment stage 1: backend config; local behaviour unchanged when nothing is set)
 - `DATA_DIR`: when set, the database, runs, uploads and PO drafts default to `DATA_DIR/app.db`, `/runs`, `/uploads`, `/po_drafts` (each still overridable). Unset: the same `<repo>\data\...` paths as before.

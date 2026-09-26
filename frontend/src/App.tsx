@@ -10,6 +10,7 @@ import { PONewScreen } from "./screens/PONew";
 import { ReviewListScreen } from "./screens/ReviewList";
 import { ReviewItemScreen } from "./screens/ReviewItem";
 import { usd } from "./format";
+import { TokenGate } from "./components/TokenGate";
 import type { Health } from "./types";
 
 function ModeBadge({ health, error }: { health: Health | null; error: boolean }) {
@@ -82,6 +83,7 @@ export function App() {
           </div>
         )}
       </main>
+      <TokenGate />
     </div>
   );
 }

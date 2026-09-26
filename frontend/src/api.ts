@@ -1,4 +1,6 @@
-// Thin, typed wrappers over the local API. All paths are relative: Vite proxies /api to the backend.
+// Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
+// proxy), the Render URL and the access token when deployed.
+import { apiFetch, apiUrl } from "./apiBase";
 import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
@@ -24,11 +26,11 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const getHealth = () => fetch("/api/health").then((r) => json<Health>(r));
+export const getHealth = () => apiFetch("/api/health").then((r) => json<Health>(r));
 export const listRuns = (limit = 12, decision = "") =>
-  fetch(`/api/runs?limit=${limit}${decision ? `&decision=${encodeURIComponent(decision)}` : ""}`).then((r) => json<{ runs: RunRow[] }>(r));
-export const getRun = (id: string) => fetch(`/api/runs/${encodeURIComponent(id)}`).then((r) => json<RunView | PendingView>(r));
-export const pageUrl = (id: string, n: number) => `/api/runs/${encodeURIComponent(id)}/pages/${n}`;
+  apiFetch(`/api/runs?limit=${limit}${decision ? `&decision=${encodeURIComponent(decision)}` : ""}`).then((r) => json<{ runs: RunRow[] }>(r));
+export const getRun = (id: string) => apiFetch(`/api/runs/${encodeURIComponent(id)}`).then((r) => json<RunView | PendingView>(r));
+export const pageUrl = (id: string, n: number) => apiUrl(`/api/runs/${encodeURIComponent(id)}/pages/${n}`, true);
 
 export function isRunView(v: RunView | PendingView): v is RunView {
   return "stages" in v;
@@ -37,7 +39,7 @@ export function isRunView(v: RunView | PendingView): v is RunView {
 export async function uploadInvoice(file: File): Promise<{ run_id: string }> {
   const form = new FormData();
   form.append("file", file, file.name);
-  return fetch("/api/runs", { method: "POST", body: form }).then((r) => json<{ run_id: string }>(r));
+  return apiFetch("/api/runs", { method: "POST", body: form }).then((r) => json<{ run_id: string }>(r));
 }
 
 export interface StreamHandlers {
@@ -50,7 +52,7 @@ export interface StreamHandlers {
 
 // The browser's EventSource reconnects on its own and sends Last-Event-ID, so a dropped connection resumes where it stopped.
 export function streamRun(id: string, h: StreamHandlers): () => void {
-  const es = new EventSource(`/api/runs/${encodeURIComponent(id)}/events`);
+  const es = new EventSource(apiUrl(`/api/runs/${encodeURIComponent(id)}/events`, true));
   let done = false;
   h.onConnection("connecting");
   es.onopen = () => h.onConnection("open");
@@ -76,11 +78,11 @@ export function streamRun(id: string, h: StreamHandlers): () => void {
 }
 
 // ---------------------------------------------------------------------------------------------- purchase orders
-export const listVendors = () => fetch("/api/vendors").then((r) => json<{ vendors: Vendor[] }>(r));
+export const listVendors = () => apiFetch("/api/vendors").then((r) => json<{ vendors: Vendor[] }>(r));
 export const listPOs = (q = "", status = "", currency = "") =>
-  fetch(`/api/pos?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), ...(currency ? { currency } : {}) })}`)
+  apiFetch(`/api/pos?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), ...(currency ? { currency } : {}) })}`)
     .then((r) => json<{ pos: POListRow[] }>(r));
-export const getPO = (id: number | string) => fetch(`/api/pos/${encodeURIComponent(String(id))}`).then((r) => json<PODetail>(r));
+export const getPO = (id: number | string) => apiFetch(`/api/pos/${encodeURIComponent(String(id))}`).then((r) => json<PODetail>(r));
 
 // The form's values -> what the API expects (empty strings become nulls; empty lines are kept so validation can name them).
 export function poPayload(po: POInput, newVendor: NewVendorInput | null) {
@@ -94,7 +96,7 @@ export function poPayload(po: POInput, newVendor: NewVendorInput | null) {
 }
 
 const post = (url: string, body: unknown) =>
-  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export const validatePO = (po: POInput, nv: NewVendorInput | null) =>
   post("/api/pos/validate", poPayload(po, nv)).then((r) => json<ValidateResult>(r));
@@ -117,14 +119,14 @@ export const draftFromText = (text: string) => post("/api/pos/drafts/text", { te
 export async function draftFromDocument(file: File): Promise<PODraftView> {
   const form = new FormData();
   form.append("file", file, file.name);
-  return fetch("/api/pos/drafts/document", { method: "POST", body: form }).then((r) => json<PODraftView>(r));
+  return apiFetch("/api/pos/drafts/document", { method: "POST", body: form }).then((r) => json<PODraftView>(r));
 }
-export const draftPageUrl = (draftId: string, n: number) => `/api/pos/drafts/${encodeURIComponent(draftId)}/pages/${n}`;
+export const draftPageUrl = (draftId: string, n: number) => apiUrl(`/api/pos/drafts/${encodeURIComponent(draftId)}/pages/${n}`, true);
 
 // ---------------------------------------------------------------------------------------------- review queue (one item at a time)
 export const listReview = (status: "open" | "resolved" = "open") =>
-  fetch(`/api/review-queue?status=${status}`).then((r) => json<{ items: ReviewListItem[]; open_count: number }>(r));
-export const getReviewItem = (id: number | string) => fetch(`/api/review-queue/${encodeURIComponent(String(id))}`).then((r) => json<ReviewDetail>(r));
+  apiFetch(`/api/review-queue?status=${status}`).then((r) => json<{ items: ReviewListItem[]; open_count: number }>(r));
+export const getReviewItem = (id: number | string) => apiFetch(`/api/review-queue/${encodeURIComponent(String(id))}`).then((r) => json<ReviewDetail>(r));
 
 export interface ActionOutcome<T> { ok: boolean; status: number; body: T & { error?: string; message?: string } }
 
@@ -142,4 +144,4 @@ export const approveItem = (id: number, stateToken: string, allocations: LineCho
 export const rejectItem = (id: number, reason: string | null) =>
   act<{ status: string }>(`/api/review-queue/${id}/reject`, { confirm: true, reason: reason || null });
 
-export const getDashboard = (recent = 8, review = 5) => fetch(`/api/dashboard?recent=${recent}&review=${review}`).then((r) => json<Dashboard>(r));
+export const getDashboard = (recent = 8, review = 5) => apiFetch(`/api/dashboard?recent=${recent}&review=${review}`).then((r) => json<Dashboard>(r));

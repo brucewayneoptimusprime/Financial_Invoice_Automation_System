@@ -461,3 +461,5 @@ a.stat-link:hover { border-color: var(--accent); }
 .decision-link:hover .chip { outline: 1px solid currentColor; }
 .decision-bar a.seg:hover { filter: brightness(1.15); }
 .filter-note { font-size: 13px; color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }
+.token-gate { background: var(--surface); border-radius: 14px; padding: 22px; width: min(420px, 100%); display: grid; gap: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+.token-gate p { margin: 0; }

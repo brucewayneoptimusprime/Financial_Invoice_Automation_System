@@ -6,6 +6,7 @@ derived from the ledger here (SUM in integer minor units, converted once via app
 import json
 import sqlite3
 from datetime import date
+from decimal import Decimal
 
 from app.config import get_settings
 from app.engine.facts import (
@@ -48,12 +49,24 @@ def load_facts(conn: sqlite3.Connection, current_run_id: str | None = None) -> R
         for r in conn.execute("SELECT * FROM vendors ORDER BY id")
     )
 
+    # Line-ASSIGNED consumption (schema v2). Quantities are decimal TEXT, so they are summed here, never in SQL. Consumption against
+    # the PO total (po_line_id NULL, e.g. every pre-v2 commit) reduces the PO balance but no line.
+    consumed_qty: dict[int, Decimal] = {}
+    consumed_amt: dict[int, int] = {}
+    for r in conn.execute("SELECT po_line_id, quantity, amount FROM po_consumption WHERE po_line_id IS NOT NULL"):
+        consumed_amt[r["po_line_id"]] = consumed_amt.get(r["po_line_id"], 0) + r["amount"]
+        if r["quantity"] is not None:
+            qty = Decimal(r["quantity"])
+            consumed_qty[r["po_line_id"]] = consumed_qty.get(r["po_line_id"], Decimal(0)) + (qty if r["amount"] > 0 else -abs(qty))
+
     lines_by_po: dict[int, list[POLineFact]] = {}
     for r in conn.execute("SELECT * FROM po_lines ORDER BY po_id, line_no"):
         lines_by_po.setdefault(r["po_id"], []).append(
             POLineFact(
                 line_no=r["line_no"], description=r["description"],
                 quantity=r["quantity"], unit_price=r["unit_price"], amount=_money(r["amount"]),
+                id=r["id"], consumed_quantity=consumed_qty.get(r["id"], Decimal(0)),
+                consumed_amount=from_minor(consumed_amt.get(r["id"], 0)),
             )
         )
 

@@ -71,7 +71,10 @@ def summarize_match(ctx: RunContext) -> dict[str, Any]:
             "vendor_score": None if vm is None else vm.score, "vendor_ambiguous": False if vm is None else vm.ambiguous,
             "matched_po": None if ctx.matched_po is None else ctx.matched_po.po_number,
             "top_candidate": None if top is None else top.po_number, "top_score": None if top is None else top.score,
-            "candidate_count": len(ctx.candidates)}
+            "candidate_count": len(ctx.candidates),
+            "line_mode": None if ctx.line_matches is None else ctx.line_matches.mode,
+            "line_counts": {} if ctx.line_matches is None else
+            {s: sum(1 for ln in ctx.line_matches.lines if ln.status.value == s) for s in ("matched", "ambiguous", "no_match", "not_evaluable")}}
 
 
 def summarize_validate(ctx: RunContext) -> dict[str, Any]:

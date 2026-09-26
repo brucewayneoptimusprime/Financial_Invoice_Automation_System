@@ -18,8 +18,9 @@ from decimal import Decimal
 from app.config import MatchConfig, get_settings
 from app.engine.facts import POFact, RunFacts
 from app.engine.normalize import is_missing, normalize_identifier, normalize_text, similarity, token_similarity
+from app.engine.line_matching import match_lines
 from app.engine.vendor_match import resolve_vendor
-from app.enums import MatchStatus, Outcome, StageStatus
+from app.enums import LineMatchStatus, MatchStatus, Outcome, StageStatus
 from app.models.audit import AuditEvent
 from app.models.extraction import ExtractedInvoice
 from app.models.run import POCandidate, RunContext, StageResult, VendorMatch
@@ -216,6 +217,19 @@ def run_match_stage(ctx: RunContext, cfg: MatchConfig | None = None, compare_fie
     }[result.status]
     events.append(_event("po_match_decision", Outcome.PASS if matched else Outcome.FLAG, explain,
                          {"match_status": result.status.value, "matched_po": top.po_number if matched and top else None}))
+
+    # Line-item matching against the matched PO only (stored for the reviewer; it changes no decision).
+    po_fact = ctx.facts.po_by_id(result.matched.po_id) if result.matched is not None else None
+    ctx.line_matches = match_lines(ctx.extracted, po_fact, settings.line_match)
+    lm = ctx.line_matches
+    counts = {s.value: sum(1 for ln in lm.lines if ln.status is s) for s in LineMatchStatus}
+    events.append(_event(
+        "po_lines_matched", Outcome.INFO,
+        (f"Line matching against {lm.po_number}: {lm.mode.replace('_', ' ')} ("
+         + ", ".join(f"{n} {k.replace('_', ' ')}" for k, n in counts.items() if n) + ")."
+         + (" One bundled line against an itemised PO." if lm.bundled_hint else "")) if lm.po_id is not None
+        else f"Line matching not evaluated: {lm.reason}.",
+        {**lm.model_dump(mode="json"), "counts": counts}))
     return StageResult(
         stage=MATCH_STAGE, status=StageStatus.OK if matched else StageStatus.FLAGGED,
         outputs={"match_status": result.status.value, "matched_po": top.po_number if matched and top else None,

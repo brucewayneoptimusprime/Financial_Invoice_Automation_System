@@ -30,6 +30,18 @@ class POLineFact(_Frozen):
     quantity: Decimal | None = None
     unit_price: Decimal | None = None
     amount: Decimal | None = None
+    id: int | None = None                         # po_lines.id (None only in hand-built test facts)
+    consumed_quantity: Decimal = Decimal("0")     # line-ASSIGNED consumption only (commits minus reversals); schema v2
+    consumed_amount: Decimal = Decimal("0")
+
+    @property
+    def remaining_quantity(self) -> Decimal | None:
+        """Ordered minus consumed on THIS line. Derived, never stored. None when the PO line has no quantity."""
+        return None if self.quantity is None else self.quantity - self.consumed_quantity
+
+    @property
+    def remaining_amount(self) -> Decimal | None:
+        return None if self.amount is None else self.amount - self.consumed_amount
 
 
 class POFact(_Frozen):

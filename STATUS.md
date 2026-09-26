@@ -4,14 +4,21 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4 and PO integration stages 1-6 committed; **your two browser checks (M4 stage 5, PO stage 7) are still open**.
-- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stage 1 of 4 done** (schema v2, migration with backup, allocation invariant).
-- Next: stage 2 (the line matcher in the match stage).
+- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stages 1-2 of 4 done** (schema v2 + migration; the line matcher in the match stage).
+- Next: stage 3 (the `r_po_line_price` rule).
 - **Your `data\app.db` is still schema version 1** (4 runs, 1 ledger entry). The new code refuses to open it until you run `python -m app.db.migrate` (from `backend\`, with the venv active; it makes a backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Backend: **2030 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 (`tests/test_schema_v2.py`) and adjusted 6 existing tests for the new tables (listed below); no decision assertion changed.
+- Backend: **2060 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 and adjusted 6 existing tests for the new tables, stage 2 added 30 and extended one event-list assertion (the new `po_lines_matched` event); no decision assertion changed.
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (line-item stage 2: the line matcher)
+- `app/engine/line_matching.py` (SPEC section 11 item 75): description 0.60 (similarity or containment, item codes decisive), price 0.15, quantity 0.15, amount 0.10 against the PO line's remaining quantity/amount; matched / ambiguous / no_match / not_evaluable per line; modes line_level / total_only (+ bundled hint) / partial / not_evaluable. Config `LineMatchConfig` (`settings.line_match`).
+- Runs in the match stage against the confidently matched PO only; result in `RunContext.line_matches` and a new `po_lines_matched` audit event; the match stage summary carries the mode and counts. No decision uses it.
+- `POLineFact` gains `id`, `consumed_quantity`, `consumed_amount` (+ derived `remaining_*`); the loader sums line-assigned consumption only.
+- New fixtures `tests/fixtures/real/*.v5.reply.json`: the six replies recorded live with extract-v5 on 2026-09-25 (copied from `data/recordings`; reply text only, no key). The six-invoice test keeps the v4 replies it pins; both are exercised.
+- On all six (v5): each line `matched` to line 1 of its PO, score >= 0.93, mode `line_level`, decision unchanged (review). With v4, IQ has no matched PO (no currency) so it is `not_evaluable`, as expected.
 
 ## What changed (line-item stage 1: schema v2)
 - `app/db/schema_v2.sql`: `po_consumption` and `invoice_line_matches` (SPEC section 5 and section 11 item 74). No existing table changed.
@@ -72,7 +79,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-74 (schema v2). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+74-75 (schema v2, line matching). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - PO drafting (text and document) has run only against scripted replies; the prompt has no live evidence until your live check. A replay server has no PO recordings, so on replay every draft comes back failed (`replay_miss`); use `--live` for real drafts.

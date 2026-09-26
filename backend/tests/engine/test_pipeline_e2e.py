@@ -22,7 +22,7 @@ def test_clean_invoice_is_approved_with_a_complete_trail():
     ctx, res, (match, validate, decide) = pipeline(make_extracted(), make_facts())
     assert ctx.decision is Decision.APPROVE and ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-A-1"
     assert triggered(res) == {} and len(ctx.rule_results) == 15
-    assert [e.event_type for e in match.events] == ["vendor_resolved", "po_candidates_ranked", "po_match_decision"]
+    assert [e.event_type for e in match.events] == ["vendor_resolved", "po_candidates_ranked", "po_match_decision", "po_lines_matched"]
     assert match.outputs["matched_po"] == "PO-A-1" and validate.outputs["final_severity"] == 0 and decide.outputs["decision"] == "approve"
 
 

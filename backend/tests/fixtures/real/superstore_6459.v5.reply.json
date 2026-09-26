@@ -1,0 +1,131 @@
+{
+ "fields": [
+  {
+   "name": "vendor_name",
+   "found": true,
+   "value": "SuperStore",
+   "page": 1,
+   "source_text": "SuperStore",
+   "confidence": 0.9,
+   "flag": "unknown"
+  },
+  {
+   "name": "vendor_tax_id",
+   "found": false,
+   "value": "",
+   "page": 0,
+   "source_text": "",
+   "confidence": 0,
+   "flag": "unknown"
+  },
+  {
+   "name": "vendor_address",
+   "found": false,
+   "value": "",
+   "page": 0,
+   "source_text": "",
+   "confidence": 0,
+   "flag": "unknown"
+  },
+  {
+   "name": "document_type",
+   "found": true,
+   "value": "invoice",
+   "page": 1,
+   "source_text": "INVOICE",
+   "confidence": 0.95,
+   "flag": "unknown"
+  },
+  {
+   "name": "invoice_number",
+   "found": true,
+   "value": "6459",
+   "page": 1,
+   "source_text": "# 6459",
+   "confidence": 0.95,
+   "flag": "unknown"
+  },
+  {
+   "name": "invoice_date",
+   "found": true,
+   "value": "2013-03-06",
+   "page": 1,
+   "source_text": "Mar 06 2013",
+   "confidence": 0.9,
+   "flag": "unknown"
+  },
+  {
+   "name": "currency",
+   "found": true,
+   "value": "$",
+   "page": 1,
+   "source_text": "$9,758.79",
+   "confidence": 0.6,
+   "flag": "unknown"
+  },
+  {
+   "name": "po_reference",
+   "found": false,
+   "value": "",
+   "page": 0,
+   "source_text": "",
+   "confidence": 0,
+   "flag": "unknown"
+  },
+  {
+   "name": "subtotal",
+   "found": true,
+   "value": "9515.00",
+   "page": 1,
+   "source_text": "Subtotal: $9,515.00",
+   "confidence": 0.95,
+   "flag": "unknown"
+  },
+  {
+   "name": "tax",
+   "found": false,
+   "value": "",
+   "page": 0,
+   "source_text": "",
+   "confidence": 0,
+   "flag": "unknown"
+  },
+  {
+   "name": "total",
+   "found": true,
+   "value": "9758.79",
+   "page": 1,
+   "source_text": "Total: $9,758.79",
+   "confidence": 0.95,
+   "flag": "unknown"
+  }
+ ],
+ "line_items": [
+  {
+   "description": "KitchenAid Stove, Silver / Appliances, Office Supplies, OFF-AP-4966",
+   "item_code": "OFF-AP-4966",
+   "quantity": "5",
+   "unit_price": "1903.00",
+   "amount": "9515.00",
+   "page": 1,
+   "source_text": "KitchenAid Stove, Silver 5 $1,903.00 $9,515.00",
+   "confidence": 0.9
+  }
+ ],
+ "adjustments": [
+  {
+   "kind": "shipping",
+   "description": "Shipping",
+   "amount": "243.79",
+   "page": 1,
+   "source_text": "Shipping: $243.79",
+   "confidence": 0.9
+  }
+ ],
+ "document_quality": {
+  "type": "native",
+  "issues": [],
+  "contains_reader_instructions": "no"
+ },
+ "extraction_notes": "Order ID is a sales order reference, not labeled as a purchase order, so not extracted as po_reference. Currency symbol '$' used, unclear if USD given El Salvador ship-to address which historically used USD; low confidence assigned."
+}

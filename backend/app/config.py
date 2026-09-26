@@ -148,6 +148,36 @@ class MatchConfig(BaseModel):
         return self
 
 
+class LineMatchConfig(BaseModel):
+    """Invoice line -> PO line scoring (line-item PO consumption). Used for LINE matching only; the whole-PO `lines_signal` in
+    MatchConfig is unchanged. Starting values, checked on the six real invoices and hand-written multi-line POs."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    weight_description: float = Field(default=0.60, ge=0.0, le=1.0)
+    weight_price: float = Field(default=0.15, ge=0.0, le=1.0)       # deliberately minor: a wrong price must still match (the rule flags it)
+    weight_quantity: float = Field(default=0.15, ge=0.0, le=1.0)
+    weight_amount: float = Field(default=0.10, ge=0.0, le=1.0)
+    description_min: float = Field(default=0.6, ge=0.0, le=1.0)     # a PO line is a candidate only above this
+    containment_min_tokens: int = Field(default=3, ge=1)             # containment counts only for descriptions this long
+    code_conflict_cap: float = Field(default=0.5, ge=0.0, le=1.0)    # both sides carry item codes and they differ
+    price_band: float = Field(default=0.25, gt=0.0)                  # price signal falls to 0 at this relative difference
+    price_pct: float = Field(default=1.0, ge=0.0)                    # "same price" for the SCORE (mirrors r_po_line_price defaults)
+    price_abs: Decimal = Field(default=Decimal("1.00"), ge=0)
+    price_mode: Literal["lesser_of", "greater_of"] = "lesser_of"
+    min_score: float = Field(default=0.75, ge=0.0, le=1.0)           # top score needed for a confident line match
+    ambiguity_min_score: float = Field(default=0.60, ge=0.0, le=1.0)  # a runner-up at least this ...
+    ambiguity_margin: float = Field(default=0.10, ge=0.0, le=1.0)    # ... and closer than this makes it ambiguous
+    max_candidates: int = Field(default=3, ge=1)
+
+    @model_validator(mode="after")
+    def _weights_sum_to_one(self) -> "LineMatchConfig":
+        total = self.weight_description + self.weight_price + self.weight_quantity + self.weight_amount
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(f"line match weights must sum to 1.0, got {total}")
+        return self
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",
@@ -181,6 +211,7 @@ class Settings(BaseSettings):
     duplicate_counted_statuses: list[str] = Field(default_factory=lambda: ["approved", "in_review", "pending"])
 
     match: MatchConfig = Field(default_factory=MatchConfig)
+    line_match: LineMatchConfig = Field(default_factory=LineMatchConfig)
 
     # LLM (M2). The API key is read ONLY from ANTHROPIC_API_KEY (above); an empty value counts as unset.
     llm_timeout_s: float = Field(default=60.0, gt=0)

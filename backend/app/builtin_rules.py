@@ -42,6 +42,9 @@ def builtin_rules(settings: Settings) -> list[Rule]:
          {"allowed": ["invoice"], "severity_by_outcome": {"not_an_invoice": 1}}),
         ("r_po_status", "PO is not already fully billed", "po_status", 1,
          {"severity_by_outcome": {"fully_billed": 1, "closed": 3}}),
+        ("r_po_line_price", "Invoice line prices match the PO line prices", "po_line_unit_price", 1,
+         {"pct": s.line_match.price_pct, "abs": str(s.line_match.price_abs), "mode": s.line_match.price_mode, "direction": "above",
+          "severity_by_outcome": {"price_above_po": 1, "price_below_po": 1}}),
     ]
     return [
         Rule(id=rid, name=name, type=rtype, params=params, severity_on_trigger=severity, source="builtin", enabled=True)

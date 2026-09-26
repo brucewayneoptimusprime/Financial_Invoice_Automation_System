@@ -22,7 +22,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.db.connection import connect
 from app.db.consumption import backfill_consumption, consumption_problems, schema_statements
-from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_VERSION, schema_version
+from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_VERSION, add_missing_builtin_rules, schema_version
 
 _SQLITE_MAGIC = b"SQLite format 3\x00"
 
@@ -77,8 +77,10 @@ def migrate(db_path: Path) -> str:
         shutil.copy2(db_path, backup)                                    # the file is closed: a byte-identical copy
         conn = connect(db_path)
         n = migrate_1_to_2(conn)
+        added = add_missing_builtin_rules(conn)
         return (f"Migrated {db_path} from schema version 1 to {SCHEMA_VERSION}. Backup: {backup}. "
-                f"{n} existing ledger entr{'y' if n == 1 else 'ies'} recorded as consumption against the PO total (matched_by legacy).")
+                f"{n} existing ledger entr{'y' if n == 1 else 'ies'} recorded as consumption against the PO total (matched_by legacy)."
+                + (f" Added builtin rule(s): {', '.join(added)}." if added else ""))
     finally:
         conn.close()
 

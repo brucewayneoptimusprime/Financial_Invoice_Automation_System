@@ -20,7 +20,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.db.connection import connect
-from app.db.init_db import check_schema
+from app.db.init_db import add_missing_builtin_rules, check_schema
 from app.db.reset import reset_database
 from app.extraction.eval import LiveNotAllowed, build_client
 from app.extraction.preflight import SCHEMA_EXIT_CODE, is_schema_rejection, schema_rejection_message
@@ -205,6 +205,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         try:
             check_schema(conn, db_path)
+            added = add_missing_builtin_rules(conn, settings)
+            if added:
+                print(f"Added new builtin rule(s) to the database: {', '.join(added)} (existing rules are never changed).")
         except RuntimeError as exc:                                      # SchemaOutdated names the migrate command
             print(f"NOT RUN: {exc}")
             return EXIT_USAGE

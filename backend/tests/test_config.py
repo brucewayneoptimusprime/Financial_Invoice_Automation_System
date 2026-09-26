@@ -56,5 +56,5 @@ def test_tolerance_defaults_flow_into_builtin_rule_params():
 
 def test_all_builtin_rules_are_valid_escalate_only_rules():
     rules = builtin_rules(_settings())
-    assert len(rules) == len({r.id for r in rules}) == 13
+    assert len(rules) == len({r.id for r in rules}) == 14
     assert all(r.source.value == "builtin" and r.severity_on_trigger >= 1 for r in rules)

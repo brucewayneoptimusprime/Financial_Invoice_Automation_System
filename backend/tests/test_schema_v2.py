@@ -203,3 +203,17 @@ def test_the_pipeline_cli_refuses_a_v1_database(tmp_path, capsys):
     assert "python -m app.db.migrate" in capsys.readouterr().out
     with closing(connect(db)) as c:
         assert c.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 1          # nothing was run
+
+
+def test_migration_and_programs_add_the_new_builtin_rule_without_touching_existing_rules(tmp_path, capsys, monkeypatch):
+    from app.db.init_db import add_missing_builtin_rules
+    db = make_v1(tmp_path / "app.db")
+    message = migrate_mod.migrate(db)
+    assert "r_po_line_price" in message                    # the v1 fixture has no rules at all: every builtin one is added
+    with closing(connect(db)) as c:
+        with c:
+            c.execute("UPDATE rules SET params = '{\"pct\": 5.0}' WHERE id = 'r_tolerance_pct'")
+            c.execute("DELETE FROM rules WHERE id = 'r_po_line_price'")
+        assert add_missing_builtin_rules(c) == ["r_po_line_price"]
+        assert c.execute("SELECT params FROM rules WHERE id = 'r_tolerance_pct'").fetchone()[0] == '{"pct": 5.0}'
+        assert add_missing_builtin_rules(c) == []

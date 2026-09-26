@@ -21,7 +21,7 @@ def triggered(res):
 def test_clean_invoice_is_approved_with_a_complete_trail():
     ctx, res, (match, validate, decide) = pipeline(make_extracted(), make_facts())
     assert ctx.decision is Decision.APPROVE and ctx.match_status is MatchStatus.MATCHED and ctx.matched_po.po_number == "PO-A-1"
-    assert triggered(res) == {} and len(ctx.rule_results) == 15
+    assert triggered(res) == {} and len(ctx.rule_results) == 16
     assert [e.event_type for e in match.events] == ["vendor_resolved", "po_candidates_ranked", "po_match_decision", "po_lines_matched"]
     assert match.outputs["matched_po"] == "PO-A-1" and validate.outputs["final_severity"] == 0 and decide.outputs["decision"] == "approve"
 
@@ -98,13 +98,30 @@ def test_missing_required_field_requests_info():
 
 def test_over_balance_within_and_beyond_tolerance():
     facts = make_facts(pos=[make_po(total="1000.00")])
+    # The 15.00 over the balance comes from a freight line the PO does not have, so the PO-line prices still agree.
+    # (Until the line-item build this fixture overcharged the gadget, 83.00 vs the PO's 80.00, which the new
+    # r_po_line_price rule rightly flags: see the next test.)
     within = make_extracted(total="1015.00", subtotal="1015.00", tax="0.00", line_items=[
         {"description": "Standard widget", "quantity": 10, "unit_price": "60.00", "amount": "600.00", "confidence": 0.9},
-        {"description": "Premium gadget", "quantity": 5, "unit_price": "83.00", "amount": "415.00", "confidence": 0.9}])
+        {"description": "Premium gadget", "quantity": 5, "unit_price": "80.00", "amount": "400.00", "confidence": 0.9},
+        {"description": "Freight", "quantity": 1, "unit_price": "15.00", "amount": "15.00", "confidence": 0.9}])
     ctx, res, _ = pipeline(within, facts)
     assert res["r_tolerance_pct"].outcome_key == "within_tolerance" and ctx.decision is Decision.APPROVE
+    assert res["r_po_line_price"].outcome_key == "within_tolerance" and ctx.line_matches.mode == "partial"
     ctx, res, _ = pipeline(make_extracted(total="1100.00"), facts)
     assert res["r_tolerance_pct"].outcome_key == "over_tolerance" and ctx.decision is Decision.REVIEW
+
+
+def test_a_unit_price_above_the_po_line_is_reviewed_even_within_the_total_tolerance():
+    """The pre-line-item fixture of the test above: the total is within tolerance of the balance, but the gadget is billed at
+    83.00 against the PO line's 80.00 (allowance 0.80): r_po_line_price flags it, severity 1, so the decision is review."""
+    facts = make_facts(pos=[make_po(total="1000.00")])
+    overcharged = make_extracted(total="1015.00", subtotal="1015.00", tax="0.00", line_items=[
+        {"description": "Standard widget", "quantity": 10, "unit_price": "60.00", "amount": "600.00", "confidence": 0.9},
+        {"description": "Premium gadget", "quantity": 5, "unit_price": "83.00", "amount": "415.00", "confidence": 0.9}])
+    ctx, res, _ = pipeline(overcharged, facts)
+    assert res["r_tolerance_pct"].outcome_key == "within_tolerance" and res["r_arithmetic"].outcome.value == "pass"
+    assert triggered(res) == {"r_po_line_price": "price_above_po"} and ctx.decision is Decision.REVIEW
 
 
 def test_duplicate_file_is_rejected_and_resubmission_of_a_rejected_one_is_reviewed():

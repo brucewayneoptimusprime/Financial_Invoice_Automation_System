@@ -120,7 +120,7 @@ def test_a_replayed_run_prints_every_step_and_writes_to_the_database(env, capsys
     assert "sha256:" in out and "text layer:  usable (usable=True)" in out
     assert "invoice_number 10963" in out and "5338.08" in out and "USD" in out
     assert "vendor: SuperStore (exact_name, score 1.00)" in out and "PO-SS-001: score" in out
-    assert out.count("[ok  ]") == 14 and "[FLAG] r_po_found" in out
+    assert out.count("[ok  ]") == 15 and "[FLAG] r_po_found" in out
     assert "\nREVIEW" in out and "[source: llm, model claude-sonnet-5]" in out and "This invoice needs a person to review it." in out
     assert "review queue: open: Review: r_po_found (matched_without_reference)" in out
     assert "invoices" in out and "review_queue" in out and "runs           id" in out and "final_decision review" in out

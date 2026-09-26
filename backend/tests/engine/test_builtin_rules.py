@@ -8,6 +8,7 @@ from app.builtin_rules import builtin_rules
 from app.config import get_settings
 from app.engine.engine import run_decide_stage, run_validate_stage
 from app.engine.evaluators import REGISTRY
+from app.engine.line_matching import match_lines
 from app.engine.loader import load_facts, load_rules
 from app.enums import Decision, InvoiceStatus, MatchStatus, Outcome, POStatus, RuleSource, VendorStatus
 from app.models import POCandidate, Rule
@@ -23,8 +24,8 @@ def run_all(ctx, rules=None):
     return stage, {r.rule_id: r for r in ctx.rule_results}
 
 
-def test_there_are_thirteen_builtin_rules_with_unique_ids_and_registered_evaluators():
-    assert len(BUILTIN) == 13
+def test_there_are_fourteen_builtin_rules_with_unique_ids_and_registered_evaluators():
+    assert len(BUILTIN) == 14
     for rule in BUILTIN.values():
         assert rule.type in REGISTRY, rule.id
         REGISTRY[rule.type].validate_params(rule.params)            # seeded params are valid for their evaluator
@@ -53,6 +54,7 @@ def test_final_severity_table():
         "r_extraction_confidence": (1, {}),
         "r_document_type": (1, {"not_an_invoice": 1}),
         "r_po_status": (1, {"fully_billed": 1, "closed": 3}),
+        "r_po_line_price": (1, {"price_above_po": 1, "price_below_po": 1}),
     }
     assert all(1 <= s <= 3 for s, ov in table.values()) and all(1 <= v <= 3 for _, ov in table.values() for v in ov.values())
 
@@ -80,14 +82,15 @@ def test_rules_are_data_edits_in_the_db_change_engine_behaviour(conn):
     assert "u_custom" in stage.outputs["triggered_rule_ids"] and stage.outputs["final_severity"] == 3
 
 
-def test_clean_invoice_runs_all_thirteen_rules_plus_both_floors_and_is_approved():
+def test_clean_invoice_runs_all_fourteen_rules_plus_both_floors_and_is_approved():
     ctx = make_ctx()
+    ctx.line_matches = match_lines(ctx.extracted, ctx.facts.po_by_id(ctx.matched_po.po_id))   # what the match stage provides
     stage, res = run_all(ctx)
-    assert set(res) == set(ALL_IDS) | {"engine_floor", "engine_floor_reference"} and len(ctx.rule_results) == 15
+    assert set(res) == set(ALL_IDS) | {"engine_floor", "engine_floor_reference"} and len(ctx.rule_results) == 16
     assert all(r.outcome is Outcome.PASS for r in res.values()), {k: v.message for k, v in res.items() if v.outcome is not Outcome.PASS}
     assert stage.outputs["final_severity"] == 0 and stage.outputs["decision"] == "approve"
     assert run_decide_stage(ctx).outputs["decision"] == "approve" and ctx.decision is Decision.APPROVE
-    assert len([e for e in stage.events if e.rule_id]) == 15
+    assert len([e for e in stage.events if e.rule_id]) == 16
 
 
 def test_a_messy_invoice_shows_every_problem_not_just_the_first():

@@ -83,7 +83,7 @@ def test_summaries_carry_the_key_outputs(db, tmp_path):
     assert s["extract"]["fields_total"] == len(HEADER_FIELDS) and 0 < s["extract"]["fields_found"] <= len(HEADER_FIELDS)
     assert s["extract"]["tokens_in"] == 6800 and s["extract"]["cost_usd"] and s["extract"]["model"] == "claude-sonnet-5"
     assert (s["match"]["match_status"], s["match"]["matched_po"], s["match"]["vendor"]) == ("matched", "PO-SS-001", "SuperStore")
-    assert s["validate"]["results"] == 15 and s["validate"]["counts"]["flag"] >= 1 and "r_po_found" in s["validate"]["triggered"]
+    assert s["validate"]["results"] == 16 and s["validate"]["counts"]["flag"] >= 1 and "r_po_found" in s["validate"]["triggered"]
     assert s["decide"]["decision"] == "review"
     assert s["explain"]["source"] == "template"
     assert s["act"] == {"decision": "review", "rows_written": {"invoices": 1, "invoice_lines": 1, "review_queue": 1},

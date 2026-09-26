@@ -109,7 +109,7 @@ def test_events_from_the_engine_persist_unchanged(run):
     with transaction(run):
         n = AuditWriter(run, "run-1").write([*match.events, *validate.events, *decide.events])
     assert n == run.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0] == len(match.events) + len(validate.events) + len(decide.events)
-    assert run.execute("SELECT COUNT(*) FROM audit_events WHERE event_type = 'rule_evaluated'").fetchone()[0] == 13
+    assert run.execute("SELECT COUNT(*) FROM audit_events WHERE event_type = 'rule_evaluated'").fetchone()[0] == 14
     assert run.execute("SELECT COUNT(*) FROM audit_events WHERE event_type = 'engine_floor'").fetchone()[0] == 2
 
 

@@ -49,7 +49,7 @@ def test_a_clean_approve_digest_is_the_decision_the_passes_the_vendor_the_match_
     assert d.decision is Decision.APPROVE and d.severity == 0 and d.triggered == ()
     assert [f.kind for f in d.facts] == ["decision", "summary", "vendor", "match", "invoice"]
     assert [f.id for f in d.facts] == ["F1", "F2", "F3", "F4", "F5"]
-    assert "13 checks passed" in d.facts[1].text and "PO-A-1 is a confident" in d.facts[3].text
+    assert "14 checks passed" in d.facts[1].text and "PO-A-1 is a confident" in d.facts[3].text
     assert "Vendor Alpha Ltd" in d.facts[2].text and "total 1100.00 USD" in d.facts[4].text
 
 
@@ -134,7 +134,7 @@ def test_the_template_explanation_cites_every_triggered_fact_and_names_the_next_
 def test_a_clean_invoice_explains_that_all_checks_passed():
     ctx, d = digest_for(make_extracted(), make_facts())
     e = template_explanation(d)
-    assert e.text.startswith("Decision: APPROVE.") and "13 checks passed" in e.text and e.one_line == "approve: all checks passed"
+    assert e.text.startswith("Decision: APPROVE.") and "14 checks passed" in e.text and e.one_line == "approve: all checks passed"
     assert e.cited == ("F2",)
 
 

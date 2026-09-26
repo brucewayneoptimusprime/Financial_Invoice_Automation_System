@@ -70,7 +70,7 @@ def test_every_other_check_passes_on_a_superstore_invoice(all_six, name):
     r, _ = all_six[1][name]
     outcomes = {x.rule_id: x.outcome.value for x in r.ctx.rule_results}
     assert {k: v for k, v in outcomes.items() if v != "pass"} == {"r_po_found": "flag"}
-    assert len(outcomes) == 15 and outcomes["engine_floor"] == "pass"
+    assert len(outcomes) == 16 and outcomes["engine_floor"] == "pass"
 
 
 def test_the_five_review_items_are_in_the_queue_and_no_money_moved(all_six):

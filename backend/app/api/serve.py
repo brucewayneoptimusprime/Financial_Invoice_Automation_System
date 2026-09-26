@@ -17,7 +17,7 @@ from pathlib import Path
 from app.api.clients import build_api_client
 from app.config import get_settings
 from app.db.connection import connect
-from app.db.init_db import check_schema
+from app.db.init_db import add_missing_builtin_rules, check_schema
 from app.db.reset import reset_database
 from app.llm.budget import CostTracker
 from app.llm.errors import LLMConfigError
@@ -82,6 +82,9 @@ def main(argv: list[str] | None = None) -> int:
     conn = connect(db_path)
     try:
         check_schema(conn, db_path)
+        added = add_missing_builtin_rules(conn, settings)
+        if added:
+            print(f"Added new builtin rule(s) to the database: {', '.join(added)} (existing rules are never changed).")
     except RuntimeError as exc:                                          # SchemaOutdated names the migrate command
         print(f"NOT STARTED: {exc}")
         return EXIT_USAGE

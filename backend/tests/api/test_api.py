@@ -159,7 +159,7 @@ def test_the_run_view_of_a_review(tmp_path):
     assert v["vendor"]["record"]["name"] == "SuperStore" and v["vendor"]["method"] == "exact_name"
     assert v["match"]["status"] == "matched" and v["match"]["matched_po"] == "PO-SS-001" and len(v["match"]["candidates"]) == 5
     rules = {r["rule_id"]: r for r in v["rules"]}
-    assert len(rules) == 15 and rules["r_po_found"]["outcome"] == "flag" and rules["r_po_found"]["severity"] == 1
+    assert len(rules) == 16 and rules["r_po_found"]["outcome"] == "flag" and rules["r_po_found"]["severity"] == 1
     assert rules["r_po_found"]["outcome_key"] == "matched_without_reference" and rules["engine_floor"]["kind"] == "floor"
     assert rules["r_tolerance_pct"]["detail"]["balance"] == "6000.00"
     assert v["explanation"]["text"].startswith("Decision: REVIEW.") and v["explanation"]["source"] == "template"

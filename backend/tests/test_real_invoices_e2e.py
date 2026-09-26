@@ -15,7 +15,7 @@ MATCHED_NO_REFERENCE = [
     ("r_arithmetic", "pass", 0, "consistent"), ("r_currency_mismatch", "pass", 0, "match"), ("r_document_type", "pass", 0, "allowed"),
     ("r_duplicate_exact", "pass", 0, "no_duplicate"), ("r_duplicate_fuzzy", "pass", 0, "no_near_duplicate"),
     ("r_extraction_confidence", "pass", 0, "confident"), ("r_po_ambiguity", "pass", 0, "unambiguous"), ("r_po_found", "flag", 1, "matched_without_reference"),
-    ("r_po_status", "pass", 0, "open"), ("r_required_fields", "pass", 0, "complete"), ("r_tolerance_pct", "pass", 0, "within_balance"),
+    ("r_po_line_price", "pass", 0, "within_tolerance"), ("r_po_status", "pass", 0, "open"), ("r_required_fields", "pass", 0, "complete"), ("r_tolerance_pct", "pass", 0, "within_balance"),
     ("r_vendor_po_mismatch", "pass", 0, "match"), ("r_vendor_status", "pass", 0, "approved"),
     ("engine_floor", "pass", 0, "floor_not_applied"), ("engine_floor_reference", "pass", 0, "reference_floor_not_applied"),
 ]
@@ -25,7 +25,7 @@ NO_PO = [
     ("r_arithmetic", "pass", 0, "consistent"), ("r_currency_mismatch", "info", 0, "not_evaluable"), ("r_document_type", "pass", 0, "allowed"),
     ("r_duplicate_exact", "pass", 0, "no_duplicate"), ("r_duplicate_fuzzy", "pass", 0, "no_near_duplicate"),
     ("r_extraction_confidence", "pass", 0, "confident"), ("r_po_ambiguity", "pass", 0, "unambiguous"), ("r_po_found", "flag", 2, "no_reference"),
-    ("r_po_status", "info", 0, "not_evaluable"), ("r_required_fields", "pass", 0, "complete"), ("r_tolerance_pct", "info", 0, "not_evaluable"),
+    ("r_po_line_price", "info", 0, "not_evaluable"), ("r_po_status", "info", 0, "not_evaluable"), ("r_required_fields", "pass", 0, "complete"), ("r_tolerance_pct", "info", 0, "not_evaluable"),
     ("r_vendor_po_mismatch", "info", 0, "not_evaluable"), ("r_vendor_status", "pass", 0, "approved"),
     ("engine_floor", "flag", 1, "floor_applied"), ("engine_floor_reference", "pass", 0, "reference_floor_not_applied"),
 ]

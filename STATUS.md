@@ -4,14 +4,20 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4 and PO integration stages 1-6 committed; **your two browser checks (M4 stage 5, PO stage 7) are still open**.
-- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stages 1-2 of 4 done** (schema v2 + migration; the line matcher in the match stage).
-- Next: stage 3 (the `r_po_line_price` rule).
+- **Line-item PO consumption** (plan approved, all 10 decisions as recommended): **stages 1-3 of 4 done** (schema v2 + migration; the line matcher; the `r_po_line_price` rule).
+- Next: stage 4 (line-match persistence, the picker's data in the run view and PO detail, the four synthetic fixtures, the six-invoice before/after table), then stop for your review.
 - **Your `data\app.db` is still schema version 1** (4 runs, 1 ledger entry). The new code refuses to open it until you run `python -m app.db.migrate` (from `backend\`, with the venv active; it makes a backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Backend: **2060 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 and adjusted 6 existing tests for the new tables, stage 2 added 30 and extended one event-list assertion (the new `po_lines_matched` event); no decision assertion changed.
+- Backend: **2075 passed, 0 failed, 2 deselected** (`pytest -W error`); line-item stage 1 added 19 (+1 in stage 3), stage 2 added 30, stage 3 added 14. Existing tests changed only for new tables/events/rule counts, **except ONE decision** (see stage 3 below).
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (line-item stage 3: `r_po_line_price`)
+- `app/engine/evaluators/po_line_price.py` (SPEC section 11 item 76), registered as the 14th builtin rule: params `pct` 1.0, `abs` 1.00, `mode lesser_of`, `direction above`, severity 1; outcomes `within_tolerance` / `price_above_po` / `price_below_po` (only with `both`) / `not_evaluable`.
+- **One existing decision changed, on a hand-written (not real) fixture:** `tests/engine/test_pipeline_e2e.py::test_over_balance_within_and_beyond_tolerance` used an invoice that billed "Premium gadget" at 83.00 against the PO line's 80.00 only to push the total 15.00 over the balance. The new rule flags that (D 3.00 > A 0.80), so it is now review instead of approve. I re-based that test on an extra freight line (prices equal, still approve within tolerance) and added `test_a_unit_price_above_the_po_line_is_reviewed_even_within_the_total_tolerance`, which pins the original fixture's review. No real-invoice decision changed.
+- Count/list updates only (13 -> 14 rules, 15 -> 16 results, the rule tables and trails gain `r_po_line_price`): `test_api`, `test_builtin_rules` (and its clean-invoice test now gives the context its line matches, as the match stage would), `test_pipeline_e2e`, `test_cli`, `test_digest_and_templates` ("14 checks passed"), `test_persist`, `test_runner`, `test_six_invoices`, `test_stage_events`, `test_config`, `test_real_invoices_e2e`.
+- `add_missing_builtin_rules`: the migrate command, `serve` and the pipeline CLI insert builtin rules the database lacks (INSERT OR IGNORE, never touching an existing rule) and say which, so your migrated `data\app.db` gets `r_po_line_price`.
 
 ## What changed (line-item stage 2: the line matcher)
 - `app/engine/line_matching.py` (SPEC section 11 item 75): description 0.60 (similarity or containment, item codes decisive), price 0.15, quantity 0.15, amount 0.10 against the PO line's remaining quantity/amount; matched / ambiguous / no_match / not_evaluable per line; modes line_level / total_only (+ bundled hint) / partial / not_evaluable. Config `LineMatchConfig` (`settings.line_match`).
@@ -79,7 +85,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-74-75 (schema v2, line matching). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+74-76 (schema v2, line matching, `r_po_line_price`). Earlier: 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - PO drafting (text and document) has run only against scripted replies; the prompt has no live evidence until your live check. A replay server has no PO recordings, so on replay every draft comes back failed (`replay_miss`); use `--live` for real drafts.

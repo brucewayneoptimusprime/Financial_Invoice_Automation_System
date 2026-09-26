@@ -41,6 +41,15 @@ def check_schema(conn: sqlite3.Connection, db_path: Path | str | None = None) ->
     raise RuntimeError(f"Database schema version {version}{where} is not supported (expected {SCHEMA_VERSION}).")
 
 
+def add_missing_builtin_rules(conn: sqlite3.Connection, settings: Settings | None = None) -> list[str]:
+    """Insert builtin rules the database does not have yet (INSERT OR IGNORE: an existing rule, edited or not, is never touched).
+    Returns the ids that were added, so programs can say so."""
+    settings = settings or get_settings()
+    before = {r[0] for r in conn.execute("SELECT id FROM rules")}
+    _seed_defaults(conn, settings)
+    return sorted({r[0] for r in conn.execute("SELECT id FROM rules")} - before)
+
+
 def init_db(conn: sqlite3.Connection, settings: Settings | None = None) -> None:
     settings = settings or get_settings()
     version = schema_version(conn)

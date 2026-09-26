@@ -1,0 +1,29 @@
+# Render Blueprint for the backend API (see DEPLOY.md). No secrets in this file: every secret is `sync: false` and is set in
+# the Render dashboard. Nothing here ever creates, resets or migrates the database: that is a manual, one-time step (DEPLOY.md).
+services:
+  - type: web
+    name: invoice-agent-api
+    runtime: python
+    plan: starter                      # a persistent disk needs a paid instance type (free services have no disk)
+    buildCommand: pip install -e .     # editable, so the app keeps finding data/seed_demo.json in the repository
+    startCommand: python -m app.api.serve --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SERVE_MODE
+        value: live                    # real, paid extraction; `offline` runs without any model
+      - key: DATA_DIR
+        value: /var/data               # the disk below: database, run folders, uploads, PO drafts
+      - key: COST_CEILING_PER_SESSION_USD
+        value: "1.00"                  # per server process; resets on every restart/deploy (about 35-50 invoices)
+      - key: ANTHROPIC_API_KEY
+        sync: false                    # set in the dashboard
+      - key: ACCESS_TOKEN
+        sync: false                    # set in the dashboard; the frontend asks for it once per browser tab
+      - key: API_CORS_ORIGINS
+        sync: false                    # the Vercel URL, set after the frontend exists (comma-separate several)
+    disk:
+      name: invoice-agent-data
+      mountPath: /var/data
+      sizeGB: 1

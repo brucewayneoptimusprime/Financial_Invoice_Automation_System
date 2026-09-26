@@ -4,15 +4,26 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete; M4, PO integration, line-item consumption, review actions and the dashboard (+ clickable summaries) committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4, dashboard stage 3), the review of the line-item build, and the demo-loader question.
-- **Deployment (Render + Vercel)** (plan approved, all 8 decisions as recommended; the deployed session ceiling is **$1.00**): **stages 1-2 of 3 done** (backend config; frontend config).
-- Next: stage 3 (`render.yaml`, `DEPLOY.md`, the local production-like smoke run), then stop.
+- **Deployment (Render + Vercel)** (plan approved, all 8 decisions as recommended; the deployed session ceiling is **$1.00**): **all 3 stages done; stopped.** The Render and Vercel dashboard setup is yours, following **`DEPLOY.md`**.
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
 - Frontend: **85 passed** (vitest; deployment stage 2 added 6; no existing test changed); `tsc --noEmit` clean; `vite build` OK.
-- Backend: **2162 passed, 0 failed, 2 deselected** (`pytest -W error`); deployment stage 1 added 20 (`tests/api/test_deploy.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
+- Backend: **2169 passed, 0 failed, 2 deselected** (`pytest -W error`); deployment added 27 (stage 1: 20 in `tests/api/test_deploy.py`, stage 3: 7 in `tests/test_deploy_files.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (deployment stage 3: render.yaml, DEPLOY.md, smoke run)
+- `render.yaml` (repository root): web service `invoice-agent-api`, Python 3.12.7, plan `starter` (a disk needs a paid instance), build `pip install -e .`, start `python -m app.api.serve --host 0.0.0.0 --port $PORT`, health check `/health`, 1 GB disk at `/var/data`; `SERVE_MODE=live`, `DATA_DIR=/var/data`, `COST_CEILING_PER_SESSION_USD=1.00` (your adjustment); `ANTHROPIC_API_KEY`, `ACCESS_TOKEN`, `API_CORS_ORIGINS` are `sync: false` (set in the dashboard, never in the file). No reset/init/migrate anywhere in it (a test enforces it).
+- `DEPLOY.md`: before you start (paid Render instance, token generation), Render (Blueprint, the three secrets, the deliberate first-start refusal, the ONE-time Shell command `python -m app.db.reset --demo` or `python -m app.db.init_db`, restart, `/health`), Vercel (Root Directory `frontend`, `VITE_API_BASE`), back to Render (`API_CORS_ORIGINS`, optional regex for previews), checking it, operating it (reset/migrate/backup/spend/token rotation, all manual), local development unchanged.
+- **Local production-like smoke run** (this machine; `SERVE_MODE=offline`, `DATA_DIR=<scratch>`, `ACCESS_TOKEN`, `API_CORS_ORIGINS=https://invoice-agent.vercel.app`, `COST_CEILING_PER_SESSION_USD=1.00`):
+  - first start without a database: refused ("does not exist. Create it with: python -m app.db.reset --demo"), exit 2, nothing created;
+  - the manual `python -m app.db.reset --demo` wrote `<DATA_DIR>/app.db`;
+  - `/health` 200 `{"status":"ok","db":"ok","schema_version":2,"mode":"offline"}`; `/api/health` 401 without the token (with the CORS header for the Vercel origin), 200 with it (ceiling 1.00, database under `DATA_DIR`);
+  - CORS preflight from the Vercel origin allowed with `Authorization`; another origin got no CORS header;
+  - an upload with the token ran (offline: review); its event stream and page image worked with `?access_token=`; the dashboard counted it;
+  - `runs/` and `uploads/` were created under `DATA_DIR`, nothing in the repository's `data\runs`;
+  - after a restart the run and its review item were still there, and nothing was reset.
 
 ## What changed (deployment stage 2: frontend config)
 - `src/apiBase.ts`: `VITE_API_BASE` (build time) prefixes every API URL; unset it is "" and URLs stay relative (the Vite proxy), so local dev is unchanged (a test checks the fetch calls are exactly as before). `src/api.ts` now sends all 12 requests through `apiFetch`, and the event stream and page images through `apiUrl`; nothing outside `api.ts` builds an API URL.
@@ -181,6 +192,7 @@ Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; pip install o
 FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuses without a mode), upload -> one-at-a-time worker, run view from SQLite, page images, SSE stream tailing `audit_events`; React UI with the live 7-stage timeline and the result view. To run it for your stage-5 check: window 1 `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`; window 2 `cd C:\Zamp_ai_Automation\frontend; npm run dev`; open http://localhost:5173.
 
 ## Decisions I need from the user
+- **Deployment:** follow `DEPLOY.md` for the Render and Vercel dashboards (nothing more to build for it).
 - **Your stage-3 browser check of the dashboard.**
 - **Your stage-4 browser check of review actions** (and whether you want the demo loader for the line-choice path).
 - **Review this line-item build** before the follow-up (approve/reject + picker UI). Open questions for it: whether `partial` / `ambiguous` line matches should force review (decision 3 deferred it), and how the reviewer's line choice writes consumption.
@@ -188,7 +200,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-79 (dashboard). Earlier: 78 (review actions), 74-77 (schema v2, line matching, `r_po_line_price`, picker data), 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+80 (deployment). Earlier: 79 (dashboard), 78 (review actions), 74-77 (schema v2, line matching, `r_po_line_price`, picker data), 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - Line matching: short descriptions one letter apart ("Widget A" vs "Widget B") score 0.88 on description alone; price, quantity and amount keep such a line far below a match (0.575 < 0.75 in the tests) and it is listed only as a low candidate. Real POs with near-identical names and identical prices would come out ambiguous, which is the safe side.

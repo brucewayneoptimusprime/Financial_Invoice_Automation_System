@@ -1170,3 +1170,94 @@ Any exception rolls everything back. `runs.final_decision` stays `review` (item 
 8. **Reject after review drafts no vendor email** in this build. The reviewer's reason is recorded in the audit trail only; a draft-on-reject option belongs with M5's drafts screen. Recommendation: yes.
 9. **Over the PO balance on a human approve** is a warning, not a block (the human may lower severity; SPEC principle 2). Only the conditions in `blocked_by` block. Recommendation: yes.
 10. **The approve preview shows remaining amounts "as of now"** and the approve re-checks them inside the transaction via `state_token`. A change in between gives 409 and a fresh preview, never a silent recalculation. Recommendation: yes.
+
+
+---
+
+# Landing dashboard plan (2026-09-26, awaiting owner approval; no code for it exists)
+
+**Goal.** Close SPEC section 9.4's "dashboard (history, status and outputs across runs)" with a landing page at `/`: a handful of stat cards and two short lists, all read from existing tables through existing query functions. No new decision logic and no new dependency.
+
+**Out of scope:** charts from a library, filters/search (the Invoices and PO lists already have them), editing anything. The M5 items not yet built (drafts "mark as sent", settings/rules editing, reset button) stay open.
+
+## 1. Backend: ONE read-only endpoint, `GET /api/dashboard?recent=8&review=5`
+Built in `app/api/dashboard.py` from existing functions; the only new SQL is plain COUNT/SUM/GROUP BY aggregation over existing columns.
+
+| Block | Source (existing unless marked) | Content |
+|---|---|---|
+| `runs` | new aggregate over `runs` | `processed` (status completed), `failed`, `running`, `by_decision` {approve, review, request_info, reject} from `runs.final_decision` (the system's decision at run time, never changed; SPEC item 12) |
+| `outcomes` | new aggregate over `invoices.status` | the EFFECTIVE outcome now, after human review: {approved, in_review, awaiting_info, rejected, pending} (decision 2) |
+| `review` | `review.service.open_count` + `review.service.list_items(conn, "open", N)` (reused as is) | open count and the oldest N open items (id, vendor, invoice number, total, PO, plain reason, `can_approve`, lines needing input) |
+| `spend` | new SUM over `runs.cost_usd` + the existing PO draft files (`data/po_drafts/*/draft.json`, `provenance.cost_usd`) | `invoice_runs_usd`, `po_drafts_usd`, `total_usd`, `runs_counted`, `drafts_counted` (decision 4) |
+| `pos` | `po.views.po_list(conn)` (reused: it already derives each balance from the ledger) | `count`, `by_status` {open, partially_billed, fully_billed, closed}, and **per currency**: `total_value`, `consumed` (= total - derived balance), `balance`, `consumed_without_line` (summed from `po_consumption_summary`, reused) (decision 3) |
+| `recent_runs` | `api.views.recent_runs(conn, N)` (reused, extended with a LEFT JOIN to `invoices`/`vendors` for vendor name, invoice number, total and effective status: new fields only, so `/api/runs` gains them too; decision 8) | file, vendor, invoice number, total, system decision, current status, started, cost, link id |
+| `generated_at` | clock | UTC time of the snapshot |
+
+- **Money:** exact decimal strings (cents summed as integers); spend as dollar strings with 6 decimals, as runs record it.
+- **Read-only:** one connection, reads only; a test checks that no table changes.
+- **Performance:** fine at demo scale. `list_items` already builds each open item's preview; N is small.
+
+## 2. Route and navigation
+- `/` becomes the **Dashboard**. The upload + recent runs screen moves to **`/invoices`** (decision 1).
+- Updated links:
+  - the brand, "Back to upload" (404 page), "Upload an invoice" (run not found): the brand goes to `/`, the others to `/invoices`
+  - "← New invoice" on the run page -> `/invoices`
+  - the PO page's "Upload invoices" -> `/invoices?po=<id>` (the upload screen reads `po` from the query, as now)
+  - the upload screen keyed by the query string, as now
+- **Nav:** **Dashboard** | Invoices | Purchase orders | Review queue (count).
+  - Dashboard is highlighted on `/`.
+  - Invoices is highlighted on `/invoices` and on `/runs/:id`.
+  - The others as now.
+- An unknown path still shows "Page not found", with a link to the dashboard.
+
+## 3. Frontend layout (`screens/Dashboard.tsx`; existing components and tokens only)
+- **Header:** "Dashboard" plus one line ("Everything below is read from the audit log and the ledger; nothing here changes data"), and the snapshot time. It refreshes every 10 s while visible (the same pattern as the other lists).
+- **Row 1, stat cards** (the existing `Stat` card, moved from `PODetail.tsx` into `components/common.tsx` for reuse, with no visual change):
+  - **Invoices processed:** the count, with "N failed" underneath when N > 0.
+  - **Decisions:** the four counts as chips (Approve / Review / Request info / Reject, the existing decision chips) plus a **dependency-free CSS proportion bar** (one flex row of four segments sized by share, each segment with a text label/title, never colour alone, `aria-hidden` bar + a text list). Below it one line: "Now, after review: X approved, Y rejected, Z still in review, W awaiting information".
+  - **Review queue:** the open count, linked to `/review`.
+  - **LLM spend:** the total, with "invoice runs $a · PO drafts $b" underneath.
+- **Row 2, purchase orders:**
+  - one card with the count and the status chips (open / partially billed / fully billed / closed)
+  - one card PER CURRENCY: total value, consumed, balance, and "of which not assigned to a line"
+  - the whole row links to `/pos`
+- **Row 3, two short lists side by side** (stacked on narrow screens), using the existing run-list row style:
+  - **Recent runs** (last 8): file, vendor, decision chip, current status if it differs ("review -> approved"), relative time; links to `/runs/:id`; "All invoices ->" links to `/invoices`.
+  - **Waiting for review** (oldest 5 open): vendor, invoice, total, plain-language reason (the existing parser), "ready" / "N line choices" / "cannot approve"; links to `/review/:id`; "Whole queue ->".
+- **Empty state:** with no runs, "No invoices yet: upload one" linking to `/invoices`; the PO block still shows the seeded POs.
+- **Theme:** the existing tokens (light and dark), `section`/`stat`/`chip`/`run-list` classes; the only new CSS is the proportion bar (~15 lines) and the dashboard grid.
+
+## 4. Tests
+**Backend (`tests/api/test_dashboard.py`, offline, the demo seed + the scripted pipeline):**
+- empty history: zeros everywhere, the seeded POs counted (6: 5 USD + 1 INR), per-currency totals equal to the seed, spend 0
+- after runs (two SuperStore reviews, the labelled synthetic approve variant, a synthetic request_info, one failed run): processed 4, failed 1, the four decision counts, open reviews 2
+- after approving one review item: `by_decision.review` unchanged (the system decision), `outcomes.approved` +1, open reviews -1, the PO's consumed and `consumed_without_line` per currency updated
+- the PO block equals what `/api/pos` returns (same derived balances; one test sums `po_list` itself)
+- spend = SUM(runs.cost_usd) + the draft files' costs (a scripted PO draft is made first)
+- recent lists: order, limits, the `recent` / `review` params validated (1..50), links (ids) present
+- read-only: every table's row count is unchanged by the call
+- currencies are never added together (a USD and an INR PO give two entries)
+
+**Frontend (vitest, with fixtures recorded from the endpoint):**
+- `/` renders the dashboard and `/invoices` the upload screen
+- the nav highlights Dashboard on `/`, and Invoices on `/invoices` and `/runs/:id`
+- the cards show the fixture's numbers; the proportion bar has one segment per non-zero decision with text labels
+- a per-currency card each; list rows link to `/runs/:id` and `/review/:id`
+- the empty state; the PO page's "Upload invoices" link is `/invoices?po=<id>`
+
+**Your manual browser check** at the end, as before.
+
+## 5. Build stages (commit after each; STATUS.md rewritten each time)
+1. The endpoint (+ the `recent_runs` join), backend tests.
+2. The route/nav move, `Stat` moved into `common.tsx`, the dashboard screen, vitest.
+3. Your manual browser check; STATUS; then stop.
+
+## 6. Decisions needed from the owner
+1. **The upload screen moves from `/` to `/invoices`**, and every link to it is updated. Old bookmarks of `/` now land on the dashboard. Recommendation: yes.
+2. **Decision breakdown source:** the headline counts are the system's decision at run time (`runs.final_decision`, never changed), with one line underneath showing the effective outcome now after human review (`invoices.status`). Recommendation: show both; otherwise approved reviews would silently disappear from "review" or never appear as approved.
+3. **PO money per currency, never summed across currencies** (the demo has USD and INR POs). Recommendation: yes; a single mixed total would be wrong.
+4. **LLM spend** = invoice runs (`runs.cost_usd`) + PO drafts (their draft files; PO drafts are not runs). Shown as one total with the split. Recommendation: yes. The alternative, invoice runs only, would under-report once you draft POs live.
+5. **Failed runs** are shown as a separate count, not inside the decision breakdown (they have no decision). Recommendation: yes.
+6. **A CSS-only proportion bar** for the decision counts: no library, text labels always present. Recommendation: yes; trivial, and it reads faster than four numbers.
+7. **List lengths:** 8 recent runs and 5 open review items, both query parameters. Recommendation: yes.
+8. **`recent_runs` gains vendor, invoice number, total and current status** through a LEFT JOIN. These are new fields only, so `/api/runs` returns them too, and the upload screen's list can use them later. Recommendation: yes; it reuses the one existing runs query instead of writing a second one.

@@ -1174,7 +1174,7 @@ Any exception rolls everything back. `runs.final_decision` stays `review` (item 
 
 ---
 
-# Landing dashboard plan (2026-09-26, awaiting owner approval; no code for it exists)
+# Landing dashboard plan (2026-09-26; all 8 decisions approved as recommended; build stages 1-2, stop at 3)
 
 **Goal.** Close SPEC section 9.4's "dashboard (history, status and outputs across runs)" with a landing page at `/`: a handful of stat cards and two short lists, all read from existing tables through existing query functions. No new decision logic and no new dependency.
 

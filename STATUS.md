@@ -3,15 +3,21 @@
 Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M3 complete. M4 stages 1-4, PO integration stages 1-6 and line-item consumption stages 1-4 committed. Open with you: M4 stage 5 and PO stage 7 (browser checks) and the review of the line-item build.
-- **Review actions + line allocation** (plan approved, all 10 decisions as recommended): **stages 1-3 of 4 done. Stopped at stage 4: your manual browser check** (see "How to check review actions" below).
+- M0-M3 complete. M4 stages 1-4, PO integration 1-6, line-item consumption 1-4 and review actions 1-3 committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4), the review of the line-item build, and whether you want a demo loader for the line-choice path.
+- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stage 1 of 3 done** (the `GET /api/dashboard` endpoint).
+- Next: stage 2 (the route/nav move and the dashboard screen).
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
 - Frontend: **65 passed** (vitest; review actions stage 3 added 11); `tsc --noEmit` clean; `vite build` OK.
-- Backend: **2129 passed, 0 failed, 2 deselected** (`pytest -W error`); review actions stage 1 added 23, stage 2 added 23, stage 3 added 1 (`tests/review`); no existing test changed. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
+- Backend: **2140 passed, 0 failed, 2 deselected** (`pytest -W error`); dashboard stage 1 added 11 (`tests/api/test_dashboard.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (dashboard stage 1: the endpoint)
+- `app/api/dashboard.py` + `GET /api/dashboard?recent=8&review=5` (SPEC section 11 item 79): runs (processed / failed / running, the system decision per decision), outcomes now (after human review), review (open count + oldest open items via the review service), spend (invoice runs + PO drafts), POs (count, by status, per currency: total value, consumed, balance, consumed without a line), recent runs. Read-only (tested: no table changes).
+- `views.recent_runs` gained vendor, invoice number, invoice total and current invoice status (LEFT JOIN; new fields only, so `/api/runs` returns them too).
+- Demo seed, empty history: 6 POs (5 open, 1 partially billed); INR 5,000.00 (nothing consumed); USD 39,500.00 total, 1,500.00 consumed (all of it without a line: the seeded history), 38,000.00 balance.
 
 ## How to check review actions (stage 4, yours)
 Window 1 (backend): `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo` (a fresh demo database at schema v2; or first `python -m app.db.migrate` to keep your own `data\app.db`). Window 2: `cd C:\Zamp_ai_Automation\frontend; npm run dev`. Open http://localhost:5173.
@@ -146,7 +152,7 @@ FastAPI app (`python -m app.api.serve --replay DIR | --live | --offline`; refuse
 - Confirm M4 stage 5 when you have checked it.
 
 ## Assumptions added to SPEC section 11
-78 (review actions). Earlier: 74-77 (schema v2, line matching, `r_po_line_price`, picker data), 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
+79 (dashboard). Earlier: 78 (review actions), 74-77 (schema v2, line matching, `r_po_line_price`, picker data), 72-73 (PO entry, PO drafting), 69-71 (M4), 61-68 (M3).
 
 ## Known risks or gaps
 - Line matching: short descriptions one letter apart ("Widget A" vs "Widget B") score 0.88 on description alone; price, quantity and amount keep such a line far below a match (0.575 < 0.75 in the tests) and it is listed only as a low candidate. Real POs with near-identical names and identical prices would come out ambiguous, which is the safe side.

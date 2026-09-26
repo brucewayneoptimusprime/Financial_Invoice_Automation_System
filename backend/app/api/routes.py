@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
-from app.api import sse, views
+from app.api import dashboard, sse, views
 from app.api.main import ApiState
 from app.api.uploads import MULTIPART_SLACK_BYTES, STATUS_FOR_CODE, save_upload
 from app.api.worker import Job, open_db
@@ -126,3 +126,11 @@ def get_page(request: Request, run_id: str, n: int):
     if path is None:
         return _error(404, "not_found", "No such page.")
     return FileResponse(path, headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.get("/dashboard")
+def get_dashboard(request: Request, recent: int = Query(8, ge=1, le=50), review: int = Query(5, ge=1, le=50)) -> dict:
+    """A read-only snapshot across runs, reviews, spend and POs (existing tables and queries only)."""
+    st = _state(request)
+    with closing(open_db(st.db_path, st.settings)) as conn:
+        return dashboard.snapshot(conn, st.settings, recent, review)

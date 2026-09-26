@@ -39,8 +39,18 @@ def run_row(conn: sqlite3.Connection, run_id: str) -> dict | None:
 
 
 def recent_runs(conn: sqlite3.Connection, limit: int) -> list[dict]:
-    rows = conn.execute(f"SELECT {', '.join(RUN_COLUMNS)} FROM runs ORDER BY started_at DESC, rowid DESC LIMIT ?", (limit,)).fetchall()
-    return [_row(r) for r in rows]
+    """Newest runs first, with the saved invoice's vendor, number, total and CURRENT status (after any human review), if any."""
+    cols = ", ".join(f"r.{c}" for c in RUN_COLUMNS)
+    rows = conn.execute(
+        f"SELECT {cols}, i.invoice_number, i.currency AS invoice_currency, i.total AS invoice_total, i.status AS invoice_status, "
+        "v.name AS vendor FROM runs r LEFT JOIN invoices i ON i.run_id = r.id LEFT JOIN vendors v ON v.id = i.vendor_id "
+        "ORDER BY r.started_at DESC, r.rowid DESC LIMIT ?", (limit,)).fetchall()
+    out = []
+    for r in rows:
+        d = _row(r)
+        d["invoice_total"] = _money(d["invoice_total"])
+        out.append(d)
+    return out
 
 
 def _stages(events: list[dict]) -> list[dict]:

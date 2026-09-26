@@ -25,7 +25,8 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const getHealth = () => fetch("/api/health").then((r) => json<Health>(r));
-export const listRuns = (limit = 12) => fetch(`/api/runs?limit=${limit}`).then((r) => json<{ runs: RunRow[] }>(r));
+export const listRuns = (limit = 12, decision = "") =>
+  fetch(`/api/runs?limit=${limit}${decision ? `&decision=${encodeURIComponent(decision)}` : ""}`).then((r) => json<{ runs: RunRow[] }>(r));
 export const getRun = (id: string) => fetch(`/api/runs/${encodeURIComponent(id)}`).then((r) => json<RunView | PendingView>(r));
 export const pageUrl = (id: string, n: number) => `/api/runs/${encodeURIComponent(id)}/pages/${n}`;
 
@@ -76,8 +77,9 @@ export function streamRun(id: string, h: StreamHandlers): () => void {
 
 // ---------------------------------------------------------------------------------------------- purchase orders
 export const listVendors = () => fetch("/api/vendors").then((r) => json<{ vendors: Vendor[] }>(r));
-export const listPOs = (q = "", status = "") =>
-  fetch(`/api/pos?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}) })}`).then((r) => json<{ pos: POListRow[] }>(r));
+export const listPOs = (q = "", status = "", currency = "") =>
+  fetch(`/api/pos?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), ...(currency ? { currency } : {}) })}`)
+    .then((r) => json<{ pos: POListRow[] }>(r));
 export const getPO = (id: number | string) => fetch(`/api/pos/${encodeURIComponent(String(id))}`).then((r) => json<PODetail>(r));
 
 // The form's values -> what the API expects (empty strings become nulls; empty lines are kept so validation can name them).

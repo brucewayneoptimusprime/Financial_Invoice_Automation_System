@@ -23,7 +23,7 @@ def vendors(conn: sqlite3.Connection) -> list[dict]:
             for r in conn.execute("SELECT id, name, status, tax_id, country FROM vendors ORDER BY name COLLATE NOCASE, id")]
 
 
-def po_list(conn: sqlite3.Connection, q: str | None = None, status: str | None = None) -> list[dict]:
+def po_list(conn: sqlite3.Connection, q: str | None = None, status: str | None = None, currency: str | None = None) -> list[dict]:
     sql = ("SELECT po.id, po.po_number, po.currency, po.total_amount, po.issued_date, po.status, po.vendor_id, v.name AS vendor, "
            "v.status AS vendor_status, po.total_amount - COALESCE((SELECT SUM(amount) FROM ledger_entries l WHERE l.po_id = po.id), 0) "
            "AS balance, (SELECT COUNT(*) FROM invoices i WHERE i.po_id = po.id) AS invoice_count, po.meta "
@@ -36,6 +36,9 @@ def po_list(conn: sqlite3.Connection, q: str | None = None, status: str | None =
     if status in _STATUSES:
         where.append("po.status = ?")
         args.append(status)
+    if currency:
+        where.append("UPPER(po.currency) = ?")
+        args.append(currency.strip().upper())
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY po.id DESC"

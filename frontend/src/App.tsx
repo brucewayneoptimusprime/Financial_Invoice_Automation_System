@@ -70,7 +70,7 @@ export function App() {
         {route.name === "dashboard" && <DashboardScreen />}
         {route.name === "upload" && <UploadScreen key={window.location.search} health={health} />}
         {route.name === "run" && <RunScreen key={route.id} runId={route.id} />}
-        {route.name === "pos" && <POListScreen />}
+        {route.name === "pos" && <POListScreen key={window.location.search} />}
         {route.name === "poNew" && <PONewScreen health={health} />}
         {route.name === "po" && <PODetailScreen key={route.id} id={route.id} />}
         {route.name === "review" && <ReviewListScreen />}

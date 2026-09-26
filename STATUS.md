@@ -4,13 +4,13 @@ Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current milestone and state
 - M0-M3 complete. M4 stages 1-4, PO integration 1-6, line-item consumption 1-4 and review actions 1-3 committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4), the review of the line-item build, and whether you want a demo loader for the line-choice path.
-- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stages 1-2 of 3 done. Stopped at stage 3: your manual browser check** (see "How to check the dashboard" below).
+- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stages 1-2 of 3 done, plus the clickable-summaries follow-up. Stopped at stage 3: your manual browser check** (see "How to check the dashboard" below).
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
-- Frontend: **72 passed** (vitest; dashboard stage 2 added 7; review actions added 11); `tsc --noEmit` clean; `vite build` OK.
-- Backend: **2140 passed, 0 failed, 2 deselected** (`pytest -W error`); dashboard stage 1 added 11 (`tests/api/test_dashboard.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
+- Frontend: **79 passed** (vitest; the follow-up added 7, dashboard stage 2 added 7, review actions 11); `tsc --noEmit` clean; `vite build` OK.
+- Backend: **2142 passed, 0 failed, 2 deselected** (`pytest -W error`); dashboard stage 1 added 11, the follow-up 2 (`tests/api/test_dashboard.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
 
 ## How to check the dashboard (stage 3, yours)
@@ -20,6 +20,13 @@ Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; p
 - Approve one review item, then look again: the system decisions stay the same, the "Now, after review" line moves (1 approved), the USD consumed figure rises.
 - LLM spend shows $0 on replay (replayed calls are not charged); after a `--live` run it shows the invoice runs and any PO drafts.
 - The PO page's "Upload invoices" now opens `/invoices?po=...`.
+- **Clickable summaries:** a decision chip (or its bar segment) opens Invoices filtered to that decision ("Runs the system decided: ...", with "Show all runs"); **Review** opens the review queue; each "Waiting for review" row opens that item's approve screen; each currency card opens Purchase orders filtered to that currency ("Currency: USD · show all currencies").
+
+## What changed (dashboard follow-up: clickable summaries)
+- Dashboard: the decision chips link to `/invoices?decision=approve|request_info|reject` and `/review` for Review; the proportion-bar segments link the same way (`tabindex -1`, since the chips are the keyboard links and the bar stays `aria-hidden`); each per-currency PO card links to `/pos?currency=<code>`. "Waiting for review" rows already opened `/review/<id>`; a test now pins it.
+- Invoices list: `?decision=` (the system decision, `runs.final_decision`) filters the runs list (up to 50) with a heading and a "Show all runs" link; an unknown value is ignored. Backend: `GET /api/runs?decision=` (validated; `views.recent_runs` gained the optional filter; queued runs are left out when filtering, they have no decision yet).
+- Purchase orders list: `?currency=` (and `?status=`) set the initial filters; the currency shows as "Currency: USD · show all currencies". Backend: `GET /api/pos?currency=` (case-insensitive; `po_list` gained the optional filter).
+- No new decision logic, no visual redesign: a link style for the chips and a small filter note.
 
 ## What changed (dashboard stage 2: the screen)
 - Routes: `/` -> dashboard, `/invoices` -> the upload screen (it was `/`). Updated links: brand and 404 -> dashboard; "← New invoice" and "Upload an invoice" on the run page -> `/invoices`; the PO page's "Upload invoices" -> `/invoices?po=<id>`. Nav gains **Dashboard** (highlighted on `/`); Invoices is highlighted on `/invoices` and on run pages.

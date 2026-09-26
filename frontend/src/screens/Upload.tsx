@@ -59,16 +59,20 @@ export function UploadScreen({ health }: { health: Health | null }) {
   const [sending, setSending] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const po = usePoContext();
+  const [decision] = useState(() => {
+    const d = new URLSearchParams(window.location.search).get("decision") ?? "";
+    return (["approve", "review", "request_info", "reject"] as string[]).includes(d) ? (d as Decision) : null;
+  });
   const maxMb = ((health?.max_file_bytes ?? 20 * 1024 * 1024) / 1_048_576).toFixed(0);
   const maxFiles = health?.max_files_per_upload ?? 20;
 
   useEffect(() => {
     let stop = false;
-    const load = () => listRuns(12).then((r) => !stop && setRuns(r.runs)).catch(() => !stop && setRuns([]));
+    const load = () => listRuns(decision ? 50 : 12, decision ?? "").then((r) => !stop && setRuns(r.runs)).catch(() => !stop && setRuns([]));
     load();
     const t = window.setInterval(load, 4000);
     return () => { stop = true; window.clearInterval(t); };
-  }, []);
+  }, [decision]);
 
   const update = (key: string, patch: Partial<BatchItem>) => setBatch((b) => b.map((x) => (x.key === key ? { ...x, ...patch } : x)));
 
@@ -202,8 +206,11 @@ export function UploadScreen({ health }: { health: Health | null }) {
       )}
 
       <section className="recent" aria-labelledby="recent-h">
-        <h2 id="recent-h">Recent runs</h2>
-        {runs === null ? <p className="dim">Loading…</p> : runs.length === 0 ? <p className="dim">No runs yet.</p> : (
+        <h2 id="recent-h">{decision ? `Runs the system decided: ${DECISION[decision].label}` : "Recent runs"}</h2>
+        {decision && (
+          <p className="filter-note">Filtered by the system's decision at run time. <a {...linkProps("/invoices")}>Show all runs</a></p>
+        )}
+        {runs === null ? <p className="dim">Loading…</p> : runs.length === 0 ? <p className="dim">{decision ? "No run has this decision." : "No runs yet."}</p> : (
           <ul className="run-list">
             {runs.map((r) => (
               <li key={r.id}>

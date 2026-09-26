@@ -38,13 +38,15 @@ def run_row(conn: sqlite3.Connection, run_id: str) -> dict | None:
     return _row(conn.execute(f"SELECT {', '.join(RUN_COLUMNS)} FROM runs WHERE id = ?", (run_id,)).fetchone())
 
 
-def recent_runs(conn: sqlite3.Connection, limit: int) -> list[dict]:
-    """Newest runs first, with the saved invoice's vendor, number, total and CURRENT status (after any human review), if any."""
+def recent_runs(conn: sqlite3.Connection, limit: int, decision: str | None = None) -> list[dict]:
+    """Newest runs first, with the saved invoice's vendor, number, total and CURRENT status (after any human review), if any.
+    `decision` keeps only runs whose SYSTEM decision (runs.final_decision) is that one."""
     cols = ", ".join(f"r.{c}" for c in RUN_COLUMNS)
     rows = conn.execute(
         f"SELECT {cols}, i.invoice_number, i.currency AS invoice_currency, i.total AS invoice_total, i.status AS invoice_status, "
         "v.name AS vendor FROM runs r LEFT JOIN invoices i ON i.run_id = r.id LEFT JOIN vendors v ON v.id = i.vendor_id "
-        "ORDER BY r.started_at DESC, r.rowid DESC LIMIT ?", (limit,)).fetchall()
+        + ("WHERE r.final_decision = ? " if decision else "") + "ORDER BY r.started_at DESC, r.rowid DESC LIMIT ?",
+        ((decision, limit) if decision else (limit,))).fetchall()
     out = []
     for r in rows:
         d = _row(r)

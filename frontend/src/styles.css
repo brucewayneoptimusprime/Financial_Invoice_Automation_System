@@ -456,3 +456,8 @@ a.stat-link:hover { border-color: var(--accent); }
 .review-link .run-file { white-space: normal; }
 .review-link .queue-reason { display: block; font-weight: 400; color: var(--text-2); margin-top: 2px; }
 @media (max-width: 900px) { .dash-lists { grid-template-columns: 1fr; } .stat-wide { grid-column: auto; } }
+.decision-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text); border-radius: 999px; }
+.decision-link:hover { text-decoration: none; }
+.decision-link:hover .chip { outline: 1px solid currentColor; }
+.decision-bar a.seg:hover { filter: brightness(1.15); }
+.filter-note { font-size: 13px; color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }

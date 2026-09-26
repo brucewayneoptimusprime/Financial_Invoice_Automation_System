@@ -101,3 +101,31 @@ describe("moved links", () => {
     expect(await screen.findByRole("link", { name: "Upload invoices" })).toHaveAttribute("href", "/invoices?po=1");
   });
 });
+
+describe("clickable summaries", () => {
+  it("decision chips and bar segments open the filtered Invoices list; Review opens the review queue", async () => {
+    mockFetch(busy);
+    render(<DashboardScreen />);
+    const decisions = (await screen.findByText("Decisions (by the system, at run time)")).parentElement!;
+    const chipLinks = within(decisions).getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(chipLinks).toEqual(["/invoices?decision=approve", "/review", "/invoices?decision=request_info", "/invoices?decision=reject"]);
+    const segs = [...decisions.querySelectorAll(".decision-bar a.seg")].map((a) => a.getAttribute("href"));
+    expect(segs).toEqual(["/invoices?decision=approve", "/review", "/invoices?decision=request_info"]);
+    expect(decisions.querySelector(".decision-bar a.seg")!.getAttribute("tabindex")).toBe("-1");   // the chips are the keyboard links
+  });
+
+  it("each waiting item opens its own review screen", async () => {
+    mockFetch(busy);
+    render(<DashboardScreen />);
+    const review = (await screen.findByRole("heading", { name: "Waiting for review" })).closest("section")!;
+    const itemLinks = within(review).getAllByRole("link").filter((a) => a.classList.contains("run-link"));
+    expect(itemLinks.map((a) => a.getAttribute("href"))).toEqual(busy.review.oldest_open.map((i) => `/review/${i.id}`));
+  });
+
+  it("each currency card opens the PO list filtered to that currency", async () => {
+    mockFetch(busy);
+    render(<DashboardScreen />);
+    expect((await screen.findByText(/^USD · 5 POs$/)).closest("a")).toHaveAttribute("href", "/pos?currency=USD");
+    expect(screen.getByText(/^INR · 1 PO$/).closest("a")).toHaveAttribute("href", "/pos?currency=INR");
+  });
+});

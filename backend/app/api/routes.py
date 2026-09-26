@@ -71,11 +71,14 @@ async def create_run(request: Request):
 
 
 @router.get("/runs")
-def list_runs(request: Request, limit: int = Query(20, ge=1)) -> dict:
+def list_runs(request: Request, limit: int = Query(20, ge=1),
+              decision: str | None = Query(None, pattern="^(approve|review|request_info|reject)$")) -> dict:
     st = _state(request)
     limit = min(limit, st.settings.api_recent_runs_max)
     with closing(open_db(st.db_path, st.settings)) as conn:
-        runs = views.recent_runs(conn, limit)
+        runs = views.recent_runs(conn, limit, decision)
+    if decision:                                                         # queued runs have no decision yet
+        return {"runs": runs}
     known = {r["id"] for r in runs}
     queued = [p for p in st.worker.pending() if p["id"] not in known]
     return {"runs": queued + runs}

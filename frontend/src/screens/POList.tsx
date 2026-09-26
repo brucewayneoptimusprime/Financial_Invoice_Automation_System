@@ -12,19 +12,21 @@ export function StatusChip({ status }: { status: string }) {
 }
 
 export function POListScreen() {
+  const params = new URLSearchParams(window.location.search);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(params.get("status") ?? "");
+  const [currency, setCurrency] = useState((params.get("currency") ?? "").toUpperCase());
   const [rows, setRows] = useState<POListRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let stop = false;
     const t = window.setTimeout(() => {
-      listPOs(q, status).then((r) => { if (!stop) { setRows(r.pos); setError(null); } })
+      listPOs(q, status, currency).then((r) => { if (!stop) { setRows(r.pos); setError(null); } })
                         .catch(() => { if (!stop) setError("Could not load purchase orders. Is the API running?"); });
     }, 200);
     return () => { stop = true; window.clearTimeout(t); };
-  }, [q, status]);
+  }, [q, status, currency]);
 
   return (
     <div className="po-list">
@@ -44,6 +46,11 @@ export function POListScreen() {
           <option value="fully_billed">Fully billed</option>
           <option value="closed">Closed</option>
         </select>
+        {currency && (
+          <span className="filter-note">Currency: <strong>{currency}</strong>{" "}
+            <button type="button" className="linkish" onClick={() => { setCurrency(""); window.history.replaceState(null, "", "/pos"); }}>
+              show all currencies</button></span>
+        )}
       </div>
       {error && <p className="error" role="alert">{error}</p>}
       {rows === null ? <p className="dim">Loading…</p> : rows.length === 0 ? <p className="dim">No purchase orders match.</p> : (

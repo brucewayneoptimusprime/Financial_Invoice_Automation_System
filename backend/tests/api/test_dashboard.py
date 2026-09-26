@@ -133,3 +133,21 @@ def test_list_lengths_are_respected(tmp_path):
         d = c.get("/api/dashboard?recent=2&review=1").json()
     assert [r["id"] for r in d["recent_runs"]] == ids[::-1][:2]
     assert d["review"]["open_count"] == 3 and [i["run_id"] for i in d["review"]["oldest_open"]] == ids[:1]
+
+
+def test_the_runs_list_filters_by_system_decision(tmp_path):
+    with api(tmp_path, run_fn=many_runs()) as c:
+        for name in (SS_10963, SS_24429, "superstore_6459"):
+            run_and_wait(c, name)
+        by = {d: [r["source_file"] for r in c.get(f"/api/runs?decision={d}").json()["runs"]] for d in ("approve", "review", "request_info", "reject")}
+        assert c.get("/api/runs?decision=bogus").status_code == 422
+        assert len(c.get("/api/runs").json()["runs"]) == 3
+    assert by == {"approve": ["superstore_24429.pdf"], "review": ["superstore_10963.pdf"], "request_info": ["superstore_6459.pdf"], "reject": []}
+
+
+def test_the_po_list_filters_by_currency(tmp_path):
+    with api(tmp_path) as c:
+        inr = c.get("/api/pos?currency=inr").json()["pos"]
+        usd = c.get("/api/pos?currency=USD&status=partially_billed").json()["pos"]
+        none = c.get("/api/pos?currency=EUR").json()["pos"]
+    assert [p["po_number"] for p in inr] == ["PO-IQ-2025-001"] and [p["po_number"] for p in usd] == ["PO-SS-005"] and none == []

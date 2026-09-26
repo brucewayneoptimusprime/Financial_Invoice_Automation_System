@@ -41,10 +41,11 @@ def list_vendors(request: Request) -> dict:
 
 
 @router.get("/pos")
-def list_pos(request: Request, q: str | None = Query(None, max_length=100), status: str | None = Query(None, max_length=20)) -> dict:
+def list_pos(request: Request, q: str | None = Query(None, max_length=100), status: str | None = Query(None, max_length=20),
+             currency: str | None = Query(None, max_length=10)) -> dict:
     st = _state(request)
     with closing(open_db(st.db_path, st.settings)) as conn:
-        return {"pos": po_views.po_list(conn, q=q or None, status=status or None)}
+        return {"pos": po_views.po_list(conn, q=q or None, status=status or None, currency=currency or None)}
 
 
 @router.get("/pos/{po_id}")

@@ -7,6 +7,8 @@ import { linkProps } from "../router";
 import type { Dashboard, Decision } from "../types";
 
 const ORDER: Decision[] = ["approve", "review", "request_info", "reject"];
+// Review items are worked in the review queue; the other decisions open the Invoices list filtered to that decision.
+export const decisionHref = (d: Decision) => (d === "review" ? "/review" : `/invoices?decision=${d}`);
 const PO_TONE: Record<string, string> = { open: "info", partially_billed: "flag", fully_billed: "pass", closed: "muted" };
 
 // A dependency-free proportion bar: one segment per decision, sized by share. The numbers are always written out beside it,
@@ -17,7 +19,8 @@ export function DecisionBar({ counts }: { counts: Record<Decision, number> }) {
   return (
     <div className="decision-bar" aria-hidden="true">
       {ORDER.filter((d) => counts[d] > 0).map((d) => (
-        <span key={d} className={`seg seg-${DECISION[d].tone}`} style={{ flexGrow: counts[d] }} title={`${DECISION[d].label}: ${counts[d]}`} />
+        <a key={d} {...linkProps(decisionHref(d))} tabIndex={-1} className={`seg seg-${DECISION[d].tone}`} style={{ flexGrow: counts[d] }}
+           title={`${DECISION[d].label}: ${counts[d]}`} />
       ))}
     </div>
   );
@@ -58,7 +61,13 @@ export function DashboardScreen() {
           <div className="label">Decisions (by the system, at run time)</div>
           <DecisionBar counts={d.runs.by_decision} />
           <ul className="decision-counts">
-            {ORDER.map((k) => <li key={k}><Chip tone={DECISION[k].tone}>{DECISION[k].label}</Chip> <span className="num">{d.runs.by_decision[k]}</span></li>)}
+            {ORDER.map((k) => (
+              <li key={k}>
+                <a {...linkProps(decisionHref(k))} className="decision-link" title={k === "review" ? "Open the review queue" : `Invoices decided: ${DECISION[k].label}`}>
+                  <Chip tone={DECISION[k].tone}>{DECISION[k].label}</Chip> <span className="num">{d.runs.by_decision[k]}</span>
+                </a>
+              </li>
+            ))}
           </ul>
           {decided > 0 && (
             <div className="stat-sub">Now, after review: {o.approved} approved, {o.rejected} rejected, {o.in_review} still in review,
@@ -86,7 +95,7 @@ export function DashboardScreen() {
             </div>
           </div>
           {d.pos.currencies.map((c) => (
-            <div className="stat" key={c.currency}>
+            <a className="stat stat-link" key={c.currency} {...linkProps(`/pos?currency=${encodeURIComponent(c.currency)}`)}>
               <div className="label">{c.currency} · {c.count} PO{c.count === 1 ? "" : "s"}</div>
               <dl className="mini">
                 <div><dt>Total value</dt><dd className="num">{money(c.total_value, c.currency)}</dd></div>
@@ -94,7 +103,7 @@ export function DashboardScreen() {
                 <div><dt>Balance</dt><dd className="num">{money(c.balance, c.currency)}</dd></div>
                 <div><dt>of which not assigned to a line</dt><dd className="num">{money(c.consumed_without_line, c.currency)}</dd></div>
               </dl>
-            </div>
+            </a>
           ))}
         </div>
       </Section>

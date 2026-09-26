@@ -715,3 +715,227 @@ The PO prompt and schema are separate from the invoice ones, so `extract-v5` and
 7. **Uploading invoices from a PO page does not tell the matcher which PO to use.** Passing the PO as a hint would be new matching logic, which is excluded. The page states that matching is automatic. Recommendation: yes.
 8. **Apply the same plain-sentence + technical-details treatment to the review-queue reason** shown in "What was written". Recommendation: yes; same component, same raw form.
 9. **Editing or deleting an existing PO stays out of scope** here: changing a PO's total or lines after invoices matched it changes derived balances and past context. Recommendation: later, with M5 settings, as an audited action.
+
+
+---
+
+# Line-item PO consumption plan (2026-09-26, awaiting owner approval; no code for it exists)
+
+**Where this sits.** Builds on PO integration (stages 1-6 committed; its stage 7 and M4 stage 5 are your open browser checks).
+
+**Scope of THIS build:** schema, line matching, one new rule, and the stored data the reviewer's picker will need.
+
+**Out of scope, the follow-up prompt:** the approve/reject endpoint, the picker UI, any new ledger-writing action.
+
+**Owner decisions carried in (not re-opened):**
+- **(1) Reviewer decides:** when line matching is not confident, a reviewer is shown the invoice line beside the PO's candidate lines and explicitly assigns it to a line or deducts it from the PO total unassigned.
+- **(2) Two measures:** consumption is tracked by quantity AND amount per PO line.
+- **(3) Price rule:** a new deterministic rule compares invoice-line vs PO-line unit price with a tolerance, separate from `r_arithmetic`.
+- **(4) Whole-PO total matching stays:** a permanent, valid mode for invoices with no meaningful line correspondence.
+
+**Principle kept:** money truth stays where it is. `ledger_entries` remains the only source of a PO's balance (total minus SUM), unchanged. The new consumption table is an ALLOCATION of each ledger entry: it records which PO line, what quantity and what amount. It never replaces or duplicates the balance calculation.
+
+## 0. What the real data says (measured offline on the six recorded invoices, before planning)
+- All six have exactly one line, and each PO in the demo seed has exactly one line. Quantities are equal, and unit prices are equal as decimals (1893.30 = 1893.3).
+- **Expected result on the six:** every line is a confident single match, `r_po_line_price` passes, and no decision changes (five review, IQ review). The labelled synthetic approve variant still approves.
+- **The existing description similarity (`token_similarity`) is too weak on its own for line-level choice:**
+  - 24429 "Hon Rocking Chair, Black - Chairs, Furniture, FUR-CH-4682" vs its own PO line "Hon Rocking Chair, Black": **0.61** (the PO text is a shorter subset).
+  - Two DIFFERENT fax machines, "Hewlett Fax Machine, Color ..." vs "Canon Wireless Fax, Laser ...": **0.70**.
+  - "Hon Rocking Chair, Black" vs "..., Red": **0.82**.
+
+  So the line matcher adds token containment and item codes (section 3). The whole-PO `lines_signal` used for PO ranking is NOT changed, so PO matching cannot regress.
+
+## 1. Schema: version 1 -> 2 (SPEC section 5 addition; decision 7)
+Two new tables. **No existing table or column changes.**
+
+```sql
+-- How each ledger entry is allocated: to a PO line, or to the PO total unassigned (po_line_id NULL).
+-- Invariant: for every ledger entry, SUM(po_consumption.amount) = ledger_entries.amount (same sign convention).
+CREATE TABLE po_consumption (
+    id               INTEGER PRIMARY KEY,
+    ledger_entry_id  INTEGER NOT NULL REFERENCES ledger_entries(id),
+    po_id            INTEGER NOT NULL REFERENCES purchase_orders(id),
+    po_line_id       INTEGER REFERENCES po_lines(id),          -- NULL = deducted from the PO total, no specific line
+    invoice_id       INTEGER NOT NULL REFERENCES invoices(id),
+    invoice_line_id  INTEGER REFERENCES invoice_lines(id),     -- NULL = the invoice as a whole (total-only)
+    run_id           TEXT REFERENCES runs(id),                 -- NULL for seeded historic invoices
+    quantity         TEXT,                                     -- decimal text, NULL when not known (total-only)
+    amount           INTEGER NOT NULL,                         -- cents; > 0 commit, < 0 reversal (as the ledger)
+    type             TEXT NOT NULL CHECK (type IN ('commit', 'reversal')),
+    matched_by       TEXT NOT NULL CHECK (matched_by IN ('auto', 'manual_reviewer', 'legacy')),   -- 'legacy': decision 1
+    created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    CHECK ((type = 'commit' AND amount > 0) OR (type = 'reversal' AND amount < 0)),
+    CHECK (po_line_id IS NOT NULL OR quantity IS NULL)          -- a quantity only makes sense against a line
+);
+CREATE INDEX idx_consumption_po_line ON po_consumption(po_line_id);
+CREATE INDEX idx_consumption_entry ON po_consumption(ledger_entry_id);
+
+-- The line-matching result of a run, one row per invoice line, for the reviewer's picker (follow-up).
+CREATE TABLE invoice_line_matches (
+    id               INTEGER PRIMARY KEY,
+    run_id           TEXT NOT NULL REFERENCES runs(id),
+    invoice_id       INTEGER NOT NULL REFERENCES invoices(id),
+    invoice_line_id  INTEGER NOT NULL UNIQUE REFERENCES invoice_lines(id),
+    po_id            INTEGER NOT NULL REFERENCES purchase_orders(id),
+    status           TEXT NOT NULL CHECK (status IN ('matched', 'ambiguous', 'no_match', 'not_evaluable')),
+    po_line_id       INTEGER REFERENCES po_lines(id),          -- set only when status = matched (the automatic choice)
+    score            REAL,                                      -- the top candidate's score (telemetry, like runs.cost_usd)
+    candidates       TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(candidates)),   -- top 3, see section 3
+    created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+```
+
+The reviewer's later choice is NOT a column here: it becomes `po_consumption` rows with `matched_by = manual_reviewer` in the follow-up, so there is one record of what was consumed.
+
+**How existing whole-PO commits map into the new model:** every existing `ledger_entries` row gets exactly ONE `po_consumption` row:
+
+| Column | Value |
+|---|---|
+| `ledger_entry_id` | the entry |
+| `po_id` | the entry's PO |
+| `po_line_id`, `invoice_line_id`, `quantity` | NULL (unassigned, total-only) |
+| `invoice_id` | the entry's invoice |
+| `run_id` | the invoice's run, NULL if seeded |
+| `amount` / `type` | copied from the entry |
+| `matched_by` | `legacy` (decision 1) |
+
+The PO balance is unchanged by construction. A PO line's remaining quantity and amount count ONLY line-assigned rows, so an old commit reduces the PO balance but no specific line. That is exactly what a total-only commit means.
+
+Today this is one row in the demo seed (HIST-SS-0001, 1,500.00 on PO-SS-005), plus whatever approves exist in your `data/app.db`.
+
+**Migration safety:**
+- **An explicit command:** `python -m app.db.migrate [--db PATH]` (decision 8).
+  1. Copies the database file to `app.db.v1-<timestamp>.bak`.
+  2. In ONE transaction: creates the two tables, backfills one consumption row per ledger entry, verifies the invariant for every entry (count and sums), and sets `user_version = 2`.
+  3. Any mismatch rolls back, and the file stays v1.
+- Running it on a v2 database is a no-op.
+- `init_db` knows versions 1 and 2. A fresh database gets schema v2 directly.
+- The seed loader writes the matching legacy consumption row for every seeded ledger entry, through the same backfill function.
+- `serve`, the pipeline CLI and the eval refuse a v1 database with a message naming the migrate command. `--reset-demo` also works, since it creates v2 fresh.
+- `reset` drops all tables (it already drops every table in place); a test confirms the new ones go too.
+
+**Keeping the invariant from now on (decision 2):** the existing approve path writes ONE total-only consumption row next to its ledger commit, in the same act transaction: `po_line_id` NULL, `matched_by = auto`, `run_id` and `invoice_id` set. Nothing new is decided and no new ledger action is added. The follow-up replaces this with per-line allocation.
+
+`invoice_line_matches` rows are written in the act transaction, right after `invoice_lines` are saved (they need the invoice-line ids), whenever a PO was matched. This applies to every decision, because the reviewer needs them for review cases.
+
+**Tests:**
+- A v1 database built from the old schema.sql migrates with a byte-identical backup; the invariant and PO balances are identical before and after.
+- A simulated failure mid-migration leaves v1 untouched; running it twice is idempotent.
+- A fresh v2 database, the placeholder seed and the demo seed all satisfy the invariant.
+- The CHECK constraints reject a quantity without a line, a wrong sign, and an unknown `matched_by`.
+- `get_po_balance` is unchanged on every seeded PO.
+
+## 2. Contract additions (SPEC 6.2 / 6.3; decision 7)
+- **`POLineFact` gains:** `id`, `consumed_quantity`, `consumed_amount`.
+  - The consumed values are the SUM of line-ASSIGNED consumption rows (commits minus reversals), loaded by `engine/loader.py`, which stays the only engine module that touches SQLite.
+  - `remaining_quantity` = PO quantity minus consumed (None if the PO line has no quantity); `remaining_amount` likewise. Both are derived, never stored.
+- **`RunContext` gains `line_matches: LineMatchSet | None`.** Frozen models:
+  - `po_id`, `po_number`
+  - `mode`: `line_level` | `total_only` | `partial` | `not_evaluable`
+  - `bundled_hint: bool`
+  - `lines: [InvoiceLineMatch]`, each with: `invoice_line_no` (1-based index into `extracted.line_items`), `status`, `po_line_id`, `po_line_no`, `score`, `candidates: [LineCandidate{po_line_id, po_line_no, score, breakdown{description, price, quantity, amount}, reasons}]` (top 3)
+- **One new builtin rule** (section 4): 14 rules, so a validate run yields 16 results (14 + 2 floors).
+
+## 3. The line matcher (`engine/line_matching.py`, deterministic, no LLM)
+**When it runs:** in the existing match stage, after PO ranking, ONLY against the confidently matched PO (`ctx.matched_po`; decision 6).
+- With no matched PO, or a PO without lines, `line_matches` is `not_evaluable` with the reason.
+- An invoice line with no description is `not_evaluable`.
+
+**Score for invoice line i against PO line j** (weights in a new `LineMatchConfig`, all config):
+
+| Signal | Weight | Value (0..1) |
+|---|---|---|
+| description | **0.60** | `max(token_similarity, containment)`. Containment = the share of the SHORTER description's tokens found in the longer one, counted only when the shorter has at least `containment_min_tokens` (3) tokens. **Item codes:** a code token (letters+digits with a hyphen, or the invoice line's `item_code`) present in both gives 1.0 (`code:exact`); codes present on BOTH sides but different cap the description at `code_conflict_cap` (0.5), which separates two different products with similar names |
+| unit price | **0.15** | 1.0 within the price rule's tolerance; otherwise linear from 1 down to 0 at `price_band` (25%) relative difference; 0.5 when either price is missing (unknown is neutral) |
+| quantity | **0.15** | invoice qty <= the line's remaining qty: 1.0; over: `1 - excess/remaining` (floor 0); remaining <= 0: 0; either missing: 0.5 |
+| amount | **0.10** | the same shape against the line's remaining amount |
+
+**Why these weights.** The description decides the candidate. Price is deliberately a minor weight so a same-item line with a WRONG price still matches confidently; otherwise the price rule could never fire. For example, same description, price 10% high, quantity and amount fitting gives 0.60 + 0.09 + 0.15 + 0.10 = 0.94, which is confident and lets `r_po_line_price` flag it. Price and quantity still break ties between lookalike lines ("Black" vs "Red" chair at different prices).
+
+**Candidates:** only PO lines with a description value >= `line_desc_min` (0.6, the existing config value), so amount alone never makes a candidate. Ranked by score, then PO line number.
+
+**Per-line status:**
+- `matched`: top >= `line_min_score` (0.75), AND either no runner-up, a runner-up below `line_ambiguity_min_score` (0.60), or a gap >= `line_ambiguity_margin` (0.10).
+- `ambiguous`: top >= 0.75 with a close runner-up.
+- `no_match`: no candidate, or top < 0.75.
+
+**Several invoice lines on one PO line** (for example a split delivery): allowed. Invoice lines are processed in order, and each confident match reduces that PO line's remaining quantity and amount for the NEXT invoice line of the same invoice. So two lines that together exceed the ordered quantity score lower on the second (decision 9).
+
+**Invoice-level `mode`:**
+- `line_level`: every evaluable line is matched.
+- `total_only`: no invoice line has ANY candidate, i.e. no meaningful correspondence, which is owner decision 4's permanent mode. Also `bundled_hint = true` when the invoice has one line and the PO has two or more.
+- `partial`: anything else (some ambiguous or unmatched).
+- `not_evaluable`: see above.
+
+**This build does not change any decision on the basis of line matching** (decision 3). The result is stored for the reviewer's picker and read by the price rule.
+
+**On the six real invoices** (computed above): descriptions 1.0 via containment for 24429, and 0.88-1.0 elsewhere. Price, quantity and amount are all 1.0, so every score is >= 0.93: `matched`, mode `line_level`.
+
+**Stored:**
+- `ctx.line_matches`.
+- A match-stage audit event `po_lines_matched` (outcome info; the detail is the whole set, JSON-safe; summary counts go into the `stage_completed` summary).
+- `invoice_line_matches` rows in the act transaction.
+
+**Data for the picker** (read-only, no UI in this build):
+- The run view JSON (`GET /api/runs/{id}`) gains `line_matches`: each invoice line with its status, the automatic choice, and its top-3 candidate PO lines, each with description, quantity, unit price, amount, remaining quantity and amount, score, breakdown and reasons.
+- It also gains the PO's lines with consumed and remaining values, and the PO's unassigned (total-only) consumption, so the picker can offer "deduct from the PO total".
+- The PO detail JSON gains per-line consumed/remaining quantity and amount, plus "consumed without a specific line".
+
+## 4. The new rule: `r_po_line_price` (type `po_line_unit_price`)
+- **Evaluated for:** every invoice line whose line match is `matched` (automatic, confident). In the follow-up, reviewer-assigned lines are included too.
+- **Params**, the same pattern as `r_tolerance_pct` (decision 5):
+  - `pct` (1.0), `abs` ("1.00"), `mode` (`lesser_of` | `greater_of`)
+  - `direction` (`above` | `both`, default `above`; decision 4)
+  - `severity_by_outcome`
+- **Allowance** A = `min(PO unit price x pct/100, abs)` (`lesser_of`) or `max(...)` (`greater_of`), in Decimal. It is not rounded to cents, because unit prices may have more decimals. D = invoice unit price - PO unit price.
+- **Outcomes:**
+  - `within_tolerance` (pass): every compared line has |D| <= A, or D <= A with `direction = above`. A price BELOW the PO's is recorded in the detail with `direction = above`.
+  - `price_above_po` (flag, severity 1): a line with D > A.
+  - `price_below_po` (flag, severity 1, only with `direction = both`): a line with D < -A.
+  - `not_evaluable` (info): no confidently matched line, or unit prices missing on every matched line. Per SPEC item 23, a missing essential input is info, never pass.
+- **Severity 1 (review):** the same treatment as `r_tolerance_pct` (over tolerance -> 1).
+- **Detail:** per compared line: invoice line no, PO line no, invoice unit price, PO unit price, D, relative difference, A, ok. Also which lines were skipped and why.
+- **Distinct from `r_arithmetic`** (the invoice's own consistency) **and from `r_tolerance_pct`** (the total vs the PO balance). A test shows an invoice that passes both of those and fails this one.
+- **Registry:** 14th builtin rule, source builtin, not locked, severity editable like the others; seeded with INSERT OR IGNORE, so an existing database gets it on the next init.
+- **Existing assertions that count rules or results change:** 13 -> 14 rules, 15 -> 16 results per run, and the `rule_evaluated` count. They are listed in the stage-3 commit. No decision assertion changes. The recorded frontend fixtures keep their 15 recorded results.
+
+## 5. Tests and fixtures (offline; `pytest -W error`; key blanked)
+- **All six real invoices through the whole pipeline on the demo seed:**
+  - line mode `line_level`, each line `matched` to line 1 of its PO, `r_po_line_price` pass
+  - decisions identical to before (five review, IQ review); the synthetic approve variant still approves and writes the ledger commit plus one total-only consumption row
+  - a before/after table in STATUS.md
+- **New labelled SYNTHETIC fixtures.** Built on the generated Northwind invoice PDF already used by the M2 tests, with hand-written extraction replies and a test-only multi-line PO seed. The demo seed is not changed, so the six real runs are untouched.
+  - **clean line-for-line:** invoice Widget A 10 x 60.00, Widget B 5 x 80.00 vs a PO with Widget A / B / C: both matched to the right lines, mode `line_level`, price pass
+  - **ambiguous:** a PO with "Widget A (blue)" and "Widget A (green)", same price and quantity: `ambiguous`, both candidates listed, mode `partial`, decision unchanged
+  - **unmatched / bundled:** invoice "Goods as per PO-5001", one line, 1,000.00, vs an itemised 3-line PO: `no_match`, mode `total_only`, `bundled_hint` true; the whole-PO match by reference is unaffected
+  - **price mismatch:** invoice Widget A at 66.00 vs PO 60.00, quantities fitting: line `matched` (score about 0.94), `r_price_above_po` flag severity 1, decision review; the detail shows D = 6.00, A = 0.60
+- **Line-matcher unit tests:**
+  - containment vs similarity: the 24429 pair is 1.0; the two fax machines are separated by the code conflict
+  - black vs red chair separated by price
+  - remaining quantity from line-assigned consumption; legacy/total-only rows do not reduce a line
+  - two invoice lines on one PO line reduce each other's remaining
+  - a missing price or quantity is neutral
+  - `not_evaluable` with no matched PO or PO without lines
+  - determinism, and every weight from config
+- **Rule tests:** each outcome; `lesser_of` / `greater_of`; `direction` both; not evaluable; the fail-safe (bad params -> flag at default severity, SPEC item 24); the guardrail property tests re-run with 14 rules.
+- **Persistence:** `invoice_line_matches` rows for a matched PO, none without; act rollback leaves none; the run view and PO detail JSON carry the picker data; money as exact strings.
+- **Migration and schema tests:** section 1.
+- **The whole existing suite passes:** only the listed count assertions change.
+
+## 6. Build stages (commit after each; STATUS.md rewritten each time)
+1. Schema v2, `migrate` command with backup, backfill, invariant check, seed/reset/init support, the approve path's total-only consumption row. Existing suite green.
+2. Facts (`POLineFact` id / consumed / remaining via the loader), `line_matching.py`, match-stage integration, audit event, `ctx.line_matches`, the six real invoices.
+3. `r_po_line_price` in the registry; count-assertion updates listed; rule tests.
+4. `invoice_line_matches` persistence, run view / PO detail picker data, the four synthetic fixtures, the six-invoice before/after table. Then stop for your review; the approve/reject wiring and the picker UI are the follow-up.
+
+## 7. Decisions needed from the owner
+1. **`matched_by` for migrated and seeded old commits.** Your enum is `auto | manual_reviewer`. The old whole-PO commits were either made by the system (`auto`) or are seed history that no matcher produced. Recommendation: add a third value **`legacy`** for all backfilled rows, so the record never claims an automatic match that did not happen. Alternative: map them to `auto`.
+2. **The existing approve path writes one total-only consumption row** (`po_line_id` NULL, `matched_by auto`) beside its ledger commit, so the allocation invariant holds from this build on. Recommendation: yes. Without it, anything approved between this build and the follow-up would need a second backfill.
+3. **Line-match confidence does not change any decision in this build.** A non-confident line match does not force review yet; the reviewer-choice flow of your decision 1 arrives with the follow-up, where we decide whether `partial` / `ambiguous` forces review. Recommendation: yes (this is what "no regression" requires). Consequence until then: an invoice with unmatched lines can still auto-approve on its total, exactly as today.
+4. **Price rule direction:** flag only when the invoice price is ABOVE the PO price (`direction = above`, default); `both` is available as a param. Recommendation: `above`. A lower price favours the buyer, but it can signal the wrong item, and it is always recorded in the detail.
+5. **Price tolerance defaults:** `pct` 1.0, `abs` 1.00, `lesser_of` (provisional, like the other thresholds). Recommendation: yes. Note that `r_tolerance_pct`'s 2% / 50.00 is sized for invoice totals, not unit prices.
+6. **Line matching runs only against the confidently matched PO.** An ambiguous or unmatched PO gets no line matches; the reviewer picks the PO first. Recommendation: yes.
+7. **SPEC changes** (section 5: two tables; section 6.2: `RunContext.line_matches`, `POLineFact` fields; section 6.3: a 14th builtin rule family). Recommendation: approve as written.
+8. **Migration is an explicit command with an automatic backup;** `serve` and the CLIs refuse a v1 database and name the command. Recommendation: yes. The alternative is to migrate silently at startup, which is friendlier but touches your database without asking.
+9. **Several invoice lines may consume the same PO line** (split deliveries), each reducing the remaining quantity and amount for the next. Recommendation: yes.
+10. **The better description measure (containment + item codes) is used for LINE matching only;** the whole-PO `lines_signal` stays exactly as it is, so PO ranking cannot change. Recommendation: yes. Reusing it for PO ranking is possible later, with its own before/after check.

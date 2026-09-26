@@ -2,7 +2,8 @@
 
     python -m app.api.serve (--replay DIR | --live [--record DIR] | --offline) [--db PATH] [--reset-demo] [--host H] [--port N]
 
-LIVE CALLS NEED --live. The server REFUSES to start unless exactly one mode is given (exit 5, before any client exists):
+LIVE CALLS NEED --live. The server REFUSES to start unless exactly one mode is given (exit 5, before any client exists), either as a
+flag or through the SERVE_MODE environment variable (live | replay + REPLAY_DIR | offline; a flag wins):
   --replay DIR   serve recorded model responses only; nothing is sent, nothing is spent
   --live         real, paid API calls (about $0.03 per invoice); the per-run and per-session ceilings apply to this process
   --offline      no model at all: extraction degrades to review, explanations are templates (for UI work)
@@ -53,9 +54,18 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
     modes = [m for m, on in (("live", args.live), ("replay", args.replay is not None), ("offline", args.offline)) if on]
-    if not modes:
-        print(refusal_message())
-        return EXIT_LIVE_REFUSED
+    if not modes:                                                        # no flag: the SERVE_MODE environment variable, if set
+        env = get_settings()
+        if env.serve_mode is None:
+            print(refusal_message())
+            return EXIT_LIVE_REFUSED
+        modes = [env.serve_mode]
+        if env.serve_mode == "replay":
+            if env.replay_dir is None:
+                print("BAD USAGE: SERVE_MODE=replay needs REPLAY_DIR (a folder of recorded responses).")
+                return EXIT_USAGE
+            args.replay = Path(env.replay_dir)
+        print(f"Mode from SERVE_MODE: {env.serve_mode}.")
     if len(modes) > 1:
         print(f"BAD USAGE: choose exactly one of --live, --replay DIR, --offline (got {', '.join(modes)}).")
         return EXIT_USAGE

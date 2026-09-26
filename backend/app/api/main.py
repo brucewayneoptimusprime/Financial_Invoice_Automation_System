@@ -5,7 +5,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.api.access import AccessTokenMiddleware, health
 from app.api.clients import Mode
 from app.api.worker import RunWorker
 from app.config import Settings
@@ -44,8 +46,17 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     app = FastAPI(title="Invoice agent", version="0.4.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json",
                   redoc_url=None)
     app.state.api = state
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.api_cors_origins), allow_methods=["GET", "POST"],
-                       allow_headers=["Content-Type", "Last-Event-ID"], allow_credentials=False)
+    # Order: the token check runs INSIDE CORS, so a 401 still carries the CORS headers and preflights never need the token.
+    app.add_middleware(AccessTokenMiddleware, token=settings.access_token_value())
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.api_cors_origins), allow_origin_regex=settings.api_cors_origin_regex,
+                       allow_methods=["GET", "POST"], allow_headers=["Content-Type", "Last-Event-ID", "Authorization"],
+                       allow_credentials=False)
+
+    @app.get("/health", include_in_schema=False)
+    def health_check():
+        status, body = health(state.db_path, state.mode)
+        return JSONResponse(body, status_code=status)
+
     app.include_router(router, prefix="/api")
     app.include_router(po_router, prefix="/api")
     app.include_router(review_router, prefix="/api")

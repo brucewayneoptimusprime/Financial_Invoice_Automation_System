@@ -3,15 +3,24 @@
 Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
 
 ## Current milestone and state
-- M0-M3 complete. M4 stages 1-4, PO integration 1-6, line-item consumption 1-4 and review actions 1-3 committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4), the review of the line-item build, and whether you want a demo loader for the line-choice path.
-- **Landing dashboard** (plan approved, all 8 decisions as recommended): **stages 1-2 of 3 done, plus the clickable-summaries follow-up. Stopped at stage 3: your manual browser check** (see "How to check the dashboard" below).
+- M0-M3 complete; M4, PO integration, line-item consumption, review actions and the dashboard (+ clickable summaries) committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4, dashboard stage 3), the review of the line-item build, and the demo-loader question.
+- **Deployment (Render + Vercel)** (plan approved, all 8 decisions as recommended; the deployed session ceiling is **$1.00**): **stage 1 of 3 done** (backend config).
+- Next: stage 2 (frontend: `VITE_API_BASE`, the access-token screen, `vercel.json`).
 - **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
 - No live calls.
 
 ## Test count and result
 - Frontend: **79 passed** (vitest; the follow-up added 7, dashboard stage 2 added 7, review actions 11); `tsc --noEmit` clean; `vite build` OK.
-- Backend: **2142 passed, 0 failed, 2 deselected** (`pytest -W error`); dashboard stage 1 added 11, the follow-up 2 (`tests/api/test_dashboard.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
+- Backend: **2162 passed, 0 failed, 2 deselected** (`pytest -W error`); deployment stage 1 added 20 (`tests/api/test_deploy.py`); no existing test changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
 - Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
+
+## What changed (deployment stage 1: backend config; local behaviour unchanged when nothing is set)
+- `DATA_DIR`: when set, the database, runs, uploads and PO drafts default to `DATA_DIR/app.db`, `/runs`, `/uploads`, `/po_drafts` (each still overridable). Unset: the same `<repo>\data\...` paths as before.
+- `SERVE_MODE` = live | replay (+ `REPLAY_DIR`) | offline: `python -m app.api.serve` uses it when no mode flag is given; a flag wins; neither still refuses (exit 5).
+- `API_CORS_ORIGINS` also accepts a comma-separated list; optional `API_CORS_ORIGIN_REGEX` (Vercel previews); `Authorization` is an allowed header. Unset: the two Vite dev origins, as before.
+- `GET /health` (public, outside `/api`): 200 `{status, db, schema_version, mode}` when the database opens read-only and is schema v2; 503 with a reason otherwise. No paths, keys or money. `/api/health` is unchanged.
+- `ACCESS_TOKEN` (`app/api/access.py`): when set, every `/api` request needs `Authorization: Bearer <token>` or `?access_token=` (for the event stream and page images); constant-time check; 401 carries CORS headers; preflights and `/health` pass. Unset: no check (the whole existing suite runs that way).
+- Tested: `serve` never creates or resets a database on its own (a missing one refuses and nothing is created; an existing one keeps its rows across a restart).
 
 ## How to check the dashboard (stage 3, yours)
 Window 1: `cd C:\Zamp_ai_Automation; .\.venv\Scripts\Activate.ps1; cd backend; python -m app.api.serve --replay ..\data\recordings --reset-demo`. Window 2: `cd C:\Zamp_ai_Automation\frontend; npm run dev`. Open http://localhost:5173.

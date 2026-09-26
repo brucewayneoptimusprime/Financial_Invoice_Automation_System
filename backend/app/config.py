@@ -3,13 +3,14 @@
 Model name, confidence threshold, tolerance defaults and the severity order live here, not in
 code paths. The Claude API key is only ever read from the ANTHROPIC_API_KEY environment variable.
 """
+import json
 from functools import lru_cache
 from pathlib import Path
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from app.enums import Decision
 
@@ -281,7 +282,14 @@ class Settings(BaseSettings):
     # API and live run view (M4). Local only: the server binds to localhost and allows the Vite dev origin.
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
-    api_cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    api_cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    api_cors_origin_regex: str | None = None                           # e.g. Vercel preview URLs; unset = no regex
+
+    # Deployment (all optional; unset = the local behaviour). See DEPLOY.md.
+    data_dir: Path | None = None             # parent of the database, runs, uploads and PO drafts unless each is set explicitly
+    serve_mode: Literal["live", "replay", "offline"] | None = None     # used by `serve` when no mode flag is given
+    replay_dir: Path | None = None           # for serve_mode = replay
+    access_token: SecretStr | None = None    # when set, every /api request needs it (Bearer header or ?access_token=)
     api_upload_dir: Path = ROOT_DIR / "data" / "uploads"              # temporary upload copies, removed after each run
     api_busy_timeout_ms: int = Field(default=5000, ge=0)
     sse_poll_ms: int = Field(default=250, ge=10)
@@ -316,6 +324,34 @@ class Settings(BaseSettings):
         if len(set(v.values())) != len(v):
             raise ValueError("decision severities must be unique (severity -> decision must be unambiguous)")
         return v
+
+    @field_validator("api_cors_origins", mode="before")
+    @classmethod
+    def _cors_list(cls, v):
+        """A JSON list, or a comma-separated string ("https://a.app,https://b.app")."""
+        if isinstance(v, str):
+            text = v.strip()
+            if text.startswith("["):
+                return json.loads(text)
+            return [o.strip().rstrip("/") for o in text.split(",") if o.strip()]
+        return v
+
+    @model_validator(mode="after")
+    def _paths_under_data_dir(self) -> "Settings":
+        """DATA_DIR puts every writable path on one volume (a Render disk), except those set explicitly."""
+        if self.data_dir is not None:
+            base = Path(self.data_dir)
+            for name, rel in (("db_path", "app.db"), ("runs_dir", "runs"), ("api_upload_dir", "uploads"), ("po_drafts_dir", "po_drafts")):
+                if name not in self.model_fields_set:
+                    object.__setattr__(self, name, base / rel)
+        return self
+
+    def access_token_value(self) -> str | None:
+        """The access token, or None if unset/blank. Never log the result."""
+        if self.access_token is None:
+            return None
+        value = self.access_token.get_secret_value().strip()
+        return value or None
 
     def api_key_value(self) -> str | None:
         """The API key, or None if unset/blank. The only place the secret is unwrapped; never log the result."""

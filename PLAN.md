@@ -1265,7 +1265,7 @@ Built in `app/api/dashboard.py` from existing functions; the only new SQL is pla
 
 ---
 
-# Deployment plan: Render (backend) + Vercel (frontend) (2026-09-26, awaiting owner approval; no code for it exists)
+# Deployment plan: Render (backend) + Vercel (frontend) (2026-09-26; all 8 decisions approved as recommended, deployed session ceiling $1.00; build stages 1-3)
 
 **Goal.** Deployable configuration only. No business logic, test expectations or local workflow change: every local command in STATUS.md keeps working exactly as today, because every new setting defaults to today's value when its environment variable is unset.
 

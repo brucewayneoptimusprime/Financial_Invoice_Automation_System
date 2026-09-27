@@ -4,7 +4,7 @@
 
 Watch a full walkthrough of the application below:
 
-**▶ [https://www.youtube.com/watch?v=sU14-t2UchY](https://www.youtube.com/watch?v=sU14-t2UchY)**
+[![Watch the demo](https://img.youtube.com/vi/sU14-t2UchY/maxresdefault.jpg)](https://www.youtube.com/watch?v=sU14-t2UchY)
 
 *The video is unlisted on YouTube: anyone with the link can watch it.*
 

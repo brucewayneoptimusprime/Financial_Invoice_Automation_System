@@ -1,8 +1,17 @@
 # Invoice Agent
 
+## Demo Video
+
+Watch a full walkthrough of the application below:
+
+**▶ [https://www.youtube.com/watch?v=sU14-t2UchY](https://www.youtube.com/watch?v=sU14-t2UchY)**
+
+*The video is unlisted on YouTube: anyone with the link can watch it.*
+
+---
+
 **An automated invoice-processing agent: drop in one vendor invoice, get back a reasoned decision with every step visible.**
 
-<!-- TODO: add demo video link here -->
 <!-- TODO: add live deployment URL here (Vercel frontend / Render backend, see DEPLOY.md) -->
 
 ---
@@ -34,6 +43,7 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 
 ## Table of contents
 
+- [Demo Video](#demo-video)
 - [Architecture](#architecture)
 - [The pipeline, stage by stage](#the-pipeline-stage-by-stage)
   - [1. Ingest](#1-ingest)

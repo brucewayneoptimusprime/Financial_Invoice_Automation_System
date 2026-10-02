@@ -3,7 +3,7 @@ from contextlib import closing
 from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -15,6 +15,8 @@ from app.ingest.store import check_run_id
 from app.po import drafts as po_drafts
 from app.po import views as po_views
 from app.po.drafter import POModelDraft, draft_po
+from app.po.export.model import ExportError
+from app.po.export.service import export_detail, export_summary
 from app.po.models import SaveRequest, ValidateRequest
 from app.po.prompts import document_parts, typed_text_parts
 from app.po.readers import PODocRejected, read_po_document
@@ -46,6 +48,34 @@ def list_pos(request: Request, q: str | None = Query(None, max_length=100), stat
     st = _state(request)
     with closing(open_db(st.db_path, st.settings)) as conn:
         return {"pos": po_views.po_list(conn, q=q or None, status=status or None, currency=currency or None)}
+
+
+# Export (EXPORT_PLAN; SPEC section 11 item 90). Read-only GETs behind ACCESS_TOKEN; the frontend fetches the file with the token and
+# saves it. /pos/export must be registered before /pos/{po_id}.
+@router.get("/pos/export")
+def export_pos(request: Request, format: str = Query(..., max_length=10), q: str | None = Query(None, max_length=100),
+               status: str | None = Query(None, max_length=20), currency: str | None = Query(None, max_length=10),
+               ids: str | None = Query(None, max_length=20000)):
+    """The summary table (the list screen's rows, or only the ticked ids) as PDF, Word, Excel or CSV."""
+    st = _state(request)
+    try:
+        with closing(open_db(st.db_path, st.settings)) as conn:
+            body, media, headers = export_summary(conn, fmt=format, q=q or None, status=status or None, currency=currency or None, ids=ids)
+    except ExportError as exc:
+        return _error(exc.status, exc.code, exc.message)
+    return Response(content=body, media_type=media, headers=headers)
+
+
+@router.get("/pos/{po_id}/export")
+def export_po(request: Request, po_id: int, format: str = Query(..., max_length=10), level: str = Query("financial", max_length=10)):
+    """One purchase order, Financial or Full (with metadata), as PDF, Word, Excel or CSV."""
+    st = _state(request)
+    try:
+        with closing(open_db(st.db_path, st.settings)) as conn:
+            body, media, headers = export_detail(conn, po_id, fmt=format, level=level)
+    except ExportError as exc:
+        return _error(exc.status, exc.code, exc.message)
+    return Response(content=body, media_type=media, headers=headers)
 
 
 @router.get("/pos/{po_id}")

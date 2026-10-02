@@ -396,6 +396,23 @@ The UI is graded. Keep it clean, intentional and easy to demo.
    - **Strictly advisory:** labels never touch the session's candidate set, the order, eligibility, what can be ticked or imported, or the database. A test runs two identical apps, one with labels and one without, and compares the search results, the importable set, the import outcomes and the run decisions: all identical.
    - **Response:** `{labels: [{message_id, part_id, label, reason, source: model|rule}], sent, skipped, fallback, cached, cost: {labels_usd, tokens_in, tokens_out}}`.
 
+*Assumptions added during PO export (branch `feature/po-export`; owner-approved EXPORT_PLAN, decisions 1-9):*
+
+90. **Export purchase orders (owner-approved EXPORT_PLAN).** The UI says "Export" with a download icon, never "Share": nothing is sent.
+   - **Routes:** two read-only GETs behind `ACCESS_TOKEN`:
+     - `GET /api/pos/export?format=pdf|docx|xlsx|csv[&q=&status=&currency=][&ids=]` (the summary, i.e. the list screen's rows, or only the ticked ids, at most 1,000; decision 4);
+     - `GET /api/pos/{id}/export?format=…&level=financial|full` (one PO).
+   - **Same data as the screen:** files are built on the backend from the screens' own read models (`po_list`, `po_detail`) through one neutral document model, so every exported number equals the displayed one. Money is exact `Decimal` from integer cents, never floats. No model, no cost, no database write.
+   - **Summary:** PO number, vendor, currency (decision 1: never a cross-currency total), total, balance, status, invoices, entered (the list's wording). A scope line says "All purchase orders", "Filter: …" or "Ticked: N of M shown".
+   - **Financial:** PO, totals, invoices matched, lines, ledger. **Full** adds "How the commits are allocated" and "Where this PO came from" (the typed text capped at 4,000 characters; decision 6). "Also considered in" is left out (decision 5).
+   - **Per format:**
+     - CSV: UTF-8 with BOM, CRLF, a `Label,Value` header block (decision 2), then the table (summary) or stacked `[Section]` blocks (detail).
+     - Excel: one sheet (summary), or "About" plus one sheet per section (detail); money as numbers with `#,##0.00`.
+     - Word and PDF: A4 landscape, a heading per section, tables with repeated headers. The PDF uses Helvetica, and characters it cannot draw become "?" with a footer note (decision 3).
+   - **Formula injection:** a user-derived text cell starting with `= + - @`, a tab or a carriage return gets a leading `'` in CSV and Excel, and Excel text is never stored as a formula. Money and quantities stay numbers, so a reversal is `-1500.00`.
+   - **File names** are limited to `[A-Za-z0-9._-]`, at most 80 characters, with an RFC 5987 `filename*`. Responses are `Content-Disposition: attachment`, `Cache-Control: no-store`.
+   - **Dependencies:** reportlab moved from the dev extra to the main dependencies; python-docx added (it pulls in lxml; decision 7).
+
 ## 12. Milestones (ordered by dependency, not by date)
 
 Each milestone must be runnable and verified before the next begins.

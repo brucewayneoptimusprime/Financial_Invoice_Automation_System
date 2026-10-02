@@ -1,6 +1,14 @@
 # STATUS
 
-Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
+Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
+
+# PO export (branch `feature/po-export`; `master` and `feature/gmail-integration` untouched)
+
+- Plan `EXPORT_PLAN.md` approved 2026-10-02 (open questions 1-9 as recommended; PDF: Helvetica, undrawable characters become "?" with a footer note). Building E1-E4 without stopping; stop after E4.
+- **E1: the model, CSV, Excel, the routes.** `app/po/export/` (`model.py`: one neutral document model from `po_list` / `po_detail` with exact Decimal values; `safety.py`: formula-injection escaping, file names, caps; `csv_render.py`; `xlsx_render.py`; `service.py`: the format registry). `GET /api/pos/export?format=&q=&status=&currency=&ids=` and `GET /api/pos/{id}/export?format=&level=financial|full` (behind ACCESS_TOKEN; `Content-Disposition: attachment`, `Cache-Control: no-store`). reportlab moved to the main dependencies, python-docx added (pip also installed lxml, which python-docx requires). 30 tests: numbers equal the screens' JSON, scope and filters, ticked ids, caps, injection, file names, access gate, no writes, empty and long POs.
+- Done: E1. Tests now: backend **2453 passed**, 0 failed, 4 deselected (`pytest -W error`); frontend **122 passed**.
+
+---
 
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 

@@ -13,6 +13,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.db.init_db import SCHEMA_VERSION
 
 PROTECTED_PREFIX = "/api"
+# The ONE exemption under /api (owner decision 1 of the Gmail plan): Google's OAuth redirect is a plain browser GET that cannot carry
+# the token. It is protected by single-use server-side state, PKCE and an HttpOnly binding cookie instead (app/gmail/oauth.py).
+EXEMPT_PATHS = frozenset({"/api/gmail/oauth/callback"})
 
 
 class AccessTokenMiddleware:
@@ -24,7 +27,7 @@ class AccessTokenMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (self.token is None or scope["type"] != "http" or scope.get("method") == "OPTIONS"
-                or not scope.get("path", "").startswith(PROTECTED_PREFIX)):
+                or not scope.get("path", "").startswith(PROTECTED_PREFIX) or scope.get("path") in EXEMPT_PATHS):
             await self.app(scope, receive, send)
             return
         supplied = None

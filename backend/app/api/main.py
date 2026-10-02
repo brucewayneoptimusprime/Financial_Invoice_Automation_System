@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from app.api.clients import Mode
 from app.api.worker import RunWorker
 from app.config import Settings
 from app.gmail.client import GmailClient
+from app.gmail.oauth import install_log_redaction
 from app.gmail.service import GmailService
 from app.llm.budget import CostTracker
 from app.llm.types import LLMClient
@@ -29,7 +31,8 @@ class ApiState:
 
 
 def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Path | None = None, tracker: CostTracker | None = None,
-               replay_dir: Path | None = None, worker: RunWorker | None = None, gmail_client: GmailClient | None = None) -> FastAPI:
+               replay_dir: Path | None = None, worker: RunWorker | None = None, gmail_client: GmailClient | None = None,
+               gmail_http: httpx.Client | None = None) -> FastAPI:
     from app.api.routes import router          # imported here so the routes can import ApiState without a cycle
     from app.api.routes_po import router as po_router
     from app.api.routes_gmail import router as gmail_router
@@ -38,15 +41,17 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     db_path = Path(db_path or settings.db_path)
     state = ApiState(settings=settings, mode=mode, db_path=db_path, tracker=tracker, replay_dir=replay_dir,
                      worker=worker or RunWorker(db_path, client, settings),
-                     gmail=GmailService(settings, db_path, client=gmail_client, tracker=tracker))
+                     gmail=GmailService(settings, db_path, client=gmail_client, tracker=tracker, http=gmail_http))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        install_log_redaction()                  # the OAuth callback's code and state never reach the access log
         state.worker.start()
         try:
             yield
         finally:
             state.worker.stop()
+            state.gmail.close()
 
     app = FastAPI(title="Invoice agent", version="0.4.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json",
                   redoc_url=None)

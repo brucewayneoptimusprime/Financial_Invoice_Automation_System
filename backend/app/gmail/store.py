@@ -53,3 +53,27 @@ def record_import(conn: sqlite3.Connection, *, account_email: str, message_id: s
                      "sender, message_date, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                      (account_email, message_id, attachment_sha256, part_id, filename, mime_type, size_bytes, sender, message_date,
                       run_id))
+
+
+def load_credential(conn: sqlite3.Connection, provider: str = OAuthProvider.GOOGLE.value) -> dict | None:
+    """The connected account WITH its encrypted token (for the service to decrypt in memory; never returned by an endpoint)."""
+    row = conn.execute("SELECT id, account_email, scopes, refresh_token_enc, key_fingerprint, created_at, updated_at "
+                       "FROM oauth_credentials WHERE provider = ? ORDER BY updated_at DESC, id DESC LIMIT 1", (provider,)).fetchone()
+    return None if row is None else dict(row)
+
+
+def save_credential(conn: sqlite3.Connection, *, account_email: str, scopes: str, refresh_token_enc: bytes, key_fingerprint: str,
+                    provider: str = OAuthProvider.GOOGLE.value) -> None:
+    """The one connected account (v1): any other account of the provider is removed, this one inserted or replaced."""
+    with conn:
+        conn.execute("DELETE FROM oauth_credentials WHERE provider = ? AND account_email != ?", (provider, account_email))
+        conn.execute("INSERT INTO oauth_credentials (provider, account_email, scopes, refresh_token_enc, key_fingerprint) "
+                     "VALUES (?, ?, ?, ?, ?) ON CONFLICT (provider, account_email) DO UPDATE SET scopes = excluded.scopes, "
+                     "refresh_token_enc = excluded.refresh_token_enc, key_fingerprint = excluded.key_fingerprint, "
+                     "updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
+                     (provider, account_email, scopes, refresh_token_enc, key_fingerprint))
+
+
+def delete_credentials(conn: sqlite3.Connection, provider: str = OAuthProvider.GOOGLE.value) -> int:
+    with conn:
+        return conn.execute("DELETE FROM oauth_credentials WHERE provider = ?", (provider,)).rowcount

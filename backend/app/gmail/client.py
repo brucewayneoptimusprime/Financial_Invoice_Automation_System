@@ -4,7 +4,7 @@ There is deliberately no send, draft, modify, trash or label method: the scope i
 anything else. A message is returned in the shape of the Gmail API's users.messages.get (format=full) JSON, so the fake and the real
 client feed exactly the same parsing code (`attachments.walk_parts`, `service`). Body data, if present, is never read.
 
-Implementations: `fake.FakeGmailClient` (fixtures; the whole test suite) and, in a later stage, the real client over HTTPS.
+Implementations: `fake.FakeGmailClient` (fixtures; the whole test suite) and `google_client.GoogleGmailClient` (HTTPS, GET only).
 """
 from typing import Any, Protocol
 

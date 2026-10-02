@@ -59,5 +59,5 @@ def pytest_collection_modifyitems(config, items):
         return
     skip = pytest.mark.skip(reason="live test: ANTHROPIC_API_KEY is not set")
     for item in items:
-        if "live" in item.keywords:
+        if "live" in item.keywords and "tests/gmail/" not in item.nodeid.replace("\\", "/"):   # the Gmail live test skips itself
             item.add_marker(skip)

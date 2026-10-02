@@ -10,6 +10,8 @@ treated as data; a deterministic scan flags sender / subject / snippet / filenam
 import hashlib
 import logging
 import sqlite3
+
+import httpx
 import threading
 import time
 import uuid
@@ -32,6 +34,9 @@ from app.gmail.client import GmailClient, RawMessage
 from app.gmail.errors import GmailError
 from app.gmail.fake import FakeGmailClient
 from app.gmail.models import AttachmentInfo, MessageSummary, SearchResult, clean_text
+from app.gmail.crypto import GmailCryptoError, TokenCipher
+from app.gmail.google_client import GoogleGmailClient
+from app.gmail.oauth import OAuthFailed, OAuthFlows
 from app.gmail.query import check_and_finalize
 from app.llm.budget import CostTracker
 
@@ -70,9 +75,14 @@ def _iso_from_ms(value) -> str | None:
 
 class GmailService:
     def __init__(self, settings: Settings, db_path: Path, *, client: GmailClient | None = None, tracker: CostTracker | None = None,
-                 clock: Callable[[], float] = time.monotonic, today: Callable[[], date] | None = None):
+                 http: httpx.Client | None = None, clock: Callable[[], float] = time.monotonic, today: Callable[[], date] | None = None):
         self.settings, self.db_path, self.tracker = settings, Path(db_path), tracker
         self._client_override = client
+        self._http, self._owns_http = http, http is None
+        self._oauth: OAuthFlows | None = None
+        self._google: GoogleGmailClient | None = None
+        self._google_key: tuple | None = None
+        self._google_account: str | None = None
         self._fake: FakeGmailClient | None = None
         self._clock = clock
         self._today = today or (lambda: datetime.now(timezone.utc).date())
@@ -99,17 +109,108 @@ class GmailService:
             if self._fake is None:
                 self._fake = FakeGmailClient(self.settings.gmail_fake_inbox)
             return self._fake
-        raise GmailError("not_connected", "No Gmail account is connected.")         # the real client arrives with the OAuth stage
+        return self._google_client()
+
+    # ------------------------------------------------------------------ the real backend: HTTP, OAuth, the stored credential
+    @property
+    def http(self) -> httpx.Client:
+        if self._http is None:
+            self._http = httpx.Client(timeout=self.settings.gmail_http_timeout_s)
+        return self._http
+
+    @property
+    def oauth(self) -> OAuthFlows:
+        if self._oauth is None:
+            self._oauth = OAuthFlows(self.settings, self.http, clock=self._clock)
+        return self._oauth
+
+    def close(self) -> None:
+        if self._owns_http and self._http is not None:
+            self._http.close()
+            self._http = None
+
+    def _forget(self) -> None:
+        self._google = self._google_key = self._google_account = None
+
+    def _drop_credential(self) -> None:
+        """Google no longer accepts the stored refresh token (expired or revoked): delete it, so the UI asks to connect again."""
+        with closing(self._db()) as conn:
+            store.delete_credentials(conn)
+        self._forget()
+
+    def _refresh_token(self, cred: dict) -> str:
+        try:
+            return TokenCipher.from_settings(self.settings).decrypt(cred["refresh_token_enc"], cred["key_fingerprint"])
+        except GmailCryptoError as exc:
+            raise GmailError("reconnect", exc.message) from None
+
+    def _google_client(self) -> GoogleGmailClient:
+        with closing(self._db()) as conn:
+            cred = store.load_credential(conn)
+        if cred is None:
+            self._forget()
+            raise GmailError("not_connected", "No Gmail account is connected.")
+        key = (cred["account_email"], cred["updated_at"], cred["key_fingerprint"])
+        if self._google is None or self._google_key != key:
+            self._google = GoogleGmailClient(self.http, self.oauth, self._refresh_token(cred), on_reconnect=self._drop_credential,
+                                             clock=self._clock)
+            self._google_key, self._google_account = key, cred["account_email"]
+        return self._google
 
     def account(self, client: GmailClient) -> str:
+        if client is self._google and self._google_account:
+            return self._google_account                                   # the stored account: no profile call per search
         return client.profile()
+
+    def start_connect(self) -> tuple[str, str]:
+        """(Google's authorization URL, the binding cookie value). Only for the real backend."""
+        if self.backend != "google":
+            raise GmailError("not_set_up", "Connecting an account needs the real Gmail backend (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, "
+                                           "OAUTH_ENCRYPTION_KEY).")
+        return self.oauth.start()
+
+    def finish_connect(self, *, code: str | None, state: str | None, error: str | None, binding: str | None) -> str:
+        """The OAuth callback: validate, exchange, read the account, store the refresh token encrypted. Raises OAuthFailed."""
+        if self.backend != "google":
+            raise GmailError("not_set_up", "Gmail import is not set up.")
+        tokens = self.oauth.finish(code=code, state=state, error=error, binding=binding)
+        cipher = TokenCipher.from_settings(self.settings)
+        client = GoogleGmailClient(self.http, self.oauth, tokens.refresh_token, access_token=tokens.access_token,
+                                   expires_in=tokens.expires_in, clock=self._clock)
+        try:
+            account = client.profile()
+        except GmailError:
+            account = ""
+        if not account:
+            self.oauth.revoke(tokens.refresh_token)
+            raise OAuthFailed("exchange_failed")
+        with closing(self._db()) as conn:
+            store.save_credential(conn, account_email=account, scopes=" ".join(tokens.scopes),
+                                  refresh_token_enc=cipher.encrypt(tokens.refresh_token), key_fingerprint=cipher.fingerprint)
+        self._forget()
+        return account
+
+    def disconnect(self) -> dict:
+        """Revoke at Google (best effort), then delete the stored credential whatever Google answered."""
+        with closing(self._db()) as conn:
+            cred = store.load_credential(conn)
+        revoked = False
+        if cred is not None:
+            try:
+                revoked = self.oauth.revoke(self._refresh_token(cred))
+            except GmailError:
+                revoked = False                                           # the token cannot be read with this key: nothing to revoke
+            with closing(self._db()) as conn:
+                store.delete_credentials(conn)
+        self._forget()
+        return {"disconnected": cred is not None, "revoked": revoked}
 
     # ------------------------------------------------------------------ status
     def status(self) -> dict:
         s, backend = self.settings, self.backend
         out = {"backend": backend, "available": backend != "disabled", "fake": backend == "fake",
                "missing": s.gmail_missing() if backend == "disabled" and s.gmail_backend != "disabled" else [],
-               "connected": False, "account_email": None, "connected_at": None, "translator_available": False,
+               "connected": False, "account_email": None, "connected_at": None, "reconnect": False, "translator_available": False,
                "caps": {"max_results": s.gmail_max_results, "max_import": s.gmail_max_import_per_action,
                         "query_max_chars": s.gmail_query_max_chars, "request_max_chars": s.gmail_request_max_chars,
                         "default_window_days": s.gmail_default_window_days},
@@ -124,9 +225,13 @@ class GmailService:
                 pass
             return out
         with closing(self._db()) as conn:
-            meta = store.credential_meta(conn)
-        if meta is not None:
-            out.update(connected=True, account_email=meta["account_email"], connected_at=meta["created_at"])
+            cred = store.load_credential(conn)
+        if cred is not None:
+            try:
+                self._refresh_token(cred)                                 # readable with the current key?
+                out.update(connected=True, account_email=cred["account_email"], connected_at=cred["created_at"])
+            except GmailError:
+                out.update(reconnect=True)
         return out
 
     # ------------------------------------------------------------------ search

@@ -10,6 +10,7 @@
   "connected": false,
   "account_email": null,
   "connected_at": null,
+  "reconnect": false,
   "translator_available": false,
   "caps": {
     "max_results": 25,

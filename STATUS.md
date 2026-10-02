@@ -6,12 +6,51 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current state
 - Plan approved 2026-10-02 with changes (decision 3 declined; stage order 1, 2, 3, 5, 6, 4, 7). Stages 1-3 approved, deviations 2 and 3 approved; the rejected-after-import dedupe row is a recorded known limitation (SPEC item 86, README).
-- **Stage 5 done:** the Gmail panel on `/invoices`, against the fake inbox (this commit). Next: stage 6 (real OAuth + GoogleGmailClient, all HTTP through MockTransport). Stages 4 and 7 are not to be started.
-- No live calls. No Google call. Nothing pushed.
+- **Stage 5 done** (`a3ca853`): the Gmail panel. **Stage 6 done** (this commit): real OAuth + `GoogleGmailClient`, all HTTP through MockTransport in the tests. **Stopped here as asked:** stage 4 (translator) and stage 7 (live check) are not started.
+- No live call was made: no Google, no Anthropic. Nothing pushed.
 
-## Test count and result (stage 5)
-- Backend: **2343 passed, 0 failed, 2 deselected** (`pytest -W error`; stage 3: 2341; stage 5 added 2 in `tests/gmail/test_stage5_backend.py`). No existing assertion changed.
-- Frontend: **101 passed** (vitest; was 85; 16 new in `src/test/gmail.test.tsx`); `tsc --noEmit` clean; `vite build` OK. No existing frontend test changed.
+## Test count and result (stage 6)
+- Backend: **2374 passed, 0 failed, 3 deselected** (`pytest -W error`).
+  - Stage 5: 2343. Stage 6 added 31 in `tests/gmail/test_stage6_oauth.py`.
+  - The 3 deselected are the two existing live tests plus the new Gmail live test (`python -m pytest -m live -k gmail`).
+  - No existing assertion changed. `conftest.py`: the "skip live tests without an Anthropic key" rule now leaves the Gmail live test alone (it skips itself).
+- Frontend: **101 passed**; `tsc --noEmit` clean; `vite build` OK.
+  - The `gmail_status_*.json` fixtures were regenerated: status gained `reconnect`, caught by the shape-drift test. Other fixture diffs are regenerated ids.
+
+## What changed (Gmail stage 6: real OAuth and the Gmail client)
+- `app/gmail/oauth.py` (`OAuthFlows`): start (state, PKCE S256, binding cookie), finish (state consumed first, then expiry, binding, error, code; the exact-scope check; the refresh-token check; revoke on refusal), refresh, revoke. Plus `RedactCallbackQuery` / `install_log_redaction` for the access log.
+- `app/gmail/google_client.py` (`GoogleGmailClient`): GET-only Gmail REST over `httpx`, the in-memory access token with renewal and one 401 retry, attachments looked up again by part id, inline attachment data, plain error codes.
+- `app/gmail/service.py`:
+  - builds the real client from the stored, decrypted credential (cached per account / key);
+  - `start_connect`, `finish_connect`, `disconnect`;
+  - status says `reconnect` when the stored token cannot be used;
+  - `invalid_grant` deletes the credential.
+- `app/gmail/store.py`: `load_credential`, `save_credential` (one account; upsert), `delete_credentials`.
+- Routes: `POST /api/gmail/oauth/start`, `GET /api/gmail/oauth/callback` (303 only), `POST /api/gmail/disconnect`.
+- `app/api/access.py`: `EXEMPT_PATHS = {"/api/gmail/oauth/callback"}`, exact path (`/api/gmail/oauth/callbackX` is still gated; tested).
+- `app/api/main.py`: `create_app(gmail_http=)`; the lifespan installs the log redaction and closes the Gmail HTTP client.
+- **Found and fixed while testing:** uvicorn's access log would have printed the callback URL with the authorization `code` and `state`. The new filter redacts it. Checked with a real `serve` process: the log line reads `GET /api/gmail/oauth/callback?<redacted>`.
+- Tests (`tests/gmail/google_fake.py` + `test_stage6_oauth.py`) run against a fake Google behind `httpx.MockTransport`:
+  - the authorization URL;
+  - the cookie attributes;
+  - every bad-callback case with zero token requests;
+  - a broader scope, a missing refresh token or a failed exchange is refused (and revoked where a token existed);
+  - the refresh token is not in the database file in clear;
+  - GET-only Gmail requests to `users/me`;
+  - token renewal and the 401 retry;
+  - `invalid_grant` leads to reconnect and the credential is deleted;
+  - error mapping without Google's body;
+  - a stored token from another key leads to reconnect;
+  - disconnect, with or without a successful revoke;
+  - a second account replaces the first;
+  - no token, code or secret in the app's logs or any response.
+
+## How you connect the real test inbox
+See `GMAIL_STAGE_REPORT_2.md`, section 6 (exact steps). In short:
+1. Run `pip install -e ".[dev]"`, then `python -m app.db.migrate` from `backend\`.
+2. Run `python -m app.gmail.keygen --append-env`.
+3. Start `serve --replay ..\data\recordings` and `npm run dev`.
+4. Open **http://localhost:5173/invoices** and click Connect Gmail.
 
 ## What changed (Gmail stage 5: the panel)
 - `components/GmailImport.tsx` on the Upload screen above the drop zone, in these states:

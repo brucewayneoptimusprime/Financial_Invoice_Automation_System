@@ -1,10 +1,10 @@
 {
   "run": {
-    "id": "5bc51d9916ce40c380d942275faa1941",
+    "id": "0372566560504c03aa95df4d3f59c89b",
     "source_file": "invoice_Bill Eplett_14021.pdf",
     "status": "completed",
-    "started_at": "2026-10-02T03:01:31Z",
-    "finished_at": "2026-10-02T03:01:31Z",
+    "started_at": "2026-10-02T03:15:17Z",
+    "finished_at": "2026-10-02T03:15:17Z",
     "final_decision": "review",
     "tokens_in": 6800,
     "tokens_out": 920,
@@ -30,7 +30,7 @@
     {
       "stage": "extract",
       "status": "ok",
-      "duration_ms": 22,
+      "duration_ms": 16,
       "summary": {
         "adjustments": 1,
         "attempts": 1,
@@ -167,7 +167,7 @@
     "status": "in_review",
     "source_file": "invoice_Bill Eplett_14021.pdf",
     "file_hash": "df9dd5d1de70a56b0c83d2ecec3b5bf83a3d7210787c22620f77117c9ad6e073",
-    "created_at": "2026-10-02T03:01:31Z",
+    "created_at": "2026-10-02T03:15:17Z",
     "subtotal": "9466.50",
     "tax": null,
     "total": "9671.51"

@@ -6,6 +6,7 @@
   "connected": true,
   "account_email": "fake-inbox@example.test",
   "connected_at": null,
+  "reconnect": false,
   "translator_available": false,
   "caps": {
     "max_results": 25,

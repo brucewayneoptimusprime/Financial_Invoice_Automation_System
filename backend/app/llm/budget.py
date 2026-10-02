@@ -42,6 +42,11 @@ class CostTracker:
         with self._lock:
             return self._session_spent
 
+    def remaining(self) -> Decimal:
+        """What the session ceiling still allows: ceiling minus spent minus in-flight reservations (never negative)."""
+        with self._lock:
+            return max(Decimal(0), self.per_session_ceiling - self._session_spent - self._session_reserved)
+
     # ---- protocol
     def reserve(self, run_id: str | None, projected: Decimal) -> Reservation:
         key = run_id or _UNATTRIBUTED

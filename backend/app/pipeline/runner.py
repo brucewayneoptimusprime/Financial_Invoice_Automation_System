@@ -101,11 +101,12 @@ def _elapsed_ms(started: float) -> int:
 def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | None = None, settings: Settings | None = None,
                  explain_fn: ExplainFn = explain, draft_fn: DraftFn = draft_for,
                  on_stage: Callable[[str, StageResult | None], None] | None = None, run_id: str | None = None,
-                 source_name: str | None = None) -> PipelineResult:
+                 source_name: str | None = None, provenance: dict | None = None) -> PipelineResult:
     """Run one file. Raises IngestRejected / ValueError only for a file that is not accepted at all (no run is created).
 
     `run_id` lets a caller (the API) choose the id before the run starts; `source_name` is the name to record when `path` is a
-    temporary upload copy. Every stage is bracketed by `stage_started` (committed before the stage runs) and `stage_completed`
+    temporary upload copy. `provenance` (Gmail import) is recorded as one `source_gmail` event next to `run_started`; it is never
+    read by any stage, the digest, the explainer or the drafter. Every stage is bracketed by `stage_started` (committed before the stage runs) and `stage_completed`
     (duration and a whitelisted summary) events; ingest's pair is written after it, since no run exists until ingest accepts the file.
     """
     settings = settings or get_settings()
@@ -139,10 +140,14 @@ def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | No
         notify(name, stage)
 
     try:
-        persist_stage("ingest", ingest, ingest_ms, summarize_ingest(ctx),
-                      _event(PIPELINE_STAGE, "run_started", Outcome.INFO, f"Run started for {ctx.source_file}.",
-                             {"source_file": ctx.source_file, "file_hash": ctx.file_hash}),
-                      started_event("ingest"))
+        source_events = [_event(PIPELINE_STAGE, "run_started", Outcome.INFO, f"Run started for {ctx.source_file}.",
+                                {"source_file": ctx.source_file, "file_hash": ctx.file_hash,
+                                 "source": "upload" if provenance is None else "gmail"})]
+        if provenance is not None:
+            source_events.append(_event(PIPELINE_STAGE, "source_gmail", Outcome.INFO,
+                                        f"Imported from Gmail: {provenance.get('filename')} (email from {provenance.get('sender')}, "
+                                        f"{provenance.get('message_date')}).", dict(provenance)))
+        persist_stage("ingest", ingest, ingest_ms, summarize_ingest(ctx), *source_events, started_event("ingest"))
         t = begin("extract")
         extract = run_extract_stage(ctx, client, settings)
         persist_stage("extract", extract, _elapsed_ms(t), summarize_extract(ctx))

@@ -19,6 +19,21 @@ def _gmail_error(exc: GmailError) -> JSONResponse:
     return JSONResponse(exc.body(), status_code=exc.status)
 
 
+class ImportItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message_id: str
+    part_id: str
+
+
+class ImportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    search_id: str
+    items: list[ImportItem]
+    confirm: bool = False
+
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -37,3 +52,15 @@ async def search(request: Request, body: SearchRequest):
     except GmailError as exc:
         return _gmail_error(exc)
     return result.model_dump()
+
+
+@router.post("/import")
+async def import_attachments(request: Request, body: ImportRequest):
+    """Only the picked attachments of one recent search; each one becomes an ordinary run in the upload queue."""
+    st = _state(request)
+    try:
+        outcomes = await run_in_threadpool(st.gmail.import_items, body.search_id, [(i.message_id, i.part_id) for i in body.items],
+                                           confirm=body.confirm, submit=st.worker.submit)
+    except GmailError as exc:
+        return _gmail_error(exc)
+    return {"items": outcomes, "queued": sum(o["status"] == "queued" for o in outcomes)}

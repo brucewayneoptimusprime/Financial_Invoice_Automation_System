@@ -38,7 +38,7 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     db_path = Path(db_path or settings.db_path)
     state = ApiState(settings=settings, mode=mode, db_path=db_path, tracker=tracker, replay_dir=replay_dir,
                      worker=worker or RunWorker(db_path, client, settings),
-                     gmail=GmailService(settings, db_path, client=gmail_client))
+                     gmail=GmailService(settings, db_path, client=gmail_client, tracker=tracker))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

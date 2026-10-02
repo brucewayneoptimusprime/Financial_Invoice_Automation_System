@@ -23,3 +23,33 @@ def imported_parts(conn: sqlite3.Connection, account_email: str, message_ids: li
     rows = conn.execute(f"SELECT message_id, part_id, size_bytes, run_id FROM gmail_imports WHERE account_email = ? "
                         f"AND message_id IN ({marks}) ORDER BY id", (account_email, *message_ids)).fetchall()
     return {(r["message_id"], r["part_id"], r["size_bytes"]): r["run_id"] for r in rows}
+
+
+def import_run(conn: sqlite3.Connection, account_email: str, message_id: str, attachment_sha256: str) -> str | None:
+    """The run of an earlier import of exactly this file from exactly this email (the dedupe key)."""
+    row = conn.execute("SELECT run_id FROM gmail_imports WHERE account_email = ? AND message_id = ? AND attachment_sha256 = ?",
+                       (account_email, message_id, attachment_sha256)).fetchone()
+    return None if row is None else row["run_id"]
+
+
+def processed_run(conn: sqlite3.Connection, account_email: str, attachment_sha256: str) -> str | None:
+    """The run that already has this exact file through another path: imported from another email of this account, or saved as
+    an invoice by any run (upload or import). None when the file is new."""
+    row = conn.execute("SELECT run_id FROM gmail_imports WHERE account_email = ? AND attachment_sha256 = ? ORDER BY id LIMIT 1",
+                       (account_email, attachment_sha256)).fetchone()
+    if row is not None:
+        return row["run_id"]
+    row = conn.execute("SELECT run_id FROM invoices WHERE file_hash = ? AND run_id IS NOT NULL ORDER BY id LIMIT 1",
+                       (attachment_sha256,)).fetchone()
+    return None if row is None else row["run_id"]
+
+
+def record_import(conn: sqlite3.Connection, *, account_email: str, message_id: str, attachment_sha256: str, part_id: str,
+                  filename: str | None, mime_type: str, size_bytes: int, sender: str | None, message_date: str | None,
+                  run_id: str) -> None:
+    """One provenance row. Raises sqlite3.IntegrityError when the same (account, email, file) is already recorded."""
+    with conn:
+        conn.execute("INSERT INTO gmail_imports (account_email, message_id, attachment_sha256, part_id, filename, mime_type, size_bytes, "
+                     "sender, message_date, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     (account_email, message_id, attachment_sha256, part_id, filename, mime_type, size_bytes, sender, message_date,
+                      run_id))

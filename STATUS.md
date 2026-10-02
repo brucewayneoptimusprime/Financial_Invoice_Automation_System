@@ -5,15 +5,46 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 
 ## Current state
-- Plan approved 2026-10-02 with changes: decision 3 (LLM ranker) declined; stage order 1, 2, 3, 5, 6, 4, 7; you asked for stages 1-3, then stop.
-- **Stage 1 done:** schema v3 + migration, token cipher, key generator, Gmail settings, the callback-address check.
-- **Stage 2 done:** fake Gmail client + search (allowlist, eligibility, preview list, search sessions), with no model and no OAuth.
-- Next: stage 3 (import into the unchanged pipeline).
+- Plan approved 2026-10-02 with changes: decision 3 (LLM ranker) declined; stage order 1, 2, 3, 5, 6, 4, 7.
+- **Stages 1, 2 and 3 done, as you asked; stopped here.** Stage 5 (the UI panel) is next and has NOT been started.
+  - Stage 1: schema v3 + migration, token cipher, key generator, Gmail settings, the callback-address check.
+  - Stage 2: fake Gmail client + search (allowlist, eligibility, preview list, search sessions).
+  - Stage 3: import into the unchanged pipeline, with dedupe, caps, budget pre-check and provenance.
 - No live calls. No Google call (the real client arrives in stage 6). Nothing pushed.
 
-## Test count and result (stage 2)
-- Backend: **2318 passed, 0 failed, 2 deselected** (`pytest -W error`; stage 1: 2205; stage 2 added 113 in `tests/gmail/test_stage2_search.py`; no existing test changed).
-- Frontend: **85 passed** (unchanged).
+## Test count and result (stage 3)
+- Backend: **2341 passed, 0 failed, 2 deselected** (`pytest -W error`).
+  - Stage 1: 2205 (33 new). Stage 2: 2318 (113 new). Stage 3: 23 new in `tests/gmail/test_stage3_import.py`.
+  - No existing test assertion changed in stages 2 and 3.
+- Frontend: **85 passed** (unchanged; no frontend change yet).
+
+## The six real invoices: Gmail import vs upload (stage 3)
+Each path ran on its own fresh demo database, with the recorded extract-v5 replies (picked by file hash) and template explanations. Upload: `POST /api/runs`. Gmail: `POST /api/gmail/search` + `POST /api/gmail/import` from the FAKE inbox, all six in one import (14021 and 14130 come from one email). Reproduce with `cd backend; python -m tests.gmail.regression` (no network, no model).
+
+| Invoice | Upload: decision | Gmail: decision | PO | Triggered checks (identical on both paths) | Results | Same? |
+|---|---|---|---|---|---|---|
+| superstore_10963 | review | review | PO-SS-001 | r_po_found:matched_without_reference | 16 | yes |
+| superstore_24429 | review | review | PO-SS-002 | r_po_found:matched_without_reference | 16 | yes |
+| superstore_14021 | review | review | PO-SS-003 | r_po_found:matched_without_reference | 16 | yes |
+| superstore_14130 | review | review | PO-SS-005 | r_po_found:matched_without_reference | 16 | yes |
+| superstore_6459 | review | review | PO-SS-004 | r_po_found:matched_without_reference | 16 | yes |
+| iq_electronics | review | review | PO-IQ-2025-001 | engine_floor:floor_applied, r_extraction_confidence:low_confidence, r_po_found:matched_without_reference | 16 | yes |
+
+"Same" compares decision, run status, matched PO, match status, triggered checks, result count, invoice total, file hash, source file name, line-match mode, review items and ledger entry. The test asserts all of it. The decisions and POs equal the six-invoice table further down this file (line-item build).
+
+## What changed (Gmail stage 3)
+- `POST /api/gmail/import {search_id, items, confirm}` (SPEC item 85).
+  - It is refused, with nothing downloaded or written, when: not confirmed; nothing picked; more than 10 picked; a duplicate pick; anything outside that search's importable list; an expired or unknown search; a changed account; or a budget too small at $0.25 per pick.
+  - Per pick: download, SHA-256, dedupe (`already_imported` for the same email + file; `already_processed` for the same file from another email or an upload), the upload's `validate_file`, a `gmail_imports` row, then the SAME worker queue as an upload.
+  - A refused pick never stops the others.
+- Provenance:
+  - `Job.provenance`; the worker passes it only when set.
+  - `run_pipeline(..., provenance=)` adds `source` (`upload` | `gmail`) to the `run_started` detail.
+  - For Gmail, one `source_gmail` event right after `run_started`, holding account, message id, part, sender, date, filename and SHA-256.
+  - The ingest stage, the digest, the explainer and the drafter are untouched and never see it (tested with a canary sender and subject).
+- `CostTracker.remaining()`; `/api/gmail/status` gains `budget_remaining_usd` and `run_ceiling_usd`.
+- The sender never decides the vendor (tested: an email "from" IQ Electronics carrying a SuperStore invoice resolves SuperStore).
+- **`run_started` detail:** the one change is the additive `source` key. No existing test asserts that detail, so no existing assertion changed. The frontend (`runState.ts`) reads only `source_file` from it, which is unchanged.
 
 ## What changed (Gmail stage 2)
 - `app/gmail/query.py`: the allowlist validator and `finalize` (SPEC item 84). It is tested with 30 allowed and 37 refused queries, each refusal naming its problem. The system adds `has:attachment` and `newer_than:180d`, or an `after:` 180 days before an upper bound.

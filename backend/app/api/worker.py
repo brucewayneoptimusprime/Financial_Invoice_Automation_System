@@ -33,6 +33,7 @@ class Job:
     path: Path
     source_name: str
     folder: Path            # the upload folder, removed when the run ends
+    provenance: dict | None = None   # where the file came from when it was not uploaded (Gmail import); recorded in the audit trail
 
 
 class RunWorker:
@@ -110,7 +111,9 @@ class RunWorker:
         conn = None
         try:
             conn = open_db(self.db_path, self.settings)
-            self._run_fn(job.path, conn, client=self.client, settings=self.settings, run_id=job.run_id, source_name=job.source_name)
+            extra = {} if job.provenance is None else {"provenance": job.provenance}
+            self._run_fn(job.path, conn, client=self.client, settings=self.settings, run_id=job.run_id, source_name=job.source_name,
+                         **extra)
         except IngestRejected as exc:                     # the upload check passed, so this is unexpected; no run row exists
             self._reject(job.run_id, exc.code, exc.message)
         except Exception as exc:                          # noqa: BLE001 - run_pipeline records its own failures; this is before a run exists

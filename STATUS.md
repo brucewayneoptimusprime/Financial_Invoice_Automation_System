@@ -5,18 +5,49 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 
 ## Current state
-- Plan approved 2026-10-02 with changes: decision 3 (LLM ranker) declined; stage order 1, 2, 3, 5, 6, 4, 7.
-- **Stages 1, 2 and 3 done, as you asked; stopped here.** Stage 5 (the UI panel) is next and has NOT been started.
-  - Stage 1: schema v3 + migration, token cipher, key generator, Gmail settings, the callback-address check.
-  - Stage 2: fake Gmail client + search (allowlist, eligibility, preview list, search sessions).
-  - Stage 3: import into the unchanged pipeline, with dedupe, caps, budget pre-check and provenance.
-- No live calls. No Google call (the real client arrives in stage 6). Nothing pushed.
+- Plan approved 2026-10-02 with changes (decision 3 declined; stage order 1, 2, 3, 5, 6, 4, 7). Stages 1-3 approved, deviations 2 and 3 approved; the rejected-after-import dedupe row is a recorded known limitation (SPEC item 86, README).
+- **Stage 5 done:** the Gmail panel on `/invoices`, against the fake inbox (this commit). Next: stage 6 (real OAuth + GoogleGmailClient, all HTTP through MockTransport). Stages 4 and 7 are not to be started.
+- No live calls. No Google call. Nothing pushed.
 
-## Test count and result (stage 3)
-- Backend: **2341 passed, 0 failed, 2 deselected** (`pytest -W error`).
-  - Stage 1: 2205 (33 new). Stage 2: 2318 (113 new). Stage 3: 23 new in `tests/gmail/test_stage3_import.py`.
-  - No existing test assertion changed in stages 2 and 3.
-- Frontend: **85 passed** (unchanged; no frontend change yet).
+## Test count and result (stage 5)
+- Backend: **2343 passed, 0 failed, 2 deselected** (`pytest -W error`; stage 3: 2341; stage 5 added 2 in `tests/gmail/test_stage5_backend.py`). No existing assertion changed.
+- Frontend: **101 passed** (vitest; was 85; 16 new in `src/test/gmail.test.tsx`); `tsc --noEmit` clean; `vite build` OK. No existing frontend test changed.
+
+## What changed (Gmail stage 5: the panel)
+- `components/GmailImport.tsx` on the Upload screen above the drop zone, in these states:
+  - **Not set up:** names the missing settings, never values.
+  - **Not connected:** "Connect Gmail (read-only)" calls `POST /api/gmail/oauth/start` (stage 6) and goes to Google's URL.
+  - **Reconnect.**
+  - **Connected:** the account, "read-only", a Disconnect button that asks first in the page (no browser dialog), and a "FAKE INBOX (test data)" label on the fake backend.
+- **127.0.0.1:** opened there, the panel warns to use `http://localhost:5173` (with the link) and disables Connect.
+- **Returning from Google:** `?gmail=connected` / `?gmail=error&code=...` shows a plain sentence per code, then is removed from the address bar (other parameters kept).
+- **Search:**
+  - Only the plain **"Gmail search"** box, because `translator_available` is false until stage 4. The box stays editable; the button reads "Search again" after a search.
+  - "Sent to Gmail" shows the final query and the terms the system added.
+  - A refusal shows the validator's message and every problem.
+- **Results:**
+  - Sender, date, subject and snippet are React text nodes, never HTML (tested with `<img onerror>` / `<script>` in a snippet and a subject).
+  - The "Text addressed to an AI" mark names the fields.
+  - Per attachment: a checkbox, name, type, size and "inline image"; ineligible ones are greyed with the reason; already imported ones say "imported, see run".
+  - **Nothing is pre-ticked.** Ticking stops at the cap ("Limit reached"); unticking reopens.
+  - "Import N selected" and "Budget left this session".
+- **Import:** posts exactly the ticked items. The outcomes join the existing **"This upload"** list:
+  - queued: "from Gmail";
+  - already imported / processed: shown with the earlier run, which is followed for its decision;
+  - refused: "not accepted" with the reason.
+
+  A refused import (budget, expired search) shows the server's message and imports nothing. The search is refreshed after an import.
+- **Run page:** "From Gmail: sender, date" under the title. The backend run view gains `source` (`{kind: "gmail", sender, message_date, filename}` or null), built from the `source_gmail` event.
+- **Robustness:** an unexpected `/api/gmail/status` answer (an older server) shows "not available" and never breaks the upload screen. This came up because older test mocks answer `{}`; those tests were not changed.
+- **Fixtures:** `gmail_*.json` were recorded from the real endpoints with the fake inbox by `python -m tests.gmail.frontend_fixtures` (from `backend\`). `test_frontend_fixtures_match_the_endpoints` fails if their shape drifts.
+- **Checked here:** the real `serve --replay` with `GMAIL_BACKEND=fake` plus `npm run dev`, through the Vite proxy on `localhost:5173`:
+  - status: fake, connected;
+  - `in:anywhere` gave a 422 naming `in:`;
+  - `after:2026/08/01` gave 9 emails;
+  - importing the zip gave a 422 `not_in_results`;
+  - importing 14130 queued it, and the run completed as **review on PO-SS-005** with `source` = gmail;
+  - `/invoices` served 200.
+- **Not checked:** the Chrome extension was not connected, so the visual browser check of the panel is yours.
 
 ## The six real invoices: Gmail import vs upload (stage 3)
 Each path ran on its own fresh demo database, with the recorded extract-v5 replies (picked by file hash) and template explanations. Upload: `POST /api/runs`. Gmail: `POST /api/gmail/search` + `POST /api/gmail/import` from the FAKE inbox, all six in one import (14021 and 14130 come from one email). Reproduce with `cd backend; python -m tests.gmail.regression` (no network, no model).

@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "message_id": "fake-ss-two",
+      "part_id": "1",
+      "filename": "invoice_Bill Eplett_14021.pdf",
+      "status": "queued",
+      "run_id": "5bc51d9916ce40c380d942275faa1941",
+      "media_type": "application/pdf",
+      "size_bytes": 14708
+    },
+    {
+      "message_id": "fake-ss-10963",
+      "part_id": "1",
+      "filename": "invoice_Scot Wooten_10963.pdf",
+      "status": "already_imported",
+      "run_id": "7a936db0675f46048cd0420cbacca483",
+      "reason": "This attachment from this email was imported before."
+    },
+    {
+      "message_id": "fake-acme",
+      "part_id": "2",
+      "filename": "acme_inv_7781.pdf",
+      "status": "refused",
+      "reason": "acme_inv_7781.pdf looks like a text file; only PDF, PNG and JPEG are accepted."
+    },
+    {
+      "message_id": "fake-injection",
+      "part_id": "1",
+      "filename": "invoice_24429_resend.pdf",
+      "status": "queued",
+      "run_id": "69a7ff5f96b1477698bac7f229fb4ba7",
+      "media_type": "application/pdf",
+      "size_bytes": 15443
+    },
+    {
+      "message_id": "fake-ss-24429",
+      "part_id": "1",
+      "filename": "invoice_Maria Zettner_24429.pdf",
+      "status": "already_processed",
+      "run_id": "69a7ff5f96b1477698bac7f229fb4ba7",
+      "reason": "The same file was already processed (uploaded, or imported from another email)."
+    }
+  ],
+  "queued": 2
+}

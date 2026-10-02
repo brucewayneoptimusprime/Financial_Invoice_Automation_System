@@ -1,0 +1,8 @@
+{
+  "error": "query_invalid",
+  "message": "The search was not run: 'in:' is not allowed: the search never looks in spam, trash or all mail. Allowed: from:, to:, subject:, after:, before:, newer_than:, older_than:, filename:, larger:, smaller:, has:attachment.",
+  "problems": [
+    "'in:' is not allowed: the search never looks in spam, trash or all mail. Allowed: from:, to:, subject:, after:, before:, newer_than:, older_than:, filename:, larger:, smaller:, has:attachment.",
+    "'label:' is not allowed. Allowed: from:, to:, subject:, after:, before:, newer_than:, older_than:, filename:, larger:, smaller:, has:attachment."
+  ]
+}

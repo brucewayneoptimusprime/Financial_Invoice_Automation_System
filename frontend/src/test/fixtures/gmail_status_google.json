@@ -1,0 +1,19 @@
+{
+  "backend": "google",
+  "available": true,
+  "fake": false,
+  "missing": [],
+  "connected": false,
+  "account_email": null,
+  "connected_at": null,
+  "translator_available": false,
+  "caps": {
+    "max_results": 25,
+    "max_import": 10,
+    "query_max_chars": 300,
+    "request_max_chars": 300,
+    "default_window_days": 180
+  },
+  "budget_remaining_usd": "5.00",
+  "run_ceiling_usd": "0.25"
+}

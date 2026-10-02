@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getPO, getRun, isRunView, listRuns, uploadInvoice } from "../api";
 import { Chip } from "../components/common";
+import { GmailImport } from "../components/GmailImport";
 import { DECISION, usd, when } from "../format";
 import { linkProps, navigate } from "../router";
-import type { Decision, Health, RunRow } from "../types";
+import type { Decision, GmailImportOutcome, Health, RunRow } from "../types";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
 const POLL_MS = 1500;
@@ -17,6 +18,7 @@ export interface BatchItem {
   decision?: Decision | null;
   matchedPo?: string | null;
   error?: string;
+  note?: string;                    // e.g. "from Gmail" or "already imported: the earlier run"
 }
 
 function StatusChip({ run }: { run: RunRow }) {
@@ -99,6 +101,17 @@ export function UploadScreen({ health }: { health: Health | null }) {
     return () => { stop = true; window.clearInterval(t); };
   }, [unfinished]);
 
+  // Gmail imports join this list exactly like uploaded files (queued runs are followed by the same polling).
+  const addImported = useCallback((outcomes: GmailImportOutcome[]) => {
+    const stamp = Date.now();
+    const notes = { queued: "from Gmail", already_imported: "already imported: the earlier run",
+                    already_processed: "same file already processed: that run", refused: "" };
+    const items: BatchItem[] = outcomes.map((o, i) => (o.status === "refused" || !o.run_id
+      ? { key: `g${stamp}-${i}`, name: o.filename, state: "rejected", error: o.reason ?? "not imported" }
+      : { key: `g${stamp}-${i}`, name: o.filename, state: "queued", runId: o.run_id, note: notes[o.status] }));
+    setBatch((b) => [...items, ...b]);
+  }, []);
+
   const send = useCallback(async (list: FileList | File[] | null | undefined) => {
     const files = Array.from(list ?? []);
     if (files.length === 0 || sending) return;
@@ -155,6 +168,8 @@ export function UploadScreen({ health }: { health: Health | null }) {
         </p>
       </div>
 
+      <GmailImport onImported={addImported} />
+
       {po && (
         <div className="po-context" role="note">
           Uploading from purchase order <a {...linkProps(`/pos/${po.id}`)}>{po.number ?? `#${po.id}`}</a>. Matching is automatic: each
@@ -188,7 +203,7 @@ export function UploadScreen({ health }: { health: Health | null }) {
                 {b.runId ? (
                   <a {...linkProps(`/runs/${b.runId}`)} className="run-link">
                     <span className="run-file">{b.name}</span>
-                    <span className="run-meta">{b.state === "completed" ? (b.matchedPo ? `matched ${b.matchedPo}` : "no PO matched")
+                    <span className="run-meta">{b.note ? `${b.note} · ` : ""}{b.state === "completed" ? (b.matchedPo ? `matched ${b.matchedPo}` : "no PO matched")
                       : b.state === "failed" ? "the run failed" : ""}{po && b.state === "completed" && po.number && b.matchedPo !== po.number ? " (not this PO)" : ""}</span>
                     <ItemState item={b} />
                   </a>

@@ -138,6 +138,14 @@ def line_match_view(conn: sqlite3.Connection, run_id: str, events: list[dict], i
     return view
 
 
+def _source(events: list[dict]) -> dict | None:
+    """Where the file came from when it was not uploaded: the Gmail provenance event (sender, date, filename), as data."""
+    e = _first(events, "source_gmail")
+    if e is None:
+        return None
+    return {"kind": "gmail", **{k: e["detail"].get(k) for k in ("sender", "message_date", "filename")}}
+
+
 def run_view(conn: sqlite3.Connection, run_id: str, runs_dir: Path) -> dict | None:
     run = run_row(conn, run_id)
     if run is None:
@@ -203,5 +211,6 @@ def run_view(conn: sqlite3.Connection, run_id: str, runs_dir: Path) -> dict | No
         "stage_costs": stage_costs,
         "error": None if error_ev is None else {"message": error_ev["message"], "error_type": error_ev["detail"].get("error_type")},
         "line_matches": line_match_view(conn, run_id, events, invoice),
+        "source": _source(events),
         "event_count": len(events),
     }

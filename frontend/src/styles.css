@@ -463,3 +463,33 @@ a.stat-link:hover { border-color: var(--accent); }
 .filter-note { font-size: 13px; color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }
 .token-gate { background: var(--surface); border-radius: 14px; padding: 22px; width: min(420px, 100%); display: grid; gap: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
 .token-gate p { margin: 0; }
+
+/* Gmail import panel (read-only): everything from an email is plain text. */
+.gmail-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: grid; gap: 12px; box-shadow: var(--shadow); }
+.gmail-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gmail-head h2 { margin: 0; font-size: 16px; }
+.gmail-confirm { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.gmail-ok { color: var(--pass); background: var(--pass-soft); padding: 10px 14px; border-radius: 8px; }
+.gmail-connect { display: grid; gap: 8px; justify-items: start; }
+.gmail-connect p { margin: 0; color: var(--text-2); }
+.gmail-search { display: grid; gap: 6px; }
+.gmail-search label { font-weight: 600; font-size: 13px; }
+.gmail-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.gmail-search-row input { flex: 1; min-width: 220px; font: inherit; font-family: var(--mono); font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.gmail-search p { margin: 0; }
+.gmail-results { display: grid; gap: 10px; }
+.gmail-results code { font-family: var(--mono); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.gmail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gmail-msg { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: grid; gap: 4px; background: var(--surface-2); }
+.gmail-msg-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gmail-from { font-weight: 600; overflow-wrap: anywhere; }
+.gmail-subject { overflow-wrap: anywhere; }
+.gmail-snippet { margin: 0; color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.gmail-flag { margin: 0; font-size: 13px; color: var(--flag); }
+.gmail-atts { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.gmail-atts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gmail-atts label { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
+.gmail-file { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+.gmail-att-off { opacity: 0.65; }
+.gmail-att-off label { cursor: default; }
+.gmail-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

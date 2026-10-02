@@ -3,7 +3,7 @@ import { ApiError, getRun, isRunView, streamRun } from "../api";
 import { Chip } from "../components/common";
 import { ResultView } from "../components/Result";
 import { StageTimeline } from "../components/StageTimeline";
-import { DECISION, OUTCOME, STAGE_LABEL } from "../format";
+import { DECISION, OUTCOME, STAGE_LABEL, when } from "../format";
 import { linkProps } from "../router";
 import { initialRunState, liveRules, runReducer, type RunState } from "../runState";
 import { STAGES, type Decision, type RunView } from "../types";
@@ -85,6 +85,9 @@ export function RunScreen({ runId }: { runId: string }) {
           {status === "completed" && decision ? <Chip tone={DECISION[decision].tone}>{DECISION[decision].label}</Chip>
             : <Chip tone={status === "failed" || status === "rejected" ? "fail" : "muted"}>{status}</Chip>}
           {state.connection === "connecting" && !state.end && state.eventCount > 0 && <span className="dim">reconnecting…</span>}
+          {view?.source?.kind === "gmail" && (
+            <span className="dim" data-testid="gmail-source">From Gmail: {view.source.sender ?? "unknown sender"}{view.source.message_date ? `, ${when(view.source.message_date)}` : ""}</span>
+          )}
         </div>
       </div>
 

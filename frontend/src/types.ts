@@ -154,6 +154,7 @@ export interface RunView {
   pages: number[];
   stage_costs: Record<string, string>;
   error: { message: string; error_type: string } | null;
+  source?: { kind: "gmail"; sender: string | null; message_date: string | null; filename: string | null } | null;
   event_count: number;
 }
 
@@ -281,4 +282,42 @@ export interface Dashboard {
   pos: { count: number; by_status: Record<string, number>;
          currencies: { currency: string; count: number; total_value: string; consumed: string; balance: string; consumed_without_line: string }[] };
   recent_runs: DashboardRun[];
+}
+
+// ---------------------------------------------------------------------------------------------- Gmail import (read-only)
+
+export interface GmailStatus {
+  backend: "google" | "fake" | "disabled";
+  available: boolean;
+  fake: boolean;
+  missing: string[];                      // setting NAMES, never values
+  connected: boolean;
+  account_email: string | null;
+  connected_at: string | null;
+  reconnect?: boolean;                    // a stored connection that can no longer be used (expired, revoked, other key)
+  translator_available: boolean;
+  caps: { max_results: number; max_import: number; query_max_chars: number; request_max_chars: number; default_window_days: number };
+  budget_remaining_usd: string | null;
+  run_ceiling_usd: string;
+}
+
+export interface GmailAttachment {
+  part_id: string; filename: string; mime_type: string; size_bytes: number; inline: boolean; eligible: boolean;
+  reason_code: string | null; reason: string | null; imported_run_id: string | null;
+}
+
+export interface GmailMessage {
+  message_id: string; sender: string | null; subject: string | null; date: string | null; snippet: string | null;
+  attachments: GmailAttachment[]; more_attachments: number; reader_instructions: boolean; reader_instruction_fields: string[];
+}
+
+export interface GmailSearchResult {
+  search_id: string; backend: string; account_email: string; query_sent: string; added_terms: string[];
+  result_estimate: number; truncated: boolean; messages: GmailMessage[];
+}
+
+export interface GmailImportOutcome {
+  message_id: string; part_id: string; filename: string;
+  status: "queued" | "already_imported" | "already_processed" | "refused";
+  run_id?: string | null; reason?: string;
 }

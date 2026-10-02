@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
 // proxy), the Render URL and the access token when deployed.
 import { apiFetch, apiUrl } from "./apiBase";
-import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GmailImportOutcome, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -158,5 +158,6 @@ export const gmailSearch = (body: GmailSearchBody) =>
 export const gmailImport = (searchId: string, items: { message_id: string; part_id: string }[]) =>
   act<{ items: GmailImportOutcome[]; queued: number; problems?: string[]; fits?: number }>(
     "/api/gmail/import", { search_id: searchId, items, confirm: true });
+export const gmailLabels = (searchId: string) => act<GmailLabelsResult>("/api/gmail/labels", { search_id: searchId });
 export const gmailConnectStart = () => post("/api/gmail/oauth/start", {}).then((r) => json<{ authorization_url: string }>(r));
 export const gmailDisconnect = () => act<{ disconnected: boolean; revoked: boolean; message?: string }>("/api/gmail/disconnect", { confirm: true });

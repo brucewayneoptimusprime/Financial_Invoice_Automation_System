@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, gmailConnectStart, gmailDisconnect, gmailImport, gmailSearch, gmailStatus, type GmailSearchBody } from "../api";
+import { ApiError, gmailConnectStart, gmailDisconnect, gmailImport, gmailLabels, gmailSearch, gmailStatus, type GmailSearchBody } from "../api";
 import { usd, when } from "../format";
 import { linkProps } from "../router";
-import type { GmailImportOutcome, GmailMessage, GmailSearchResult, GmailStatus } from "../types";
+import type { GmailImportOutcome, GmailLabel, GmailMessage, GmailSearchResult, GmailStatus } from "../types";
 import { Chip } from "./common";
 
 // Gmail import (read-only). Search -> the person ticks attachments -> import. Nothing is pre-ticked, nothing is imported on its own,
@@ -20,6 +20,12 @@ const RETURN_MESSAGES: Record<string, string> = {
 };
 
 const key = (messageId: string, partId: string) => `${messageId}|${partId}`;
+
+const LABEL_VIEW: Record<GmailLabel["label"], { text: string; tone: string }> = {
+  likely_invoice: { text: "likely invoice", tone: "pass" },
+  unsure: { text: "unsure", tone: "muted" },
+  unlikely: { text: "unlikely", tone: "flag" },
+};
 
 function size(bytes: number): string {
   return bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -53,6 +59,9 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   const [lastSearch, setLastSearch] = useState<GmailSearchBody | null>(null);
   const [translated, setTranslated] = useState<{ query: string; notes: string } | null>(null);
   const [translateCost, setTranslateCost] = useState<string | null>(null);
+  const [labels, setLabels] = useState<Map<string, GmailLabel>>(new Map());
+  const [labelsState, setLabelsState] = useState<"idle" | "loading" | "done" | "unavailable">("idle");
+  const [labelsCost, setLabelsCost] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -76,7 +85,23 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   }, []);
   useEffect(loadStatus, [loadStatus]);
 
-  const runSearch = useCallback(async (body: GmailSearchBody, keepPicks = false) => {
+  // Labels are asked for ONCE per search, after the results are on screen; they only add a hint next to each checkbox.
+  const fetchLabels = useCallback(async (res: GmailSearchResult) => {
+    const anyImportable = res.messages.some((m) => m.attachments.some((a) => a.eligible));
+    if (!status?.labels_available || !anyImportable) return;   // nothing to label: no call (the server would not call the model either)
+    setLabelsState("loading");
+    try {
+      const r = await gmailLabels(res.search_id);
+      if (!r.ok) { setLabelsState("unavailable"); return; }
+      setLabels(new Map(r.body.labels.map((l) => [key(l.message_id, l.part_id), l])));
+      setLabelsCost(r.body.cost.tokens_in > 0 ? r.body.cost.labels_usd : null);
+      setLabelsState(r.body.fallback ? "unavailable" : "done");
+    } catch {
+      setLabelsState("unavailable");
+    }
+  }, [status?.labels_available]);
+
+  const runSearch = useCallback(async (body: GmailSearchBody, keepPicks = false, refresh = false) => {
     setSearching(true);
     setProblems([]);
     setMessage(null);
@@ -88,6 +113,12 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
       if (r.ok) {
         setResult(r.body);
         if (!keepPicks) setPicked(new Set());
+        if (!refresh) {                                       // a refresh after an import keeps the labels it had: no second labels call
+          setLabels(new Map());
+          setLabelsCost(null);
+          setLabelsState("idle");
+          void fetchLabels(r.body);
+        }
         if (fromSentence && r.body.translation) {
           setQuery(r.body.translation.query);                 // Claude's query lands in the manual box, still editable
           setTranslated({ query: r.body.translation.query, notes: r.body.translation.notes });
@@ -106,13 +137,16 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
           setTranslateCost(r.body.cost?.translate_usd ?? null);
         }
         if (r.body.error === "not_connected" || r.body.error === "reconnect") loadStatus();
+        setLabels(new Map());
+        setLabelsState("idle");
+        setLabelsCost(null);
       }
     } catch {
       setMessage("The search failed. Is the API running?");
     } finally {
       setSearching(false);
     }
-  }, [loadStatus]);
+  }, [loadStatus, fetchLabels]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -143,7 +177,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
         onImported(r.body.items);
         setPicked(new Set());
         loadStatus();
-        await runSearch({ query: result.query_sent }, false);   // refresh (no model call): imported attachments now link to their runs
+        await runSearch({ query: result.query_sent }, false, true);   // refresh (no model call): imported attachments now link to their runs
       } else {
         setMessage(r.body.message ?? `The import failed (${r.status}).`);
         setProblems(r.body.problems ?? []);
@@ -264,15 +298,19 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
                 Sent to Gmail: <code>{result.query_sent}</code>
                 {result.added_terms.length > 0 && <> (added: {result.added_terms.join(" ")})</>}
               </p>
-              {(translateCost !== null) && (
-                <p className="dim small" data-testid="gmail-cost">This search: {usd(translateCost)} (query by Claude).</p>
+              <CostLine translate={translateCost} labels={labelsCost} />
+              {labelsState === "loading" && <p className="dim small" role="status">Labelling the attachments…</p>}
+              {labelsState === "done" && labels.size > 0 && (
+                <p className="dim small">Labels are hints from Claude, read from the email's details only. Nothing is ticked for you.</p>
               )}
+              {labelsState === "unavailable" && <p className="dim small">No labels for this search (Claude was not available).</p>}
               {result.truncated && (
                 <p className="dim small">Showing the newest {result.messages.length} of about {result.result_estimate}. Narrow the search to see others.</p>
               )}
               {result.messages.length === 0 ? <p className="dim">No email with attachments matches.</p> : (
                 <ul className="gmail-list">
-                  {result.messages.map((m) => <MessageCard key={m.message_id} m={m} picked={picked} full={picked.size >= max} onToggle={toggle} />)}
+                  {result.messages.map((m) => <MessageCard key={m.message_id} m={m} picked={picked} full={picked.size >= max} onToggle={toggle}
+                                                           labels={labels} />)}
                 </ul>
               )}
               <div className="gmail-foot">
@@ -292,7 +330,16 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   );
 }
 
-function MessageCard({ m, picked, full, onToggle }: { m: GmailMessage; picked: Set<string>; full: boolean; onToggle(id: string): void }) {
+function CostLine({ translate, labels }: { translate: string | null; labels: string | null }) {
+  if (translate === null && labels === null) return null;
+  const text = translate !== null && labels !== null
+    ? `${usd(translate)} (query) + ${usd(labels)} (labels) = ${usd(Number(translate) + Number(labels))}, by Claude`
+    : translate !== null ? `${usd(translate)} (query by Claude)` : `${usd(labels)} (labels by Claude)`;
+  return <p className="dim small" data-testid="gmail-cost">This search: {text}.</p>;
+}
+
+function MessageCard({ m, picked, full, onToggle, labels }: { m: GmailMessage; picked: Set<string>; full: boolean; onToggle(id: string): void;
+                                                              labels: Map<string, GmailLabel> }) {
   return (
     <li className="gmail-msg">
       <div className="gmail-msg-head">
@@ -312,6 +359,7 @@ function MessageCard({ m, picked, full, onToggle }: { m: GmailMessage; picked: S
           const id = key(m.message_id, a.part_id);
           const checked = picked.has(id);
           const disabled = !a.eligible || !!a.imported_run_id || (full && !checked);
+          const hint = a.eligible ? labels.get(id) : undefined;      // a hint only: it changes nothing about the checkbox
           return (
             <li key={a.part_id} className={a.eligible ? "" : "gmail-att-off"}>
               <label>
@@ -320,6 +368,14 @@ function MessageCard({ m, picked, full, onToggle }: { m: GmailMessage; picked: S
                 <span className="gmail-file">{a.filename}</span>
                 <span className="dim small">{a.mime_type} · {size(a.size_bytes)}{a.inline ? " · inline image" : ""}</span>
               </label>
+              {hint && (
+                <span className="gmail-hint" data-testid={`label-${id}`}>
+                  <Chip tone={LABEL_VIEW[hint.label].tone} title={hint.source === "rule" ? "Set by a rule, not by Claude" : "A hint from Claude"}>
+                    {LABEL_VIEW[hint.label].text}
+                  </Chip>
+                  <span className="dim small">{hint.reason}</span>
+                </span>
+              )}
               {a.imported_run_id ? <a {...linkProps(`/runs/${a.imported_run_id}`)} className="small">imported, see run</a>
                 : !a.eligible && <span className="dim small">{a.reason}</span>}
             </li>

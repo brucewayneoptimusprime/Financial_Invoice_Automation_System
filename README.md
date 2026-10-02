@@ -507,6 +507,29 @@ The current `render.yaml` uses Render's **free** tier. It has no persistent disk
 
 ---
 
+## Gmail import (branch `feature/gmail-integration`)
+
+On **Invoices** (`/invoices`), above the drop zone, you can pull invoice attachments straight from one Gmail account. The flow is:
+1. Connect.
+2. Search.
+3. Look at the list.
+4. Tick the attachments you want.
+5. Import.
+
+Only the ticked files enter the normal pipeline, through the same queue and the same checks as a drag-and-drop upload. Each one gets its own run and decision, and its audit trail records where it came from: email, sender, date and file name.
+
+- **Read-only.** The only Google scope requested anywhere is `https://www.googleapis.com/auth/gmail.readonly`. OAuth 2.0 uses state, PKCE and an HttpOnly binding cookie, and the callback's code and state are redacted from the access log. The refresh token is stored only Fernet-encrypted under `OAUTH_ENCRYPTION_KEY` (`python -m app.gmail.keygen --append-env`). Access tokens live in memory only.
+- **Search.** Type a Gmail search, or, with a model available (`--live` / `--replay`), a sentence such as "invoices from Meridian since August". Claude turns the sentence into a query. Company names stay plain keywords (`from:` only for an address or a domain). The query box stays editable.
+  - Every query, typed or written by Claude, passes an operator allowlist: no `in:`, `is:` or `label:`, so spam, trash and all mail are never searched.
+  - The system always adds `has:attachment` and a date window.
+- **Labels.** After a search, one Claude call reads only each importable attachment's metadata (sender, subject, snippet, file name, type, size; never its contents) and marks it *likely invoice*, *unsure* or *unlikely*, with a short reason.
+  - Labels are hints: nothing is ever pre-ticked, hidden, re-ordered or imported because of them.
+  - Emails whose text addresses an AI are flagged and labelled *unsure* by rule, without the model.
+- **Caps and cost.** At most 25 emails are shown and 10 imported per action. Duplicates are skipped: the same email and file, or a file already processed. Each search shows its model cost: about $0.002 for the query plus about $0.005 for labelling 4 attachments (measured), all within the per-run and per-session ceilings.
+- **Local only for now.** The OAuth redirect is `http://localhost:8000/api/gmail/oauth/callback`; open the UI at `http://localhost:5173`. `GMAIL_BACKEND=fake` runs the whole feature on a labelled fake inbox, with no Google account.
+
+The plans and reports are in `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are in `SPEC.md` §11 items 81-89.
+
 ## Known limitations / scope gaps
 
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.

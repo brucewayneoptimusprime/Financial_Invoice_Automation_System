@@ -20,7 +20,7 @@ from tests.llm.fakes import FakeLLMClient, ok_response
 
 OUT = ROOT_DIR / "frontend" / "src" / "test" / "fixtures"
 NAMES = ("gmail_status_fake", "gmail_status_disabled", "gmail_status_google", "gmail_search", "gmail_search_422", "gmail_import",
-         "gmail_run_view", "gmail_status_live", "gmail_search_sentence", "gmail_translate_422")
+         "gmail_run_view", "gmail_status_live", "gmail_search_sentence", "gmail_translate_422", "gmail_labels", "gmail_labels_skipped")
 
 
 def _status(tmp: Path, **kw) -> dict:
@@ -56,12 +56,21 @@ def generate(tmp: Path) -> dict[str, dict]:
     live = tmp / "live"
     live.mkdir(parents=True, exist_ok=True)
     reply = lambda q, n: ok_response(json.dumps({"query": q, "notes": n}), input_tokens=712, output_tokens=38)   # noqa: E731
-    model = FakeLLMClient(reply("SuperStore after:2026/09/01", "Emails mentioning SuperStore since 1 September 2026."),
+    labels = ok_response(json.dumps({"labels": [
+        {"ref": "a1", "label": "likely_invoice", "reason": "PDF named like a SuperStore invoice"},
+        {"ref": "a2", "label": "likely_invoice", "reason": "Second SuperStore invoice PDF in the same email"},
+        {"ref": "a3", "label": "likely_invoice", "reason": "Invoice 24429 PDF from SuperStore billing"},
+        {"ref": "a4", "label": "unsure", "reason": "Invoice-like PDF name, but no amount or number in the subject"}]}),
+        input_tokens=2950, output_tokens=210)
+    model = FakeLLMClient(reply("SuperStore after:2026/09/01", "Emails mentioning SuperStore since 1 September 2026."), labels,
                           reply("in:anywhere SuperStore", ""), reply("in:anywhere SuperStore", ""))
     app, worker, db, settings = build_app(live, settings=gmail_settings(live), inner_client=model, mode="live")
     with TestClient(app) as c:
         out["gmail_status_live"] = c.get("/api/gmail/status").json()
         out["gmail_search_sentence"] = c.post("/api/gmail/search", json={"sentence": "invoices from SuperStore since September"}).json()
+        out["gmail_labels"] = c.post("/api/gmail/labels", json={"search_id": out["gmail_search_sentence"]["search_id"]}).json()
+        zip_only = c.post("/api/gmail/search", json={"query": "invoices_q3"}).json()
+        out["gmail_labels_skipped"] = c.post("/api/gmail/labels", json={"search_id": zip_only["search_id"]}).json()
         out["gmail_translate_422"] = c.post("/api/gmail/search", json={"sentence": "every SuperStore email anywhere"}).json()
     return out
 

@@ -1,5 +1,5 @@
 {
-  "search_id": "e9600d0d27c04780890ca0436bcf6622",
+  "search_id": "5f38c59b3feb412c82dcbeeb406790f4",
   "backend": "fake",
   "account_email": "fake-inbox@example.test",
   "query_sent": "after:2026/08/01 has:attachment",
@@ -188,7 +188,7 @@
           "eligible": true,
           "reason_code": null,
           "reason": null,
-          "imported_run_id": "f462dfeab2e94580a4e552931c7a5f3f"
+          "imported_run_id": "2e6a71079de240118a197e940228348a"
         }
       ],
       "more_attachments": 0,

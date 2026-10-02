@@ -322,6 +322,14 @@ export interface GmailSearchResult {
 
 export interface GmailSearchCost { translate_usd: string; tokens_in: number; tokens_out: number }
 
+// Advisory relevance labels: hints shown next to a checkbox; they never tick, hide, re-order or import anything.
+export type GmailLabelKind = "likely_invoice" | "unlikely" | "unsure";
+export interface GmailLabel { message_id: string; part_id: string; label: GmailLabelKind; reason: string; source: "model" | "rule" }
+export interface GmailLabelsResult {
+  search_id: string; labels: GmailLabel[]; sent: number; skipped: string | null; fallback: string | null; cached: boolean;
+  cost: { labels_usd: string; tokens_in: number; tokens_out: number };
+}
+
 export interface GmailImportOutcome {
   message_id: string; part_id: string; filename: string;
   status: "queued" | "already_imported" | "already_processed" | "refused";

@@ -1,0 +1,49 @@
+{
+  "search_id": "8cbedb2ea8b748e49a46880bf42f714b",
+  "labels": [
+    {
+      "message_id": "fake-injection",
+      "part_id": "1",
+      "label": "unsure",
+      "reason": "The email contains text addressed to an AI; check it yourself.",
+      "source": "rule"
+    },
+    {
+      "message_id": "fake-ss-two",
+      "part_id": "1",
+      "label": "likely_invoice",
+      "reason": "PDF named like a SuperStore invoice",
+      "source": "model"
+    },
+    {
+      "message_id": "fake-ss-two",
+      "part_id": "2",
+      "label": "likely_invoice",
+      "reason": "Second SuperStore invoice PDF in the same email",
+      "source": "model"
+    },
+    {
+      "message_id": "fake-ss-24429",
+      "part_id": "1",
+      "label": "likely_invoice",
+      "reason": "Invoice 24429 PDF from SuperStore billing",
+      "source": "model"
+    },
+    {
+      "message_id": "fake-ss-10963",
+      "part_id": "1",
+      "label": "unsure",
+      "reason": "Invoice-like PDF name, but no amount or number in the subject",
+      "source": "model"
+    }
+  ],
+  "sent": 4,
+  "skipped": null,
+  "fallback": null,
+  "cached": false,
+  "cost": {
+    "labels_usd": "0.008000",
+    "tokens_in": 2950,
+    "tokens_out": 210
+  }
+}

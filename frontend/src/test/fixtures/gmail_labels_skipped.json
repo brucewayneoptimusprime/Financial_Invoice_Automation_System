@@ -1,0 +1,13 @@
+{
+  "search_id": "01503203c83a4e4381ad5428959661b8",
+  "labels": [],
+  "sent": 0,
+  "skipped": "no_eligible_attachments",
+  "fallback": null,
+  "cached": false,
+  "cost": {
+    "labels_usd": "0.000000",
+    "tokens_in": 0,
+    "tokens_out": 0
+  }
+}

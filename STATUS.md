@@ -5,13 +5,31 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 
 ## Current state
-- Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself). Building B1, B2, C1, C2 without stopping; stop after C2.
-- **B1** (`40c953a`), **B2** (`aa197a3`) done. **C1 done** (this commit): the labels backend. Next: C2 (labels in the panel, the live test, docs).
-- No live call in the suite. Nothing pushed.
+- Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself).
+- **B1** (`40c953a`), **B2** (`aa197a3`), **C1** (`da38d24`) and **C2** (this commit) are done. **Stopped here as asked.** The report is `GMAIL_STAGE_REPORT_3.md`.
+- One paid live call was made, on purpose, for the measured cost: `tests/gmail/test_live_models.py`, $0.0072. Nothing pushed.
 
-## Test count and result (C1)
-- Backend: **2423 passed, 0 failed, 3 deselected** (`pytest -W error`; B2: 2404; C1 added 19 in `tests/gmail/test_c1_labels.py`). No existing assertion changed.
-- Frontend: **108 passed** (unchanged).
+## Test count and result (C2)
+- Backend: **2423 passed, 0 failed, 4 deselected** (`pytest -W error`).
+  - The 4 deselected live tests are the two existing ones, the Gmail inbox test, and the new Gmail models test.
+  - The fixture generator gained the labels recordings.
+- Frontend: **117 passed** (vitest; 9 new in `src/test/gmailLabels.test.tsx`); `tsc --noEmit` clean; `vite build` OK. No existing test changed.
+- **Live** (`python -m pytest -m live -k gmail_models -s`): 1 passed.
+  - Claude's query: `SuperStore invoice after:2026/09/01`.
+  - translate: 778 tokens in / 59 out, $0.002146.
+  - labels (4 attachments; the flagged email by rule): 1,486 in / 208 out, $0.005052.
+  - **Search total: $0.007198.**
+
+## What changed (Plan 2 C2: labels in the panel, the live test, docs)
+- After a search, the panel asks for labels **once** (only when the server has the labeller and at least one attachment can be imported; otherwise there is no request at all). It shows "Labelling the attachments…", then a chip next to each checkbox (**likely invoice** / **unsure** / **unlikely**) with the reason as plain text, and "Labels are hints from Claude… Nothing is ticked for you."
+  - A rule label (flagged email) says so in its tooltip.
+  - When no labels come back: "No labels for this search (Claude was not available)."
+- The cost line combines both calls: "This search: $0.0018 (query) + $0.0080 (labels) = $0.0098, by Claude." A query-only search keeps the B2 wording.
+- The refresh after an import keeps the labels and makes no second labels request.
+- Tests: labels appear next to the right checkboxes; **with and without labels, the checkbox states (all unticked), the order of every email and file, and the import request are identical**; the cost line; no request without importable attachments or without the labeller; the fallback text; a reason with HTML stays text; the loading state; the refresh keeps the labels.
+- New fixtures, recorded from the real endpoint with a scripted model double: `gmail_labels.json`, `gmail_labels_skipped.json`.
+- `tests/gmail/test_live_models.py`: the one Plan 2 live test (fake inbox metadata, real model, about $0.01). It skips itself without `ANTHROPIC_API_KEY` and prints tokens and cost.
+- README: a "Gmail import" section.
 
 ## What changed (Plan 2 C1: the labels backend)
 - `app/gmail/labels.py`:

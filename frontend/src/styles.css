@@ -494,3 +494,4 @@ a.stat-link:hover { border-color: var(--accent); }
 .gmail-att-off label { cursor: default; }
 .gmail-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .gmail-translated { margin: 0; color: var(--accent-text); background: var(--accent-soft); padding: 8px 12px; border-radius: 8px; }
+.gmail-hint { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-basis: 100%; padding-left: 26px; }

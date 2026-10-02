@@ -190,3 +190,11 @@ def test_an_empty_po_in_pdf_and_word(tmp_path):
     text, _ = pdf_text(pdf)
     assert text.count("None") >= 4
     assert sum(p.text == "None" for p in docx.Document(io.BytesIO(word)).paragraphs) == 4
+
+
+def test_the_file_name_header_is_readable_by_a_frontend_on_another_origin(tmp_path):
+    """Deployed, the UI (Vercel) and the API (Render) are different origins: CORS must expose Content-Disposition."""
+    with api(tmp_path) as c:
+        r = c.get(f"/api/pos/{PO_SS_001}/export", params={"format": "csv"}, headers={"Origin": "http://localhost:5173"})
+    assert r.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert "content-disposition" in r.headers["access-control-expose-headers"].lower()

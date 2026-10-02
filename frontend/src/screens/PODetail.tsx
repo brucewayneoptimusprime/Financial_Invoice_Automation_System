@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, getPO } from "../api";
 import { Chip, Disclosure, Section, Stat } from "../components/common";
+import { POExportButton } from "../components/POExportButton";
 import { DECISION, FIELD_LABEL, humanize, money, score, usd, when } from "../format";
 import { linkProps } from "../router";
 import { StatusChip } from "./POList";
@@ -57,7 +58,10 @@ export function PODetailScreen({ id }: { id: number }) {
     <div className="po-detail">
       <div className="run-title">
         <a {...linkProps("/pos")} className="back">← Purchase orders</a>
-        <h1>{d.po.po_number}</h1>
+        <div className="title-row">
+          <h1>{d.po.po_number}</h1>
+          <POExportButton poId={d.po.id} poNumber={d.po.po_number} />
+        </div>
         <div className="run-sub">
           <span>{d.po.vendor}</span>
           {d.po.vendor_status !== "approved" && <Chip tone={d.po.vendor_status === "blocked" ? "fail" : "flag"}>vendor {d.po.vendor_status}</Chip>}

@@ -61,6 +61,7 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     app.add_middleware(AccessTokenMiddleware, token=settings.access_token_value())
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.api_cors_origins), allow_origin_regex=settings.api_cors_origin_regex,
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type", "Last-Event-ID", "Authorization"],
+                       expose_headers=["Content-Disposition"],      # the export's file name, readable by a frontend on another origin
                        allow_credentials=False)
 
     @app.get("/health", include_in_schema=False)

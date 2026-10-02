@@ -6,12 +6,37 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current state
 - Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself). Building B1, B2, C1, C2 without stopping; stop after C2.
-- **B1 done** (`40c953a`). **B2 done** (this commit): the sentence box in the panel. Next: C1 (the labels backend).
+- **B1** (`40c953a`), **B2** (`aa197a3`) done. **C1 done** (this commit): the labels backend. Next: C2 (labels in the panel, the live test, docs).
 - No live call in the suite. Nothing pushed.
 
-## Test count and result (B2)
-- Backend: **2404 passed, 0 failed, 3 deselected** (`pytest -W error`; unchanged since B1). The fixture generator gained three recordings; the shape-drift test covers them.
-- Frontend: **108 passed** (vitest; 7 new in `src/test/gmailSentence.test.tsx`); `tsc --noEmit` clean; `vite build` OK. No existing test changed.
+## Test count and result (C1)
+- Backend: **2423 passed, 0 failed, 3 deselected** (`pytest -W error`; B2: 2404; C1 added 19 in `tests/gmail/test_c1_labels.py`). No existing assertion changed.
+- Frontend: **108 passed** (unchanged).
+
+## What changed (Plan 2 C1: the labels backend)
+- `app/gmail/labels.py`:
+  - `build_items`: importable attachments in Gmail order, refs `a1..aN`, the email text wrapped in delimiters (a delimiter inside the text is neutralised), flagged emails left out, the 60-item cap.
+  - `check_labels`: the 20% tolerance.
+  - `label()` through `call_role`.
+- `service.labels(search_id)`:
+  - no eligible attachment: no call, no cost;
+  - offline or switched off: no call;
+  - one paid call per search, with a cached repeat;
+  - the response is in Gmail order;
+  - the session's candidates are never touched.
+- `POST /api/gmail/labels {search_id}`, behind `ACCESS_TOKEN`.
+- Tests (scripted doubles):
+  - labels map to the right attachments;
+  - the payload holds only delimited metadata, refs and no Gmail ids, without the flagged email and without attachment bytes;
+  - the sentence or raw query is sent as the intent;
+  - the delimiter is neutralised;
+  - reasons are cleaned and capped;
+  - the 20% tolerance, the repair retry and the fallback (invalid output, unavailable, cost ceiling);
+  - no call with no eligible attachment, and rule labels with no call when every email is flagged;
+  - offline or switched off makes no call;
+  - the cache;
+  - expired search, extra fields, the access gate;
+  - **the advisory test:** two identical apps, with and without labels, give identical search results (order, eligibility, every field), candidate set, database, import outcomes and run decisions.
 
 ## What changed (Plan 2 B2: the sentence box)
 - When `translator_available`, the panel shows **"Describe what you're looking for"** (300 characters) with **Find** above the existing **Gmail search** box. Without the translator (offline, or switched off) the panel is exactly as before.

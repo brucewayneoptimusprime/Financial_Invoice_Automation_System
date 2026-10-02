@@ -42,6 +42,12 @@ class DisconnectRequest(BaseModel):
     confirm: bool = False
 
 
+class LabelsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    search_id: str
+
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -115,3 +121,12 @@ def disconnect(request: Request, body: DisconnectRequest):
     if body.confirm is not True:
         return _gmail_error(GmailError("confirm_required", "Confirm the disconnect."))
     return _state(request).gmail.disconnect()
+
+
+@router.post("/labels")
+async def labels(request: Request, body: LabelsRequest):
+    """Advisory labels (likely_invoice / unlikely / unsure + a reason) for one search's importable attachments. Writes nothing."""
+    try:
+        return await run_in_threadpool(_state(request).gmail.labels, body.search_id)
+    except GmailError as exc:
+        return _gmail_error(exc)

@@ -37,6 +37,7 @@ from app.gmail.models import AttachmentInfo, MessageSummary, SearchResult, clean
 from app.gmail.crypto import GmailCryptoError, TokenCipher
 from app.gmail.google_client import GoogleGmailClient
 from app.gmail.oauth import OAuthFailed, OAuthFlows
+from app.gmail.labels import label as label_attachments
 from app.gmail.prompts import LABELS_PROMPT_VERSION, QUERY_PROMPT_VERSION
 from app.gmail.query import check_and_finalize
 from app.gmail.translate import translate
@@ -104,6 +105,7 @@ class GmailService:
         self._clock = clock
         self._today = today or (lambda: datetime.now(timezone.utc).date())
         self._sessions: dict[str, SearchSession] = {}
+        self._labels: dict[str, dict] = {}                              # search id -> its labels response (one paid call per search)
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ backend and client
@@ -359,12 +361,14 @@ class GmailService:
             self._prune_locked()
             self._sessions[session.search_id] = session
             while len(self._sessions) > MAX_SESSIONS:
-                self._sessions.pop(next(iter(self._sessions)))
+                self._labels.pop(self._sessions.pop(next(iter(self._sessions))).search_id, None)
 
     def _prune_locked(self) -> None:
         horizon = self._clock() - self.settings.gmail_search_ttl_s
         for sid in [sid for sid, sess in self._sessions.items() if sess.created < horizon]:
             del self._sessions[sid]
+        for sid in [sid for sid in self._labels if sid not in self._sessions]:
+            del self._labels[sid]
 
     def session(self, search_id: str) -> SearchSession:
         with self._lock:
@@ -463,3 +467,30 @@ class GmailService:
                     "reason": "This attachment from this email was imported before."}
         submit(Job(run_id=run_id, path=dest, source_name=display_name(cand.filename), folder=folder, provenance=provenance))
         return {**base, "status": "queued", "run_id": run_id, "media_type": validated.media_type, "size_bytes": validated.size_bytes}
+
+    # ------------------------------------------------------------------ advisory labels (never change what can be ticked or imported)
+    def labels(self, search_id: str) -> dict:
+        """Advisory labels for one search's importable attachments: at most ONE model call per search (a repeat request is answered
+        from the cache, free). No eligible attachment: no call, no cost. The session's candidates are never touched."""
+        session = self.session(search_id)
+        with self._lock:
+            cached = self._labels.get(search_id)
+        if cached is not None:
+            return {**cached, "cached": True}
+        base = {"search_id": search_id, "labels": [], "sent": 0, "skipped": None, "fallback": None, "cached": False,
+                "cost": {"labels_usd": usd6(0), "tokens_in": 0, "tokens_out": 0}}
+        if not session.candidates:
+            return {**base, "skipped": "no_eligible_attachments"}
+        if not self.labels_available:
+            return {**base, "fallback": "unavailable"}
+        result = label_attachments(session, client=self.llm, settings=self.settings)
+        if result.fallback_detail:
+            logger.info("gmail labels fell back: %s", result.fallback_detail[:120])
+        order = list(session.candidates)
+        out = {**base, "sent": result.sent, "skipped": result.skipped, "fallback": result.fallback,
+               "labels": [{"message_id": k[0], "part_id": k[1], "label": v[0], "reason": v[1], "source": v[2]}
+                          for k, v in sorted(result.labels.items(), key=lambda kv: order.index(kv[0]))],
+               "cost": {"labels_usd": usd6(result.cost_usd), "tokens_in": result.tokens_in, "tokens_out": result.tokens_out}}
+        with self._lock:
+            self._labels[search_id] = out
+        return out

@@ -131,4 +131,21 @@ describe("the sentence box", () => {
     expect(within(screen.getByRole("status")).getByText(/<b>bold<\/b> notes/)).toBeInTheDocument();
     expect(container.querySelector(".gmail-panel b")).toBeNull();
   });
+
+  it("says what Claude reads: the sentence, then each email's sender, subject, snippet and attachment names, never the full email", async () => {
+    mockApi({ "GET /api/gmail/status": () => [200, statusLive] });
+    render(<GmailImport onImported={() => {}} />);
+    const hint = await screen.findByTestId("gmail-sentence-hint");
+    expect(hint).toHaveTextContent("Claude turns this sentence into a Gmail search.");
+    expect(hint).toHaveTextContent("Afterwards it labels the results using each email's sender, subject, snippet and attachment names, never the full email or the PDFs.");
+    expect(hint).not.toHaveTextContent("never reads your emails' contents");
+  });
+
+  it("does not mention labelling when the labeller is off", async () => {
+    mockApi({ "GET /api/gmail/status": () => [200, { ...statusLive, labels_available: false }] });
+    render(<GmailImport onImported={() => {}} />);
+    const hint = await screen.findByTestId("gmail-sentence-hint");
+    expect(hint).toHaveTextContent("Claude turns this sentence into a Gmail search.");
+    expect(hint).not.toHaveTextContent("labels");
+  });
 });

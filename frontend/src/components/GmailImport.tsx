@@ -264,7 +264,10 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
                        placeholder="invoices from Meridian since August" onChange={(e) => setSentence(e.target.value)} autoComplete="off" />
                 <button type="submit" className="btn" disabled={searching || !sentence.trim()}>{searching && lastSearch && "sentence" in lastSearch ? "Finding…" : "Find"}</button>
               </div>
-              <p className="dim small">Claude turns this into a Gmail search, which you can check and edit below. It never reads your emails' contents.</p>
+              <p className="dim small" data-testid="gmail-sentence-hint">
+                Claude turns this sentence into a Gmail search.
+                {status.labels_available && " Afterwards it labels the results using each email's sender, subject, snippet and attachment names, never the full email or the PDFs."}
+              </p>
             </form>
           )}
           {translated && (

@@ -1,12 +1,12 @@
 {
-  "search_id": "e9600d0d27c04780890ca0436bcf6622",
+  "search_id": "979ba5be416a4b52a09e17dc1e4b9526",
   "backend": "fake",
   "account_email": "fake-inbox@example.test",
-  "query_sent": "after:2026/08/01 has:attachment",
+  "query_sent": "SuperStore after:2026/09/01 has:attachment",
   "added_terms": [
     "has:attachment"
   ],
-  "result_estimate": 9,
+  "result_estimate": 5,
   "truncated": false,
   "messages": [
     {
@@ -93,63 +93,6 @@
       "reader_instruction_fields": []
     },
     {
-      "message_id": "fake-acme",
-      "sender": "Acme Supplies <ar@acme-supplies.example>",
-      "subject": "Acme invoice INV-7781",
-      "date": "2026-09-15T09:30:00Z",
-      "snippet": "Invoice INV-7781 attached.",
-      "attachments": [
-        {
-          "part_id": "1.1",
-          "filename": "acme_logo.png",
-          "mime_type": "image/png",
-          "size_bytes": 70,
-          "inline": true,
-          "eligible": true,
-          "reason_code": null,
-          "reason": null,
-          "imported_run_id": null
-        },
-        {
-          "part_id": "2",
-          "filename": "acme_inv_7781.pdf",
-          "mime_type": "application/octet-stream",
-          "size_bytes": 28,
-          "inline": false,
-          "eligible": true,
-          "reason_code": null,
-          "reason": null,
-          "imported_run_id": null
-        }
-      ],
-      "more_attachments": 0,
-      "reader_instructions": false,
-      "reader_instruction_fields": []
-    },
-    {
-      "message_id": "fake-large",
-      "sender": "Scanner <scanner@office.example>",
-      "subject": "Scanned invoice (large)",
-      "date": "2026-09-12T13:00:00Z",
-      "snippet": "Scanned at 1200 dpi.",
-      "attachments": [
-        {
-          "part_id": "1",
-          "filename": "scan_large.pdf",
-          "mime_type": "application/pdf",
-          "size_bytes": 26214400,
-          "inline": false,
-          "eligible": false,
-          "reason_code": "too_large",
-          "reason": "Larger than the 20 MB limit.",
-          "imported_run_id": null
-        }
-      ],
-      "more_attachments": 0,
-      "reader_instructions": false,
-      "reader_instruction_fields": []
-    },
-    {
       "message_id": "fake-ss-24429",
       "sender": "SuperStore Billing <billing@superstore.example>",
       "subject": "Invoice 24429 - SuperStore",
@@ -188,52 +131,6 @@
           "eligible": true,
           "reason_code": null,
           "reason": null,
-          "imported_run_id": "f462dfeab2e94580a4e552931c7a5f3f"
-        }
-      ],
-      "more_attachments": 0,
-      "reader_instructions": false,
-      "reader_instruction_fields": []
-    },
-    {
-      "message_id": "fake-ss-6459",
-      "sender": "SuperStore Billing <billing@superstore.example>",
-      "subject": "Invoice 6459 - SuperStore",
-      "date": "2026-08-14T08:05:00Z",
-      "snippet": "Invoice 6459 attached. Thank you for your business.",
-      "attachments": [
-        {
-          "part_id": "1",
-          "filename": "invoice_Darren Koutras_6459.pdf",
-          "mime_type": "application/pdf",
-          "size_bytes": 14485,
-          "inline": false,
-          "eligible": true,
-          "reason_code": null,
-          "reason": null,
-          "imported_run_id": null
-        }
-      ],
-      "more_attachments": 0,
-      "reader_instructions": false,
-      "reader_instruction_fields": []
-    },
-    {
-      "message_id": "fake-iq",
-      "sender": "IQ Electronics Accounts <accounts@iq-electronics.example>",
-      "subject": "Tax invoice IQ Electronics",
-      "date": "2026-08-05T06:45:00Z",
-      "snippet": "Please find the tax invoice attached (scanned copy).",
-      "attachments": [
-        {
-          "part_id": "1",
-          "filename": "image_based_invoice.jpg",
-          "mime_type": "image/jpeg",
-          "size_bytes": 184689,
-          "inline": false,
-          "eligible": true,
-          "reason_code": null,
-          "reason": null,
           "imported_run_id": null
         }
       ],
@@ -242,10 +139,14 @@
       "reader_instruction_fields": []
     }
   ],
-  "translation": null,
+  "translation": {
+    "sentence": "invoices from SuperStore since September",
+    "query": "SuperStore after:2026/09/01",
+    "notes": "Emails mentioning SuperStore since 1 September 2026."
+  },
   "cost": {
-    "translate_usd": "0.000000",
-    "tokens_in": 0,
-    "tokens_out": 0
+    "translate_usd": "0.001804",
+    "tokens_in": 712,
+    "tokens_out": 38
   }
 }

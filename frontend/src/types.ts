@@ -296,6 +296,8 @@ export interface GmailStatus {
   connected_at: string | null;
   reconnect?: boolean;                    // a stored connection that can no longer be used (expired, revoked, other key)
   translator_available: boolean;
+  labels_available?: boolean;
+  prompt_versions?: { query: string; labels: string };
   caps: { max_results: number; max_import: number; query_max_chars: number; request_max_chars: number; default_window_days: number };
   budget_remaining_usd: string | null;
   run_ceiling_usd: string;
@@ -314,7 +316,11 @@ export interface GmailMessage {
 export interface GmailSearchResult {
   search_id: string; backend: string; account_email: string; query_sent: string; added_terms: string[];
   result_estimate: number; truncated: boolean; messages: GmailMessage[];
+  translation?: { sentence: string; query: string; notes: string } | null;
+  cost?: GmailSearchCost;
 }
+
+export interface GmailSearchCost { translate_usd: string; tokens_in: number; tokens_out: number }
 
 export interface GmailImportOutcome {
   message_id: string; part_id: string; filename: string;

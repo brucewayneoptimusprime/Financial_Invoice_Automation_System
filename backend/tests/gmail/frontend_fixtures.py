@@ -16,10 +16,11 @@ from app.config import ROOT_DIR
 from tests.api.helpers import build_app
 from tests.gmail.helpers import gmail_settings
 from tests.gmail.regression import HashRuns
+from tests.llm.fakes import FakeLLMClient, ok_response
 
 OUT = ROOT_DIR / "frontend" / "src" / "test" / "fixtures"
 NAMES = ("gmail_status_fake", "gmail_status_disabled", "gmail_status_google", "gmail_search", "gmail_search_422", "gmail_import",
-         "gmail_run_view")
+         "gmail_run_view", "gmail_status_live", "gmail_search_sentence", "gmail_translate_422")
 
 
 def _status(tmp: Path, **kw) -> dict:
@@ -52,6 +53,16 @@ def generate(tmp: Path) -> dict[str, dict]:
         out["gmail_import"] = imported
         assert worker.wait_idle(120)
         out["gmail_run_view"] = c.get(f"/api/runs/{imported['items'][0]['run_id']}").json()
+    live = tmp / "live"
+    live.mkdir(parents=True, exist_ok=True)
+    reply = lambda q, n: ok_response(json.dumps({"query": q, "notes": n}), input_tokens=712, output_tokens=38)   # noqa: E731
+    model = FakeLLMClient(reply("SuperStore after:2026/09/01", "Emails mentioning SuperStore since 1 September 2026."),
+                          reply("in:anywhere SuperStore", ""), reply("in:anywhere SuperStore", ""))
+    app, worker, db, settings = build_app(live, settings=gmail_settings(live), inner_client=model, mode="live")
+    with TestClient(app) as c:
+        out["gmail_status_live"] = c.get("/api/gmail/status").json()
+        out["gmail_search_sentence"] = c.post("/api/gmail/search", json={"sentence": "invoices from SuperStore since September"}).json()
+        out["gmail_translate_422"] = c.post("/api/gmail/search", json={"sentence": "every SuperStore email anywhere"}).json()
     return out
 
 

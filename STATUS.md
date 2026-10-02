@@ -6,12 +6,24 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 ## Current state
 - Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself). Building B1, B2, C1, C2 without stopping; stop after C2.
-- **B1 done** (this commit): the translator backend. Next: B2 (the sentence box in the panel).
+- **B1 done** (`40c953a`). **B2 done** (this commit): the sentence box in the panel. Next: C1 (the labels backend).
 - No live call in the suite. Nothing pushed.
 
-## Test count and result (B1)
-- Backend: **2404 passed, 0 failed, 3 deselected** (`pytest -W error`; stage 6: 2374; B1 added 30 in `tests/gmail/test_b1_translator.py`). No existing assertion changed.
-- Frontend: **101 passed** (unchanged; the Gmail fixtures were regenerated because status and search gained fields, caught by the shape-drift test).
+## Test count and result (B2)
+- Backend: **2404 passed, 0 failed, 3 deselected** (`pytest -W error`; unchanged since B1). The fixture generator gained three recordings; the shape-drift test covers them.
+- Frontend: **108 passed** (vitest; 7 new in `src/test/gmailSentence.test.tsx`); `tsc --noEmit` clean; `vite build` OK. No existing test changed.
+
+## What changed (Plan 2 B2: the sentence box)
+- When `translator_available`, the panel shows **"Describe what you're looking for"** (300 characters) with **Find** above the existing **Gmail search** box. Without the translator (offline, or switched off) the panel is exactly as before.
+- **Find** sends `{sentence}`. On success:
+  - Claude's query is written into the Gmail search box, which stays editable;
+  - "Claude wrote this search: edit it and press Search again if needed." plus the model's notes, as plain text;
+  - "Sent to Gmail" shows the final query;
+  - the cost line reads "This search: $0.0018 (query by Claude)".
+- **Search again** sends the edited text as `{query}`, with no model call and no cost line.
+- **Refused translation:** the message, the validator's problem, Claude's query in the manual box to fix by hand, and "Cost of the attempt". **Unavailable translator:** the message, and the manual box keeps what you typed and still works.
+- The refresh after an import now re-runs the exact query that was sent (`query_sent`), so it never calls the model again.
+- New fixtures, recorded from the real endpoints with a scripted model double: `gmail_status_live.json`, `gmail_search_sentence.json`, `gmail_translate_422.json`.
 
 ## What changed (Plan 2 B1: the translator backend)
 - `app/gmail/prompts.py`: `gmail-query-v1` and `gmail-labels-v1`, the union-free schemas, `fingerprint()` (pinned in the tests). Both prompts are here from the start, so the fingerprint is stable through C1.

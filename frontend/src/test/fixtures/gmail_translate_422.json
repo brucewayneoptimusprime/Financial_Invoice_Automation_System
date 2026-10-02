@@ -1,0 +1,15 @@
+{
+  "error": "translation_failed",
+  "message": "Claude's search was not accepted; edit it in the Gmail search box.",
+  "problems": [
+    "'in:' is not allowed: the search never looks in spam, trash or all mail. Allowed: from:, to:, subject:, after:, before:, newer_than:, older_than:, filename:, larger:, smaller:, has:attachment."
+  ],
+  "query": "in:anywhere SuperStore",
+  "notes": "",
+  "reason": "refused",
+  "cost": {
+    "translate_usd": "0.003608",
+    "tokens_in": 1424,
+    "tokens_out": 76
+  }
+}

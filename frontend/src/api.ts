@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
 // proxy), the Render URL and the access token when deployed.
 import { apiFetch, apiUrl } from "./apiBase";
-import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GmailImportOutcome, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GmailImportOutcome, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -149,8 +149,12 @@ export const getDashboard = (recent = 8, review = 5) => apiFetch(`/api/dashboard
 // ---------------------------------------------------------------------------------------------- Gmail import (read-only)
 // Search writes nothing; only gmailImport() queues files, and only the attachments the person ticked.
 export const gmailStatus = () => apiFetch("/api/gmail/status").then((r) => json<GmailStatus>(r));
-export const gmailSearch = (query: string) =>
-  act<GmailSearchResult & { problems?: string[] }>("/api/gmail/search", { query });
+// A search from the manual box ({query}) or from a plain-English sentence ({sentence}); a refused translation answers 422 with
+// the model's query (if any) and the problems, so the panel can put it in the manual box to edit.
+export type GmailSearchBody = { query: string } | { sentence: string };
+export const gmailSearch = (body: GmailSearchBody) =>
+  act<GmailSearchResult & { problems?: string[]; query?: string | null; notes?: string; reason?: string; cost?: GmailSearchCost }>(
+    "/api/gmail/search", body);
 export const gmailImport = (searchId: string, items: { message_id: string; part_id: string }[]) =>
   act<{ items: GmailImportOutcome[]; queued: number; problems?: string[]; fits?: number }>(
     "/api/gmail/import", { search_id: searchId, items, confirm: true });

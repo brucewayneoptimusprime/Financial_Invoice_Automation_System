@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, gmailConnectStart, gmailDisconnect, gmailImport, gmailSearch, gmailStatus } from "../api";
+import { ApiError, gmailConnectStart, gmailDisconnect, gmailImport, gmailSearch, gmailStatus, type GmailSearchBody } from "../api";
 import { usd, when } from "../format";
 import { linkProps } from "../router";
 import type { GmailImportOutcome, GmailMessage, GmailSearchResult, GmailStatus } from "../types";
@@ -49,6 +49,10 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   const [statusError, setStatusError] = useState<string | null>(null);
   const [banner] = useState(readReturn);
   const [query, setQuery] = useState("");
+  const [sentence, setSentence] = useState("");
+  const [lastSearch, setLastSearch] = useState<GmailSearchBody | null>(null);
+  const [translated, setTranslated] = useState<{ query: string; notes: string } | null>(null);
+  const [translateCost, setTranslateCost] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -72,20 +76,35 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   }, []);
   useEffect(loadStatus, [loadStatus]);
 
-  const runSearch = useCallback(async (text: string, keepPicks = false) => {
+  const runSearch = useCallback(async (body: GmailSearchBody, keepPicks = false) => {
     setSearching(true);
     setProblems([]);
     setMessage(null);
+    const fromSentence = "sentence" in body;
+    if (fromSentence) { setTranslated(null); setTranslateCost(null); }
     try {
-      const r = await gmailSearch(text);
+      const r = await gmailSearch(body);
+      setLastSearch(body);
       if (r.ok) {
         setResult(r.body);
         if (!keepPicks) setPicked(new Set());
+        if (fromSentence && r.body.translation) {
+          setQuery(r.body.translation.query);                 // Claude's query lands in the manual box, still editable
+          setTranslated({ query: r.body.translation.query, notes: r.body.translation.notes });
+          setTranslateCost(r.body.cost?.translate_usd ?? null);
+        } else if (!fromSentence) {
+          setTranslated(null);
+          setTranslateCost(null);
+        }
       } else {
         setResult(null);
         setPicked(new Set());
         setMessage(r.body.message ?? `The search failed (${r.status}).`);
         setProblems(r.body.problems ?? []);
+        if (fromSentence && r.body.error === "translation_failed") {
+          if (r.body.query) setQuery(r.body.query);           // the refused query, to fix by hand
+          setTranslateCost(r.body.cost?.translate_usd ?? null);
+        }
         if (r.body.error === "not_connected" || r.body.error === "reconnect") loadStatus();
       }
     } catch {
@@ -97,7 +116,11 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!searching) runSearch(query);
+    if (!searching) runSearch({ query });
+  };
+  const find = (e: FormEvent) => {
+    e.preventDefault();
+    if (!searching && sentence.trim()) runSearch({ sentence });
   };
 
   const max = status?.caps.max_import ?? 10;
@@ -120,7 +143,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
         onImported(r.body.items);
         setPicked(new Set());
         loadStatus();
-        await runSearch(query, false);                     // refresh: imported attachments now link to their runs
+        await runSearch({ query: result.query_sent }, false);   // refresh (no model call): imported attachments now link to their runs
       } else {
         setMessage(r.body.message ?? `The import failed (${r.status}).`);
         setProblems(r.body.problems ?? []);
@@ -197,6 +220,22 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
 
       {status?.connected && (
         <>
+          {status.translator_available && (
+            <form className="gmail-search" onSubmit={find}>
+              <label htmlFor="gmail-sentence">Describe what you're looking for</label>
+              <div className="gmail-search-row">
+                <input id="gmail-sentence" type="text" value={sentence} maxLength={status.caps.request_max_chars}
+                       placeholder="invoices from Meridian since August" onChange={(e) => setSentence(e.target.value)} autoComplete="off" />
+                <button type="submit" className="btn" disabled={searching || !sentence.trim()}>{searching && lastSearch && "sentence" in lastSearch ? "Finding…" : "Find"}</button>
+              </div>
+              <p className="dim small">Claude turns this into a Gmail search, which you can check and edit below. It never reads your emails' contents.</p>
+            </form>
+          )}
+          {translated && (
+            <p className="gmail-translated small" role="status">
+              Claude wrote this search: edit it and press Search again if needed.{translated.notes ? ` ${translated.notes}` : ""}
+            </p>
+          )}
           <form className="gmail-search" onSubmit={submit} role="search">
             <label htmlFor="gmail-q">Gmail search</label>
             <div className="gmail-search-row">
@@ -214,6 +253,8 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
             <div className="error" role="alert">
               <p>{message}</p>
               {problems.length > 1 && <ul>{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
+              {problems.length === 1 && lastSearch && "sentence" in lastSearch && <p>{problems[0]}</p>}
+              {!result && translateCost !== null && <p className="small">Cost of the attempt: {usd(translateCost)}.</p>}
             </div>
           )}
 
@@ -223,6 +264,9 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
                 Sent to Gmail: <code>{result.query_sent}</code>
                 {result.added_terms.length > 0 && <> (added: {result.added_terms.join(" ")})</>}
               </p>
+              {(translateCost !== null) && (
+                <p className="dim small" data-testid="gmail-cost">This search: {usd(translateCost)} (query by Claude).</p>
+              )}
               {result.truncated && (
                 <p className="dim small">Showing the newest {result.messages.length} of about {result.result_estimate}. Narrow the search to see others.</p>
               )}

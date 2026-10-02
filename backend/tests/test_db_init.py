@@ -11,6 +11,7 @@ EXPECTED_TABLES = {
     "vendors", "purchase_orders", "po_lines", "invoices", "invoice_lines", "ledger_entries",
     "runs", "audit_events", "rules", "review_queue", "drafts", "settings",
     "po_consumption", "invoice_line_matches",          # schema v2 (line-item PO consumption)
+    "oauth_credentials", "gmail_imports",              # schema v3 (Gmail import)
 }
 
 

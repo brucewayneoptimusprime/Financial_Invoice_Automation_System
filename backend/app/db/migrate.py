@@ -2,13 +2,15 @@
 
     python -m app.db.migrate [--db PATH]
 
-Version 1 -> 2 (line-item PO consumption):
-  1. copy the database file to <name>.v1-<UTC timestamp>.bak (byte-identical);
-  2. in ONE transaction: create po_consumption and invoice_line_matches, backfill one total-only consumption row
-     (po_line_id NULL, matched_by 'legacy') per existing ledger entry, verify that every entry is fully allocated,
-     set user_version = 2;
-  3. any problem rolls the transaction back: the file stays version 1 and the backup is kept.
-A version-2 database is left alone. PO balances do not change (they are still total minus the ledger sum).
+Each step first copies the database file to <name>.v<N>-<UTC timestamp>.bak (byte-identical), then runs in ONE transaction;
+any problem rolls that step back (the file stays at the version it had before the step) and the backup is kept.
+A version-1 database goes 1 -> 2 -> 3 in one command, with one backup per step.
+
+Version 1 -> 2 (line-item PO consumption): create po_consumption and invoice_line_matches, backfill one total-only
+  consumption row (po_line_id NULL, matched_by 'legacy') per existing ledger entry, verify that every entry is fully
+  allocated, set user_version = 2. PO balances do not change (they are still total minus the ledger sum).
+Version 2 -> 3 (Gmail import): create oauth_credentials and gmail_imports (both empty), set user_version = 3.
+A database at the current version is left alone.
 
 Exit codes: 0 migrated or already current, 1 migration failed (rolled back), 2 usage / not a database.
 """
@@ -22,7 +24,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.db.connection import connect
 from app.db.consumption import backfill_consumption, consumption_problems, schema_statements
-from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_VERSION, add_missing_builtin_rules, schema_version
+from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_V3_PATH, SCHEMA_VERSION, add_missing_builtin_rules, schema_version
 
 _SQLITE_MAGIC = b"SQLite format 3\x00"
 
@@ -58,6 +60,23 @@ def migrate_1_to_2(conn: sqlite3.Connection) -> int:
     return n
 
 
+def migrate_2_to_3(conn: sqlite3.Connection) -> None:
+    """Version 2 -> 3 on an open connection, in one transaction: the two Gmail import tables, empty."""
+    if conn.in_transaction:
+        raise MigrationFailed("a transaction is already open")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if schema_version(conn) != 2:
+            raise MigrationFailed(f"expected schema version 2, found {schema_version(conn)}")
+        for statement in schema_statements(SCHEMA_V3_PATH.read_text(encoding="utf-8")):
+            conn.execute(statement)
+        conn.execute("PRAGMA user_version = 3")
+    except BaseException:
+        conn.rollback()
+        raise
+    conn.commit()
+
+
 def migrate(db_path: Path) -> str:
     db_path = Path(db_path)
     if not db_path.is_file():
@@ -67,22 +86,43 @@ def migrate(db_path: Path) -> str:
             raise ValueError(f"{db_path} is not a SQLite database")
     conn = connect(db_path)
     try:
-        version = schema_version(conn)
+        version = start = schema_version(conn)
         if version == SCHEMA_VERSION:
             return f"{db_path} is already at schema version {SCHEMA_VERSION}; nothing to do."
-        if version != 1:
-            raise MigrationFailed(f"{db_path} is schema version {version}; only version 1 can be migrated")
-        backup = backup_path(db_path, version)
-        conn.close()
-        shutil.copy2(db_path, backup)                                    # the file is closed: a byte-identical copy
-        conn = connect(db_path)
-        n = migrate_1_to_2(conn)
+        if version not in (1, 2):
+            raise MigrationFailed(f"{db_path} is schema version {version}; only versions 1 and 2 can be migrated")
+        backups, notes = [], []
+        while version < SCHEMA_VERSION:
+            backup = backup_path(db_path, version)
+            conn.close()
+            shutil.copy2(db_path, backup)                                # the file is closed: a byte-identical copy
+            backups.append(str(backup))
+            conn = connect(db_path)
+            if version == 1:
+                n = migrate_1_to_2(conn)
+                notes.append(f"{n} existing ledger entr{'y' if n == 1 else 'ies'} recorded as consumption against the PO total "
+                             "(matched_by legacy).")
+            else:
+                migrate_2_to_3(conn)
+                notes.append("Gmail import tables created (oauth_credentials, gmail_imports; both empty).")
+            version = schema_version(conn)
         added = add_missing_builtin_rules(conn)
-        return (f"Migrated {db_path} from schema version 1 to {SCHEMA_VERSION}. Backup: {backup}. "
-                f"{n} existing ledger entr{'y' if n == 1 else 'ies'} recorded as consumption against the PO total (matched_by legacy)."
+        return (f"Migrated {db_path} from schema version {start} to {SCHEMA_VERSION}. Backup{'s' if len(backups) > 1 else ''}: "
+                f"{', '.join(backups)}. " + " ".join(notes)
                 + (f" Added builtin rule(s): {', '.join(added)}." if added else ""))
     finally:
         conn.close()
+
+
+def _version_now(db_path: Path) -> str:
+    try:
+        conn = connect(db_path)
+        try:
+            return str(schema_version(conn))
+        finally:
+            conn.close()
+    except Exception:                                                    # noqa: BLE001 - only used in an error message
+        return "unknown"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -97,7 +137,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"BAD USAGE: {exc}")
         return 2
     except (MigrationFailed, sqlite3.Error) as exc:
-        print(f"MIGRATION FAILED (rolled back; the database is unchanged): {exc}")
+        print(f"MIGRATION FAILED (the failing step was rolled back; the database is at schema version {_version_now(db_path)}; "
+              f"the backups are kept): {exc}")
         return 1
 
 

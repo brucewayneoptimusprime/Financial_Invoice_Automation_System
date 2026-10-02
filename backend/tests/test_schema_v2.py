@@ -9,7 +9,7 @@ from app.api import serve
 from app.db import migrate as migrate_mod
 from app.db.connection import connect
 from app.db.consumption import consumption_problems
-from app.db.init_db import SCHEMA_PATH, SchemaOutdated, check_schema, init_db, schema_version
+from app.db.init_db import SCHEMA_PATH, SCHEMA_VERSION, SchemaOutdated, check_schema, init_db, schema_version
 from app.db.queries import get_po_balance_minor
 from app.db.reset import reset_database
 from app.pipeline import cli as pipeline_cli
@@ -55,7 +55,7 @@ def test_a_v1_database_migrates_with_a_byte_identical_backup_and_unchanged_balan
     backups = list(tmp_path.glob("app.db.v1-*.bak"))
     assert len(backups) == 1 and backups[0].read_bytes() == before_bytes and "3 existing ledger entries" in message
     with closing(connect(db)) as c:
-        assert schema_version(c) == 2 and {"po_consumption", "invoice_line_matches"} <= tables(c)
+        assert schema_version(c) == SCHEMA_VERSION and {"po_consumption", "invoice_line_matches"} <= tables(c)
         assert {po: get_po_balance_minor(c, po) for po in (1, 2)} == balances
         rows = [dict(r) for r in c.execute("SELECT * FROM po_consumption ORDER BY ledger_entry_id")]
         assert consumption_problems(c) == []
@@ -70,7 +70,7 @@ def test_migrating_twice_is_a_no_op(tmp_path):
     db = make_v1(tmp_path / "app.db")
     migrate_mod.migrate(db)
     assert "nothing to do" in migrate_mod.migrate(db)
-    assert len(list(tmp_path.glob("*.bak"))) == 1
+    assert len(list(tmp_path.glob("*.bak"))) == 2                         # one backup per step: v1 -> 2 and v2 -> 3 (schema v3)
     with closing(connect(db)) as c:
         assert c.execute("SELECT COUNT(*) FROM po_consumption").fetchone()[0] == 3
 
@@ -97,8 +97,8 @@ def test_migrate_refuses_what_it_cannot_migrate(tmp_path, capsys):
 
 # ------------------------------------------------------------------------------------------ fresh databases and seeds
 
-def test_a_fresh_database_is_v2(conn):
-    assert schema_version(conn) == 2 and {"po_consumption", "invoice_line_matches"} <= tables(conn)
+def test_a_fresh_database_has_the_v2_tables(conn):
+    assert schema_version(conn) == SCHEMA_VERSION and {"po_consumption", "invoice_line_matches"} <= tables(conn)
 
 
 @pytest.mark.parametrize("seed", [None, DEMO])

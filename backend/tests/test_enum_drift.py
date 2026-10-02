@@ -7,7 +7,7 @@ import pytest
 
 from app import enums
 from app.enums import (
-    Decision, DraftKind, DraftStatus, InvoiceStatus, LedgerType, LineMatchStatus, MatchedBy, Outcome, POStatus,
+    Decision, DraftKind, DraftStatus, InvoiceStatus, LedgerType, LineMatchStatus, MatchedBy, OAuthProvider, Outcome, POStatus,
     QueueStatus, Resolution, RuleSource, RunStatus, VendorStatus,
 )
 
@@ -29,6 +29,7 @@ CHECK_TO_ENUM = {
     ("po_consumption", "type"): LedgerType,
     ("po_consumption", "matched_by"): MatchedBy,
     ("invoice_line_matches", "status"): LineMatchStatus,
+    ("oauth_credentials", "provider"): OAuthProvider,
 }
 
 # Enums that intentionally have no DB column (they only exist on in-memory models).

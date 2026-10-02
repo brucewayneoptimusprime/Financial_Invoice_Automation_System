@@ -17,10 +17,12 @@ dependencies = [
     "uvicorn>=0.30",
     "python-multipart>=0.0.9",
     "openpyxl>=3.1",
+    "cryptography>=43",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "reportlab>=4", "httpx>=0.27"]
+dev = ["pytest>=8", "reportlab>=4"]
 
 [project.scripts]
 init-db = "app.db.init_db:main"

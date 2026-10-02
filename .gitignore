@@ -10,6 +10,8 @@
 *.db-shm
 *.sqlite
 *.sqlite3
+# Migration backups (a v3 backup holds the ENCRYPTED Gmail refresh token; never commit one)
+data/*.bak
 
 # Python
 .venv/

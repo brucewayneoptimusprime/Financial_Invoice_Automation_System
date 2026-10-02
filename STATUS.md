@@ -1,6 +1,42 @@
 # STATUS
 
-Last updated: 2026-09-26. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md`).
+Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
+
+# Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
+
+## Current state
+- Plan approved 2026-10-02 with changes: decision 3 (LLM ranker) declined; stage order 1, 2, 3, 5, 6, 4, 7; you asked for stages 1-3, then stop.
+- **Stage 1 done:** schema v3 + migration, token cipher, key generator, Gmail settings, the callback-address check.
+- Next: stage 2 (fake Gmail client + search, no model, no OAuth).
+- No live calls. No Google call (there is no Gmail client yet). Nothing pushed.
+
+## Test count and result (stage 1)
+- Backend: **2205 passed, 0 failed, 2 deselected** (`pytest -W error`; 2172 before + 33 new in `tests/gmail/test_stage1_schema_crypto.py`).
+- Frontend: **85 passed** (unchanged).
+
+## What changed (Gmail stage 1)
+- **Schema v3** (`app/db/schema_v3.sql`): `oauth_credentials` and `gmail_imports` (SPEC section 5, item 82). `init_db` creates v3; `python -m app.db.migrate` goes 2 -> 3 (and 1 -> 2 -> 3), with a byte-identical `.v<N>-<UTC>.bak` backup before each step; a failing step rolls back and says which version the file is at. `serve`, the pipeline CLI and `/health` refuse v1 and v2 with the migrate command. `reset` also deletes the Gmail tables' rows.
+- **`app/gmail/`**:
+  - `scopes.py`: the one scope, `gmail.readonly`.
+  - `crypto.py`: `TokenCipher` (Fernet), key fingerprint, `KeyMissing` / `KeyInvalid` / `KeyMismatch` / `TokenUnreadable`; no message ever contains a key or token.
+  - `keygen.py`: `python -m app.gmail.keygen [--append-env]`.
+  - `callback.py`: checks that the redirect URI reaches this server.
+- **Settings**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_ENCRYPTION_KEY` (`SecretStr`, read only through `Settings`), `GMAIL_BACKEND` (google | fake | disabled; unset = google when all three secrets are set), `GMAIL_FAKE_INBOX`, `GMAIL_REDIRECT_URI`, `GMAIL_UI_RETURN_URL`, and the caps (25 shown, 10 per import, 180-day default window, 12 terms / 300 characters per query).
+- **`localhost:8000` for the callback**:
+  - `serve` keeps binding 127.0.0.1:8000.
+  - At start-up it prints "Gmail import: ..." with setting NAMES only. With the real backend it warns if the redirect port is not the bound port, or if `localhost` does not resolve to the bound address (with the `--port` / `--host` fix).
+  - Checked here: a real `serve --offline` on a scratch database answered `GET http://localhost:8000/health` with 200 and `schema_version` 3. The banner said "not set up (missing OAUTH_ENCRYPTION_KEY)": your two `GOOGLE_*` values are present (names checked, values never read out).
+- **`.gitignore`**: `data/*.bak`. `data/app.db.v1-20260926T140353625631Z.bak` is untracked on this branch (decision 11; the file stays on your disk, and `master` still has it).
+- **Dependencies**: `cryptography` added; `httpx` moved from the dev extra to the main dependencies. Run `pip install -e ".[dev]"` after pulling.
+- **Tests**: `conftest.py` blanks the three Google settings and `GMAIL_BACKEND` for every non-live test (like the Anthropic key).
+- **Existing assertions changed** (all in the stage-1 commit message): `test_deploy` health `schema_version` 2 -> 3; `test_db_init` `EXPECTED_TABLES` + 2 tables; `test_schema_v2`: the v1 migration ends at `SCHEMA_VERSION` (3); "migrating twice" now finds 2 backups (one per step); "fresh database is v2" became "has the v2 tables" at `SCHEMA_VERSION`; `test_enum_drift` maps the new `oauth_credentials.provider` CHECK to the new `OAuthProvider` enum. **No `run_started` assertion changed** (none asserts its detail; its additive `source` key arrives in stage 3).
+
+## Your `datapp.db`
+- It is schema v2. This branch needs v3: run `python -m app.db.migrate` from `backend\` (backup `datapp.db.v2-<UTC>.bak` first), or start with `--reset-demo`.
+
+---
+
+# Before Gmail import (state of `master`, last updated 2026-09-26)
 
 ## Current milestone and state
 - M0-M3 complete; M4, PO integration, line-item consumption, review actions and the dashboard (+ clickable summaries) committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4, dashboard stage 3), the review of the line-item build, and the demo-loader question.

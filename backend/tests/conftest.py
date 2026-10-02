@@ -36,13 +36,16 @@ def seed_path():
 @pytest.fixture(autouse=True)
 def _isolate_llm(request, monkeypatch):
     """No test except a `live` one can ever see a real API key (e.g. one in the developer's .env), so a
-    mocked test can never spend money by accident. Also resets cached settings and the session cost tracker."""
+    mocked test can never spend money by accident. The same holds for the Google OAuth client and the token encryption key
+    (Gmail import). Also resets cached settings and the session cost tracker."""
     from app.llm.budget import reset_session_tracker
 
     get_settings.cache_clear()
     reset_session_tracker()
     if request.node.get_closest_marker("live") is None:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "")     # shadows .env; blank means "not set"
+        for name in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "OAUTH_ENCRYPTION_KEY", "GMAIL_BACKEND"):
+            monkeypatch.setenv(name, "")                 # Gmail import: never the developer's real OAuth client or key
     yield
     get_settings.cache_clear()
     reset_session_tracker()

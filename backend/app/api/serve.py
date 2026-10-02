@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.db.connection import connect
 from app.db.init_db import add_missing_builtin_rules, check_schema
 from app.db.reset import reset_database
+from app.gmail.callback import callback_problems
 from app.llm.budget import CostTracker
 from app.llm.errors import LLMConfigError
 
@@ -33,6 +34,20 @@ def refusal_message() -> str:
             "  python -m app.api.serve --replay data\\recordings    recorded responses only (free)\n"
             "  python -m app.api.serve --offline                   no model at all (free)\n"
             f"  python -m app.api.serve --live [--record DIR]      real, paid API calls (about ${ESTIMATED_COST} per invoice)")
+
+
+def gmail_banner(settings, host: str, port: int) -> list[str]:
+    """What the Gmail import will use. Setting NAMES only, never values."""
+    backend = settings.gmail_backend_effective()
+    if backend == "fake":
+        return ["Gmail import: FAKE INBOX (test data from GMAIL_FAKE_INBOX; Google is never contacted)."]
+    if backend == "disabled":
+        missing = settings.gmail_missing()
+        why = f"missing {', '.join(missing)}" if missing and settings.gmail_backend != "disabled" else "GMAIL_BACKEND=disabled"
+        return [f"Gmail import: not set up ({why})."]
+    lines = [f"Gmail import: real Gmail, read-only. OAuth callback: {settings.gmail_redirect_uri} (open the UI at http://localhost:5173)."]
+    lines += [f"  WARNING: {p}" for p in callback_problems(settings.gmail_redirect_uri, host, port)]
+    return lines
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -116,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
               "offline": "OFFLINE MODE: no model calls; extraction degrades to review and explanations are templates."}[mode]
     print(banner)
     print(f"Database: {db_path}\nAPI: http://{host}:{port}/api   (UI: run `npm run dev` in frontend/, then open http://localhost:5173)")
+    for line in gmail_banner(settings, host, port):
+        print(line)
 
     import uvicorn
 

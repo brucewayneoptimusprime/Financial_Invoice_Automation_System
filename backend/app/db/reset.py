@@ -4,6 +4,7 @@
 
 Drops every table in place (so it works even if another process has the file open, which
 matters on Windows), then re-creates the schema, builtin rules, default settings and the seed.
+This also deletes any connected Gmail account (oauth_credentials) and the Gmail import history (gmail_imports).
 """
 import argparse
 import logging

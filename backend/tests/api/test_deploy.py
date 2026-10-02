@@ -139,7 +139,7 @@ def test_health_is_ok_with_a_good_database_and_says_nothing_sensitive(tmp_path):
     settings = api_settings(tmp_path, anthropic_api_key="sk-ant-api03-CANARY-0123456789")
     with api(tmp_path, settings=settings) as c:
         r = c.get("/health")
-    assert r.status_code == 200 and r.json() == {"status": "ok", "db": "ok", "schema_version": 2, "mode": "offline"}
+    assert r.status_code == 200 and r.json() == {"status": "ok", "db": "ok", "schema_version": 3, "mode": "offline"}
     assert "CANARY" not in r.text and str(tmp_path) not in r.text and "\\" not in r.text
 
 

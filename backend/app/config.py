@@ -312,6 +312,27 @@ class Settings(BaseSettings):
         "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND", "CLF", "UYW"})
     ui_max_files_per_upload: int = Field(default=20, ge=1)
 
+    # Gmail import (SPEC section 11 items 81-). Read-only Gmail access (scope in app/gmail/scopes.py); the three secrets are read
+    # ONLY here, from the environment / .env, and are never logged or returned by any endpoint.
+    google_client_id: SecretStr | None = None
+    google_client_secret: SecretStr | None = None
+    oauth_encryption_key: SecretStr | None = None          # a Fernet key; generate with `python -m app.gmail.keygen`
+    gmail_backend: Literal["google", "fake", "disabled"] | None = None   # unset: google when the three secrets are set, else disabled
+    gmail_fake_inbox: Path = ROOT_DIR / "data" / "gmail_fake" / "inbox.json"   # gmail_backend = fake: labelled test data, no Google
+    gmail_redirect_uri: str = "http://localhost:8000/api/gmail/oauth/callback"  # must match the Google OAuth client exactly
+    gmail_ui_return_url: str = "http://localhost:5173/invoices"                 # where the callback sends the browser back
+    gmail_oauth_state_ttl_s: int = Field(default=600, ge=30)
+    gmail_search_ttl_s: int = Field(default=900, ge=30)          # how long a search's candidate set can be imported from
+    gmail_max_results: int = Field(default=25, ge=1, le=100)     # messages shown per search
+    gmail_max_import_per_action: int = Field(default=10, ge=1)   # attachments per import request
+    gmail_max_attachments_per_message: int = Field(default=10, ge=1)
+    gmail_default_window_days: int = Field(default=180, ge=1)    # newer_than:<N>d when the query has no date bound
+    gmail_query_max_terms: int = Field(default=12, ge=1)
+    gmail_query_max_chars: int = Field(default=300, ge=10)
+    gmail_request_max_chars: int = Field(default=300, ge=10)     # the typed natural-language request (translator, stage 4)
+    gmail_query_prompt_version: str = "gmail-query-v1"
+    gmail_http_timeout_s: float = Field(default=20.0, gt=0)
+
     @field_validator("decision_severity")
     @classmethod
     def _check_severity(cls, v: dict[str, int]) -> dict[str, int]:
@@ -336,6 +357,11 @@ class Settings(BaseSettings):
             return [o.strip().rstrip("/") for o in text.split(",") if o.strip()]
         return v
 
+    @field_validator("gmail_backend", mode="before")
+    @classmethod
+    def _blank_backend(cls, v):
+        return None if isinstance(v, str) and not v.strip() else v
+
     @model_validator(mode="after")
     def _paths_under_data_dir(self) -> "Settings":
         """DATA_DIR puts every writable path on one volume (a Render disk), except those set explicitly."""
@@ -359,6 +385,36 @@ class Settings(BaseSettings):
             return None
         value = self.anthropic_api_key.get_secret_value().strip()
         return value or None
+
+    @staticmethod
+    def _secret(value: SecretStr | None) -> str | None:
+        if value is None:
+            return None
+        return value.get_secret_value().strip() or None
+
+    def google_client_id_value(self) -> str | None:
+        """Never log the result."""
+        return self._secret(self.google_client_id)
+
+    def google_client_secret_value(self) -> str | None:
+        """Never log the result."""
+        return self._secret(self.google_client_secret)
+
+    def oauth_encryption_key_value(self) -> str | None:
+        """Never log the result."""
+        return self._secret(self.oauth_encryption_key)
+
+    def gmail_missing(self) -> list[str]:
+        """NAMES (never values) of the settings the real Gmail backend needs but does not have."""
+        return [name for name, value in (("GOOGLE_CLIENT_ID", self.google_client_id_value()),
+                                         ("GOOGLE_CLIENT_SECRET", self.google_client_secret_value()),
+                                         ("OAUTH_ENCRYPTION_KEY", self.oauth_encryption_key_value())) if value is None]
+
+    def gmail_backend_effective(self) -> Literal["google", "fake", "disabled"]:
+        """fake only when chosen explicitly; google when chosen or by default, but only with all three secrets; else disabled."""
+        if self.gmail_backend in ("fake", "disabled"):
+            return self.gmail_backend
+        return "disabled" if self.gmail_missing() else "google"
 
     @model_validator(mode="after")
     def _check_floor_severity(self) -> "Settings":

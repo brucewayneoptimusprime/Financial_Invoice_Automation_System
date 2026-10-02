@@ -1445,7 +1445,13 @@ services:
 
 ---
 
-# PLAN: Gmail import (awaiting approval)
+# PLAN: Gmail import (approved 2026-10-02 with changes; build stages 1, 2, 3, then stop)
+
+**Owner approval (2026-10-02).** Decisions 1, 2 and 4-13 approved as recommended. **Decision 3 declined:** no ranker, no `rank.py`, no `gmail_rank_with_llm` setting; the deterministic injection-pattern flag on search results stays. Wherever a section below mentions the ranker, it no longer applies. Changes to the plan:
+- Stage order is now **1, 2, 3, 5, 6, 4, 7**: the translator (stage 4) is last and optional.
+- The translator prompt treats company names as plain keywords, not `from:`; `from:` only for an explicit email address or domain.
+- Bind or document the backend so `http://localhost:8000` works for the OAuth callback (stage 1: a start-up check in `serve` plus SPEC section 11 item 83).
+- The stage-1 commit lists every existing test assertion it changes, including any that touch the `run_started` detail.
 
 (2026-10-02; branch `feature/gmail-integration`; `master` is the submitted version and is never committed to, merged into or pushed from this work. Build stages 1-7, stop at 7.)
 

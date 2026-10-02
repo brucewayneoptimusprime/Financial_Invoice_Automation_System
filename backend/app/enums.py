@@ -117,3 +117,8 @@ class LineMatchStatus(StrEnum):
     AMBIGUOUS = "ambiguous"
     NO_MATCH = "no_match"
     NOT_EVALUABLE = "not_evaluable"
+
+
+class OAuthProvider(StrEnum):
+    """Who issued a stored OAuth credential (Gmail import, schema v3). Only Google in v1."""
+    GOOGLE = "google"

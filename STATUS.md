@@ -6,7 +6,8 @@ Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 - Plan `EXPORT_PLAN.md` approved 2026-10-02 (open questions 1-9 as recommended; PDF: Helvetica, undrawable characters become "?" with a footer note). Building E1-E4 without stopping; stop after E4.
 - **E1: the model, CSV, Excel, the routes.** `app/po/export/` (`model.py`: one neutral document model from `po_list` / `po_detail` with exact Decimal values; `safety.py`: formula-injection escaping, file names, caps; `csv_render.py`; `xlsx_render.py`; `service.py`: the format registry). `GET /api/pos/export?format=&q=&status=&currency=&ids=` and `GET /api/pos/{id}/export?format=&level=financial|full` (behind ACCESS_TOKEN; `Content-Disposition: attachment`, `Cache-Control: no-store`). reportlab moved to the main dependencies, python-docx added (pip also installed lxml, which python-docx requires). 30 tests: numbers equal the screens' JSON, scope and filters, ticked ids, caps, injection, file names, access gate, no writes, empty and long POs.
-- Done: E1. Tests now: backend **2453 passed**, 0 failed, 4 deselected (`pytest -W error`); frontend **122 passed**.
+- **E2: PDF and Word.** `pdf_render.py` (reportlab, A4 landscape, repeated table headers, wrapped text, "Page N of M", Helvetica with undrawable characters replaced by "?" and a footer note) and `docx_render.py` (python-docx, landscape, Heading 1/2, "Light Grid Accent 1" tables with repeated header rows). All four formats x both levels plus the summary are built and tested.
+- Done: E1, E2. Tests now: backend **2475 passed**, 0 failed, 4 deselected (`pytest -W error`); frontend **122 passed**.
 
 ---
 

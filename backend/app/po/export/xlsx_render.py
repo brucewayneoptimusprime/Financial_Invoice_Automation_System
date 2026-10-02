@@ -30,7 +30,7 @@ def _put(ws, row: int, col: int, value: Any, kind: str) -> None:
     if kind == "money":
         cell.value = Decimal(value)
         cell.number_format = MONEY_FORMAT
-    elif kind == "qty":
+    elif kind in ("qty", "price"):
         cell.value = Decimal(value)
     elif kind == "int":
         cell.value = int(value)

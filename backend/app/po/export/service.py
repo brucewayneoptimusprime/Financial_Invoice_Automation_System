@@ -3,13 +3,13 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Callable
 
-from app.po.export import csv_render, xlsx_render
+from app.po.export import csv_render, docx_render, pdf_render, xlsx_render
 from app.po.export.model import ExportDoc, ExportError, detail_doc, parse_ids, summary_doc
 from app.po.export.safety import content_disposition
 
 FORMATS: dict[str, tuple[str, str, Callable[[ExportDoc], bytes] | None]] = {
-    "pdf": ("application/pdf", "pdf", None),
-    "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx", None),
+    "pdf": ("application/pdf", "pdf", pdf_render.render),
+    "docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx", docx_render.render),
     "xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx", xlsx_render.render),
     "csv": ("text/csv; charset=utf-8", "csv", csv_render.render),
 }

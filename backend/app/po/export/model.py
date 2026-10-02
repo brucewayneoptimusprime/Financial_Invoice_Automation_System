@@ -30,7 +30,7 @@ class ExportError(Exception):
 @dataclass(frozen=True)
 class Column:
     label: str
-    kind: str = "text"              # text | money | qty | int
+    kind: str = "text"              # text | money | qty | price (a unit price: a quantity-like decimal in the currency) | int
 
 
 @dataclass
@@ -54,6 +54,7 @@ class ExportDoc:
     filename_stem: str
     meta: list[tuple[str, str]]
     sections: list[Table | KeyValues] = field(default_factory=list)
+    currency: str | None = None     # one PO: its currency (money column headers say it); the summary mixes currencies (a column)
 
 
 def humanize(key: str | None) -> str:
@@ -192,7 +193,7 @@ def detail_doc(conn: sqlite3.Connection, po_id: int, *, level: str, generated: d
                 "—" if i["historic"] else humanize(i["decision"]), humanize(i["status"]), i["started_at"] or "—",
                 "yes" if i["historic"] else "no"] for i in d["invoices"]]),
         Table("Lines",
-              [Column("Line", "int"), Column("Description"), Column("Quantity", "qty"), Column("Unit price", "qty"), Column("Amount", "money"),
+              [Column("Line", "int"), Column("Description"), Column("Quantity", "qty"), Column("Unit price", "price"), Column("Amount", "money"),
                Column("Consumed quantity", "qty"), Column("Consumed amount", "money"), Column("Remaining quantity", "qty"),
                Column("Remaining amount", "money")],
               [[ln["line_no"], ln["description"] or "", dec(ln["quantity"]), dec(ln["unit_price"]), dec(ln["amount"]),
@@ -212,4 +213,4 @@ def detail_doc(conn: sqlite3.Connection, po_id: int, *, level: str, generated: d
                                Column("When")], alloc_rows, alloc_note))
         sections.append(KeyValues("Where this PO came from", provenance_items(d["provenance"] or {})))
     stem = safe_filename(f"{po['po_number']}-{level}-{compact}", f"po-{po_id}-{level}-{compact}")
-    return ExportDoc("detail", f"Purchase order {po['po_number']}", stem, meta, sections)
+    return ExportDoc("detail", f"Purchase order {po['po_number']}", stem, meta, sections, currency=po["currency"])

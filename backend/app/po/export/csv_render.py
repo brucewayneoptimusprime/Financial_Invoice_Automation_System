@@ -19,7 +19,7 @@ def plain(value: Any, kind: str) -> str:
         return ""
     if kind == "money":
         return f"{Decimal(value):.2f}"
-    if kind == "qty":
+    if kind in ("qty", "price"):
         return str(value)                                                  # the view's own decimal text (e.g. 4, 2.5, 1893.30)
     if kind == "int":
         return str(int(value))

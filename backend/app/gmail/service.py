@@ -37,8 +37,11 @@ from app.gmail.models import AttachmentInfo, MessageSummary, SearchResult, clean
 from app.gmail.crypto import GmailCryptoError, TokenCipher
 from app.gmail.google_client import GoogleGmailClient
 from app.gmail.oauth import OAuthFailed, OAuthFlows
+from app.gmail.prompts import LABELS_PROMPT_VERSION, QUERY_PROMPT_VERSION
 from app.gmail.query import check_and_finalize
+from app.gmail.translate import translate
 from app.llm.budget import CostTracker
+from app.llm.types import LLMClient
 
 logger = logging.getLogger("app.gmail")
 
@@ -64,6 +67,18 @@ class SearchSession:
     account: str
     created: float
     candidates: dict[tuple[str, str], Candidate] = field(default_factory=dict)
+    messages: dict[str, dict] = field(default_factory=dict)      # message id -> {subject, snippet, flagged}: what the labeller may read
+    intent: str = ""                                             # the sentence, or the raw query, the search started from
+    intent_kind: str = "query"                                   # sentence | query
+
+
+def usd6(value) -> str:
+    """Model cost as a fixed 6-decimal string (sub-cent amounts stay readable and compare exactly)."""
+    return str(Decimal(value).quantize(Decimal("0.000001")))
+
+
+def zero_cost() -> dict:
+    return {"translate_usd": usd6(0), "tokens_in": 0, "tokens_out": 0}
 
 
 def _iso_from_ms(value) -> str | None:
@@ -75,8 +90,10 @@ def _iso_from_ms(value) -> str | None:
 
 class GmailService:
     def __init__(self, settings: Settings, db_path: Path, *, client: GmailClient | None = None, tracker: CostTracker | None = None,
-                 http: httpx.Client | None = None, clock: Callable[[], float] = time.monotonic, today: Callable[[], date] | None = None):
+                 http: httpx.Client | None = None, llm: LLMClient | None = None, mode: str = "offline",
+                 clock: Callable[[], float] = time.monotonic, today: Callable[[], date] | None = None):
         self.settings, self.db_path, self.tracker = settings, Path(db_path), tracker
+        self.llm, self.mode = llm, mode
         self._client_override = client
         self._http, self._owns_http = http, http is None
         self._oauth: OAuthFlows | None = None
@@ -205,12 +222,28 @@ class GmailService:
         self._forget()
         return {"disconnected": cred is not None, "revoked": revoked}
 
+    # ------------------------------------------------------------------ model roles
+    @property
+    def models_usable(self) -> bool:
+        """A model can be asked at all: a client exists and the server was started with --live or --replay (never --offline)."""
+        return self.llm is not None and self.mode in ("live", "replay")
+
+    @property
+    def translator_available(self) -> bool:
+        return self.settings.gmail_translator_enabled and self.models_usable
+
+    @property
+    def labels_available(self) -> bool:
+        return self.settings.gmail_labels_enabled and self.models_usable
+
     # ------------------------------------------------------------------ status
     def status(self) -> dict:
         s, backend = self.settings, self.backend
         out = {"backend": backend, "available": backend != "disabled", "fake": backend == "fake",
                "missing": s.gmail_missing() if backend == "disabled" and s.gmail_backend != "disabled" else [],
-               "connected": False, "account_email": None, "connected_at": None, "reconnect": False, "translator_available": False,
+               "connected": False, "account_email": None, "connected_at": None, "reconnect": False,
+               "translator_available": self.translator_available, "labels_available": self.labels_available,
+               "prompt_versions": {"query": QUERY_PROMPT_VERSION, "labels": LABELS_PROMPT_VERSION},
                "caps": {"max_results": s.gmail_max_results, "max_import": s.gmail_max_import_per_action,
                         "query_max_chars": s.gmail_query_max_chars, "request_max_chars": s.gmail_request_max_chars,
                         "default_window_days": s.gmail_default_window_days},
@@ -235,8 +268,16 @@ class GmailService:
         return out
 
     # ------------------------------------------------------------------ search
-    def search(self, query_text: str) -> SearchResult:
-        client = self.client()
+    def search(self, query_text: str | None = None, sentence: str | None = None) -> SearchResult:
+        if query_text is not None and sentence is not None:
+            raise GmailError("query_invalid", "Send either a sentence or a Gmail search, not both.")
+        client = self.client()                                         # not set up / not connected: refused before any model call
+        search_id = uuid.uuid4().hex
+        cost = zero_cost()
+        translation = None
+        if sentence is not None:
+            query_text, translation, cost = self._translate(sentence, search_id)
+        query_text = query_text or ""
         _, final, added = check_and_finalize(query_text, self.settings, self._today())
         try:
             account = self.account(client)
@@ -249,12 +290,40 @@ class GmailService:
             raise GmailError("unavailable", "Gmail could not be searched just now. Try again.") from None
         with closing(self._db()) as conn:
             imported = store.imported_parts(conn, account, ids)
-        session = SearchSession(uuid.uuid4().hex, account, self._clock())
+        session = SearchSession(search_id, account, self._clock(), intent=sentence if sentence is not None else query_text,
+                                intent_kind="sentence" if sentence is not None else "query")
         messages = [self._summarize(raw, imported, session) for raw in raws]
         self._remember(session)
         return SearchResult(search_id=session.search_id, backend=self.backend, account_email=account, query_sent=final,
                             added_terms=added, result_estimate=max(estimate, len(ids)), truncated=estimate > len(ids),
-                            messages=messages)
+                            messages=messages, translation=translation, cost=cost)
+
+    def _translate(self, sentence: str, search_id: str) -> tuple[str, dict, dict]:
+        """(the validated query, the translation record, the cost). Raises GmailError('translation_failed') with whatever the user
+        needs to finish by hand: the model's refused query, the validator's problems, the model's notes."""
+        sentence = (sentence or "").strip()
+        if not sentence:
+            raise GmailError("query_invalid", "Type what you are looking for, or use the Gmail search box.")
+        if len(sentence) > self.settings.gmail_request_max_chars:
+            raise GmailError("query_invalid", f"The description is longer than {self.settings.gmail_request_max_chars} characters.")
+        if not self.translator_available:
+            raise GmailError("translation_failed", "Plain-English search is not available on this server; use the Gmail search box.",
+                             detail={"query": None, "notes": "", "reason": "unavailable",
+                                     "cost": zero_cost()})
+        tr = translate(sentence, client=self.llm, settings=self.settings, run_key=f"gmail-search-{search_id}", today=self._today())
+        cost = {"translate_usd": usd6(tr.cost_usd), "tokens_in": tr.tokens_in, "tokens_out": tr.tokens_out}
+        if tr.query is None:
+            if tr.proposed is not None:
+                message = "Claude's search was not accepted; edit it in the Gmail search box."
+            elif tr.notes and tr.fallback_reason == "the sentence cannot be expressed as a Gmail search":
+                message = f"That cannot be turned into a Gmail search: {tr.notes}"
+            else:
+                message = "Plain-English search is not available just now; use the Gmail search box."
+            logger.info("gmail translation fell back: %s", (tr.fallback_reason or "")[:120])
+            raise GmailError("translation_failed", message, problems=tr.problems,
+                             detail={"query": tr.proposed, "notes": tr.notes, "reason": "refused" if tr.proposed else "unavailable",
+                                     "cost": cost})
+        return tr.query, {"sentence": sentence, "query": tr.query, "notes": tr.notes}, cost
 
     def _summarize(self, raw: RawMessage, imported: dict, session: SearchSession) -> MessageSummary:
         s = self.settings
@@ -279,6 +348,7 @@ class GmailService:
         flagged = [name for name, text in fields.items() if text and scan_text(text, s.injection_patterns)]
         if any(scan_text(p.filename, s.injection_patterns) for p in listed):
             flagged.append("filename")
+        session.messages[message_id] = {"subject": subject, "snippet": snippet, "flagged": bool(flagged)}
         return MessageSummary(message_id=message_id, sender=sender, subject=subject, date=sent, snippet=snippet,
                               attachments=attachments, more_attachments=len(parts) - len(listed),
                               reader_instructions=bool(flagged), reader_instruction_fields=flagged)

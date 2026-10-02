@@ -29,10 +29,11 @@ def gmail_settings(tmp_path: Path, **kw):
 
 
 @contextmanager
-def gmail_api(tmp_path: Path, *, settings=None, gmail_client=None, run_fn=None, tracker=None, **kw):
-    """(TestClient, app) with the fake Gmail backend unless told otherwise."""
+def gmail_api(tmp_path: Path, *, settings=None, gmail_client=None, run_fn=None, tracker=None, inner_client=None, mode="offline", **kw):
+    """(TestClient, app) with the fake Gmail backend unless told otherwise. `inner_client` (a scripted model double) + mode="live"
+    make the translator and the labeller available; the default (offline) leaves both off."""
     settings = settings or gmail_settings(tmp_path, **kw)
-    app, worker, db, settings = build_app(tmp_path, settings=settings, run_fn=run_fn, tracker=tracker)
+    app, worker, db, settings = build_app(tmp_path, settings=settings, run_fn=run_fn, tracker=tracker, inner_client=inner_client, mode=mode)
     if gmail_client is not None:
         app.state.api.gmail._client_override = gmail_client
     with TestClient(app) as c:

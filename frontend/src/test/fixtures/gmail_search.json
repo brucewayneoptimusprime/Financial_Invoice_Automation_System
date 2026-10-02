@@ -1,5 +1,5 @@
 {
-  "search_id": "7e7afeffed0144dabf163ad023206160",
+  "search_id": "8008fa114f02427cabdcb882652866be",
   "backend": "fake",
   "account_email": "fake-inbox@example.test",
   "query_sent": "after:2026/08/01 has:attachment",
@@ -188,7 +188,7 @@
           "eligible": true,
           "reason_code": null,
           "reason": null,
-          "imported_run_id": "6553fe765c8d4f8f82bd496d2f867ed1"
+          "imported_run_id": "d5f25b84aeef4f60bcec2fd01a017a89"
         }
       ],
       "more_attachments": 0,
@@ -241,5 +241,11 @@
       "reader_instructions": false,
       "reader_instruction_fields": []
     }
-  ]
+  ],
+  "translation": null,
+  "cost": {
+    "translate_usd": "0.000000",
+    "tokens_in": 0,
+    "tokens_out": 0
+  }
 }

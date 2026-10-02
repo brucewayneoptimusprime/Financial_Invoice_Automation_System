@@ -12,6 +12,11 @@
   "connected_at": null,
   "reconnect": false,
   "translator_available": false,
+  "labels_available": false,
+  "prompt_versions": {
+    "query": "gmail-query-v1",
+    "labels": "gmail-labels-v1"
+  },
   "caps": {
     "max_results": 25,
     "max_import": 10,

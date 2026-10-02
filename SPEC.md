@@ -197,7 +197,8 @@ Stages are independent and individually testable. Each stage may be run with han
 | Explainer | decide stage | Writes the plain-language reasoning **from the audit trail**, not from memory |
 | Drafter | act stage | Drafts vendor email for `request_info` / `reject` |
 | Policy translator (optional, see milestones) | settings | NL policy to rule JSON, shown for user confirmation before saving |
-| Query translator (Gmail import, optional) | Gmail search on the upload screen | Turns the user's typed request into a Gmail search query. Code validates it against an operator allowlist; the user sees and can edit it. Never sees any email content (section 11 item 81) |
+| Query translator (Gmail import, optional) | Gmail search on the upload screen | Turns the user's typed request into a Gmail search query. Code validates it against an operator allowlist; the user sees and can edit it. Never sees any email content (section 11 items 81, 88) |
+| Relevance labeller (Gmail import, optional) | Gmail search results | Labels each importable attachment likely_invoice / unlikely / unsure with a one-line reason, from metadata only (never contents). Advisory: never ticks, hides, re-orders or imports anything (section 11 item 89) |
 
 Log tokens and cost per run. Show cost per invoice on the dashboard.
 
@@ -379,6 +380,13 @@ The UI is graded. Keep it clean, intentional and easy to demo.
    - Gmail answers map to `rate_limited` 429, `not_found` 404 and `unavailable` 502, never with Google's body.
    - All HTTP goes through one `httpx.Client` (`create_app(gmail_http=)`), which the tests replace with `httpx.MockTransport`. No token, code, verifier, client secret or Google body is logged, raised or returned. A logging filter installed at app start-up replaces the callback's query string with `<redacted>` in uvicorn's access log, checked with a real server.
    - ONE `live` test (`tests/gmail/test_live_gmail.py`) lists at most one message of the connected inbox. It skips itself without a connection and never deletes the credential.
+
+88. **Plain-English search: the Query translator (owner-approved GMAIL_PLAN_2, decisions 6-8).** `POST /api/gmail/search {sentence}` (or `{query}`, exactly one; an empty body still means an empty query) turns a sentence of at most 300 characters into a Gmail query with prompt `gmail-query-v1`. The model sees ONLY the sentence, today's date (UTC) and "UTC". The call goes through the server's metered client with run key `gmail-search-<search_id>`, thinking disabled, effort low, a union-free `{query, notes}` schema, at most 300 output tokens, and the prompt fingerprint pinned by a test. Code checks the reply:
+   1. the existing allowlist validator;
+   2. every `from:` / `to:` value must contain `@` or `.`, so company or person names can only be plain keywords (owner rule);
+   3. an empty query means "cannot be expressed" (no repair; the model's notes are shown).
+
+   A failing reply is repaired once with our problems listed, then given up. The answer is then 422 `translation_failed`, with `reason` `refused` (the model's query plus the validator's problems, to edit in the manual box) or `unavailable` (no model in `--offline`, a replay miss, the cost ceiling, invalid JSON twice, a model error). No Gmail call is made on a failure. An accepted query goes through the same `finalize` as a typed one. The response carries `translation: {sentence, query, notes}` and `cost: {translate_usd (6 decimals), tokens_in, tokens_out}` (zeros for a typed query). `/api/gmail/status` gains `translator_available` / `labels_available` (setting on AND the server started with `--live` or `--replay`) and `prompt_versions`. Settings: `GMAIL_TRANSLATOR_ENABLED`, `GMAIL_LABELS_ENABLED`, `GMAIL_TRANSLATE_MAX_OUTPUT_TOKENS` (300), `GMAIL_LABELS_MAX_OUTPUT_TOKENS` (2500), `GMAIL_LABELS_MAX_ITEMS` (60).
 
 ## 12. Milestones (ordered by dependency, not by date)
 

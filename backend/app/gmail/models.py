@@ -56,3 +56,5 @@ class SearchResult(BaseModel):
     result_estimate: int
     truncated: bool
     messages: list[MessageSummary]
+    translation: dict | None = None             # {sentence, query, notes} when the search started from a sentence
+    cost: dict = {}                              # {translate_usd, tokens_in, tokens_out}

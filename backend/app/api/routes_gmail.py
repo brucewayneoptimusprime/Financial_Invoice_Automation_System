@@ -45,7 +45,8 @@ class DisconnectRequest(BaseModel):
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    query: str = ""
+    query: str | None = None          # a Gmail search (the manual box)
+    sentence: str | None = None       # or a plain-English description, turned into a query by the translator
 
 
 @router.get("/status")
@@ -56,7 +57,8 @@ def status(request: Request) -> dict:
 @router.post("/search")
 async def search(request: Request, body: SearchRequest):
     try:
-        result = await run_in_threadpool(_state(request).gmail.search, body.query)
+        query = body.query if body.query is not None or body.sentence is not None else ""
+        result = await run_in_threadpool(_state(request).gmail.search, query, body.sentence)
     except GmailError as exc:
         return _gmail_error(exc)
     return result.model_dump()

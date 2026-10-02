@@ -332,6 +332,13 @@ class Settings(BaseSettings):
     gmail_request_max_chars: int = Field(default=300, ge=10)     # the typed natural-language request (translator, stage 4)
     gmail_query_prompt_version: str = "gmail-query-v1"
     gmail_http_timeout_s: float = Field(default=20.0, gt=0)
+    # Plain-English search and relevance labels (GMAIL_PLAN_2; SPEC section 11 items 88-89). Both use the server's metered client.
+    gmail_translator_enabled: bool = True
+    gmail_labels_enabled: bool = True
+    gmail_labels_prompt_version: str = "gmail-labels-v1"
+    gmail_translate_max_output_tokens: int = Field(default=300, ge=50)
+    gmail_labels_max_output_tokens: int = Field(default=2500, ge=100)
+    gmail_labels_max_items: int = Field(default=60, ge=1)        # attachments sent to the labeller per search (Gmail order)
 
     @field_validator("decision_severity")
     @classmethod

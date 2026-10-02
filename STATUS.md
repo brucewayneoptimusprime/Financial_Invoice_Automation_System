@@ -5,17 +5,31 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 
 ## Current state
-- Plan approved 2026-10-02 with changes (decision 3 declined; stage order 1, 2, 3, 5, 6, 4, 7). Stages 1-3 approved, deviations 2 and 3 approved; the rejected-after-import dedupe row is a recorded known limitation (SPEC item 86, README).
-- **Stage 5 done** (`a3ca853`): the Gmail panel. **Stage 6 done** (this commit): real OAuth + `GoogleGmailClient`, all HTTP through MockTransport in the tests. **Stopped here as asked:** stage 4 (translator) and stage 7 (live check) are not started.
-- No live call was made: no Google, no Anthropic. Nothing pushed.
+- Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself). Building B1, B2, C1, C2 without stopping; stop after C2.
+- **B1 done** (this commit): the translator backend. Next: B2 (the sentence box in the panel).
+- No live call in the suite. Nothing pushed.
 
-## Test count and result (stage 6)
-- Backend: **2374 passed, 0 failed, 3 deselected** (`pytest -W error`).
-  - Stage 5: 2343. Stage 6 added 31 in `tests/gmail/test_stage6_oauth.py`.
-  - The 3 deselected are the two existing live tests plus the new Gmail live test (`python -m pytest -m live -k gmail`).
-  - No existing assertion changed. `conftest.py`: the "skip live tests without an Anthropic key" rule now leaves the Gmail live test alone (it skips itself).
-- Frontend: **101 passed**; `tsc --noEmit` clean; `vite build` OK.
-  - The `gmail_status_*.json` fixtures were regenerated: status gained `reconnect`, caught by the shape-drift test. Other fixture diffs are regenerated ids.
+## Test count and result (B1)
+- Backend: **2404 passed, 0 failed, 3 deselected** (`pytest -W error`; stage 6: 2374; B1 added 30 in `tests/gmail/test_b1_translator.py`). No existing assertion changed.
+- Frontend: **101 passed** (unchanged; the Gmail fixtures were regenerated because status and search gained fields, caught by the shape-drift test).
+
+## What changed (Plan 2 B1: the translator backend)
+- `app/gmail/prompts.py`: `gmail-query-v1` and `gmail-labels-v1`, the union-free schemas, `fingerprint()` (pinned in the tests). Both prompts are here from the start, so the fingerprint is stable through C1.
+- `app/gmail/translate.py`: `check_translation` (the allowlist plus the company-name rule: `from:` / `to:` only with `@` or `.`) and `translate()` through the shared `call_role` (one repair retry, fallback with a reason).
+- `service.search(query=None, sentence=None)`: a not-connected or not-set-up backend is refused before any model call. A sentence is translated with the run key `gmail-search-<search_id>`, the accepted query is finalized and searched like a typed one, and the response carries `translation` and `cost`. A failure is 422 `translation_failed` (`refused` with the model's query and the problems, or `unavailable`), with no Gmail call. The search session remembers its intent (the sentence, or the raw query) and each email's subject, snippet and injection flag for the labeller.
+- Status: `translator_available`, `labels_available` (setting on and `--live` / `--replay`), `prompt_versions`. `create_app` passes the server's metered client and mode to `GmailService`.
+- Tests (scripted doubles):
+  - a sentence goes to a query, then a search (the cost computed from usage: 720 in / 40 out = $0.001840);
+  - the request carries only the sentence, the date and the timezone;
+  - `from:Acme` is repaired once;
+  - `in:anywhere` twice gives a 422 with the query and the problems, and no Gmail call;
+  - invalid JSON, a config error and a replay miss give `unavailable`;
+  - the cost ceiling stops the call before it is made;
+  - an empty query shows the model's notes;
+  - offline has no translator;
+  - bad requests are refused;
+  - the manual path is unchanged and costs nothing;
+  - the fingerprint is pinned.
 
 ## What changed (Gmail stage 6: real OAuth and the Gmail client)
 - `app/gmail/oauth.py` (`OAuthFlows`): start (state, PKCE S256, binding cookie), finish (state consumed first, then expiry, binding, error, code; the exact-scope check; the refresh-token check; revoke on refusal), refresh, revoke. Plus `RedactCallbackQuery` / `install_log_redaction` for the access log.

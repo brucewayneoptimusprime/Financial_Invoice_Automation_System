@@ -6,6 +6,7 @@ STATUS_FOR_CODE = {
     "not_connected": 409,        # no account connected yet
     "reconnect": 409,            # the stored credential is unusable (expired, revoked, other key)
     "query_invalid": 422,        # the search query failed the operator allowlist
+    "translation_failed": 422,   # the sentence could not be turned into an acceptable query (the manual box stays)
     "confirm_required": 400,     # an import must be confirmed explicitly
     "nothing_selected": 422,     # an import with no attachments
     "search_expired": 409,       # import from a search that is too old or unknown

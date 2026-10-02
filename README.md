@@ -509,26 +509,37 @@ The current `render.yaml` uses Render's **free** tier. It has no persistent disk
 
 ## Gmail import (branch `feature/gmail-integration`)
 
-On **Invoices** (`/invoices`), above the drop zone, you can pull invoice attachments straight from one Gmail account. The flow is:
-1. Connect.
-2. Search.
-3. Look at the list.
-4. Tick the attachments you want.
-5. Import.
+On **Invoices** (`/invoices`), above the drop zone, the **Import from Gmail** panel pulls invoice attachments straight from one Gmail account. Only the attachments you tick enter the normal pipeline, through the same queue and the same file checks as a drag-and-drop upload. Each one gets its own run and decision. Its audit trail records where it came from (email, sender, date, file name), and the run page and the dashboard mark it **From Gmail**.
 
-Only the ticked files enter the normal pipeline, through the same queue and the same checks as a drag-and-drop upload. Each one gets its own run and decision, and its audit trail records where it came from: email, sender, date and file name.
+**How it works for the user**
+1. **Connect** once with **Connect Gmail (read-only)**. Google asks for read-only access to your email.
+2. **Describe what you are looking for** in plain English, e.g. "invoices from Meridian since August", and press **Find**.
+   - Claude turns the sentence into a Gmail search. Company names stay plain keywords; `from:` is used only for an email address or a domain.
+   - The search actually sent is shown ("Sent to Gmail: …"). To change it, open **Edit search query**: the editable query box is collapsed by default, and opens by itself when Claude's search is refused or no model is available.
+3. **Look at the results.** Up to 25 emails are listed, newest first, with sender, date, subject and snippet as plain text. Every attachment shows its type and size.
+   - Files that cannot be imported (archives, Office files, anything over 20 MB) are greyed out with the reason.
+   - Files imported before link to their run.
+4. **Read the labels.** After the results appear, Claude labels each importable attachment **likely invoice**, **unsure** or **unlikely**, with a one-line reason. Labels are hints only: they never tick, hide, re-order or import anything.
+5. **Tick and import.** Nothing is ever pre-ticked; you choose, at most 10 per import. The runs appear under **This upload**. A file already imported, or already processed through another path, is not imported again.
 
-- **Read-only.** The only Google scope requested anywhere is `https://www.googleapis.com/auth/gmail.readonly`. OAuth 2.0 uses state, PKCE and an HttpOnly binding cookie, and the callback's code and state are redacted from the access log. The refresh token is stored only Fernet-encrypted under `OAUTH_ENCRYPTION_KEY` (`python -m app.gmail.keygen --append-env`). Access tokens live in memory only.
-- **Search.** Type a Gmail search, or, with a model available (`--live` / `--replay`), a sentence such as "invoices from Meridian since August". Claude turns the sentence into a query. Company names stay plain keywords (`from:` only for an address or a domain). The query box stays editable.
-  - Every query, typed or written by Claude, passes an operator allowlist: no `in:`, `is:` or `label:`, so spam, trash and all mail are never searched.
-  - The system always adds `has:attachment` and a date window.
-- **Labels.** After a search, one Claude call reads only each importable attachment's metadata (sender, subject, snippet, file name, type, size; never its contents) and marks it *likely invoice*, *unsure* or *unlikely*, with a short reason.
-  - Labels are hints: nothing is ever pre-ticked, hidden, re-ordered or imported because of them.
-  - Emails whose text addresses an AI are flagged and labelled *unsure* by rule, without the model.
-- **Caps and cost.** At most 25 emails are shown and 10 imported per action. Duplicates are skipped: the same email and file, or a file already processed. Each search shows its model cost: about $0.002 for the query plus about $0.005 for labelling 4 attachments (measured), all within the per-run and per-session ceilings.
-- **Local only for now.** The OAuth redirect is `http://localhost:8000/api/gmail/oauth/callback`; open the UI at `http://localhost:5173`. `GMAIL_BACKEND=fake` runs the whole feature on a labelled fake inbox, with no Google account.
+**What the model sees, and what it never sees**
+- **Turning your sentence into a search:** only your sentence and today's date.
+- **Labelling:** only each importable attachment's sender, subject, snippet, file name, type and size. The email text is wrapped as delimited data and declared untrusted.
+- **Never:** the full email body, the PDFs, or Gmail's message ids.
+- An email whose text addresses an AI ("ignore previous instructions…") is flagged in the list and labelled *unsure* by a rule, without asking the model.
+- Each search shows its model cost. Measured: about $0.002 for the query plus about $0.005 for labelling 4 attachments, within the per-run and per-session ceilings.
 
-The plans and reports are in `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are in `SPEC.md` §11 items 81-89.
+**Safety**
+- **Read-only.** The only Google scope requested anywhere in the code is `https://www.googleapis.com/auth/gmail.readonly`, and every Gmail request is a GET.
+- **The search allowlist.** Every query, typed or written by Claude, passes an operator allowlist: no `in:`, `is:` or `label:`, so spam, trash and all mail are never searched. The system always adds `has:attachment` and a date window.
+- **OAuth.** The OAuth 2.0 web flow uses state, PKCE and an HttpOnly binding cookie. The callback's code and state are redacted from the access log, and the callback is the only route exempt from `ACCESS_TOKEN`.
+- **Token storage.** The refresh token is stored only Fernet-encrypted under `OAUTH_ENCRYPTION_KEY` (`python -m app.gmail.keygen --append-env`). Access tokens live in memory only. Disconnect revokes the access at Google and deletes the stored token.
+
+**Running it locally**
+- The OAuth redirect is `http://localhost:8000/api/gmail/oauth/callback`. Open the UI at **`http://localhost:5173`**, not `127.0.0.1`; the panel warns if you do.
+- Plain-English search and labels need a model: start the server with `--live`, or with `--replay` from a recording.
+- `GMAIL_BACKEND=fake` runs everything on a labelled fake inbox, with no Google account.
+- The plans and reports are `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are `SPEC.md` §11 items 81-89.
 
 ## Known limitations / scope gaps
 
@@ -545,6 +556,9 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 - **Scope assumptions** (from `SPEC.md` §11): 2-way match only (no goods receipt / 3-way match); one PO per invoice; a single currency per run with no FX; 2-decimal currencies only; credit notes are flagged, not processed; PO totals are treated as tax-inclusive.
 - **Demo-scale data loading.** The facts snapshot loads whole tables per run. That is fine at demo scale, but an indexed pre-filter would be needed for large volumes.
 - **Gmail import (branch `feature/gmail-integration`): a rejected import keeps its dedupe row.** The import records the attachment just before queueing it. If the worker's ingest then rejected the file (unlikely, since the same file check already passed), importing that attachment from that email again reports "already imported" pointing at a run that never started; uploading the file by hand still works. Recorded in `SPEC.md` §11 item 86, deliberately not fixed yet.
+- **Gmail import: replay recordings are date-bound for sentence searches.** The plain-English search sends today's date to the model, and a replay recording is keyed on the exact request. A recorded sentence search therefore replays only on the day it was recorded, and its labels only while the inbox returns the same emails. Otherwise the panel falls back to the editable query box and shows no labels. Typed searches need no recording.
+- **Gmail import: the Google connection lasts about 7 days in Testing mode.** While the OAuth consent screen is in Google's *Testing* status, Google expires the refresh token after about 7 days. The panel then asks you to connect again (one click). Publishing the consent screen would remove this.
+- **Gmail import: no "From Gmail" filter.** Gmail-sourced runs are marked on the run page and the dashboard, but the run lists cannot be filtered by source yet.
 - **Line-match edge case.** Short PO line descriptions one letter apart ("Widget A" / "Widget B") with identical prices come out `ambiguous`. That is the safe side, but it means more reviewer choices.
 
 ---

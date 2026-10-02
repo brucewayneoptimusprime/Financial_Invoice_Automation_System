@@ -10,7 +10,8 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - **2. Wording.** The hint under the sentence box now says that Claude turns the sentence into a Gmail search and, when the labeller is on, labels the results from each email's sender, subject, snippet and attachment names, never the full email or the PDFs. No test asserted the old wording.
 - **3. Gmail logo.** `frontend/src/assets/gmail-icon.png` (moved from the repository root) sits in the panel header next to "Import from Gmail": 24 px tall, `alt=""`, transparent background (the bright M reads on light and dark themes).
 - **4. Dashboard marker.** Recent-run rows with a Gmail source show a small Gmail icon and "From Gmail". The dashboard reads the source from each run's existing run view (`GET /api/runs/{id}`, `source`), fetched once per run and cached, so the backend is unchanged.
-- Items done: 1, 2, 3, 4 of 5. Backend behaviour unchanged; no new dependency.
+- **5. Docs.** README "Gmail import" section rewritten for the final behaviour; known limitations updated (SPEC item 86, date-bound replay for sentence searches, Testing-mode token expiry); the stale STATUS notes (schema v1, "Frontend: 54 passed") fixed.
+- Items done: 1, 2, 3, 4, 5 of 5. Backend behaviour unchanged; no new dependency.
 
 ## Current state
 - Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself).
@@ -226,8 +227,8 @@ Each path ran on its own fresh demo database, with the recorded extract-v5 repli
 - **Tests**: `conftest.py` blanks the three Google settings and `GMAIL_BACKEND` for every non-live test (like the Anthropic key).
 - **Existing assertions changed** (all in the stage-1 commit message): `test_deploy` health `schema_version` 2 -> 3; `test_db_init` `EXPECTED_TABLES` + 2 tables; `test_schema_v2`: the v1 migration ends at `SCHEMA_VERSION` (3); "migrating twice" now finds 2 backups (one per step); "fresh database is v2" became "has the v2 tables" at `SCHEMA_VERSION`; `test_enum_drift` maps the new `oauth_credentials.provider` CHECK to the new `OAuthProvider` enum. **No `run_started` assertion changed** (none asserts its detail; its additive `source` key arrives in stage 3).
 
-## Your `datapp.db`
-- It is schema v2. This branch needs v3: run `python -m app.db.migrate` from `backend\` (backup `datapp.db.v2-<UTC>.bak` first), or start with `--reset-demo`.
+## Your `data\app.db`
+- This branch needs schema **v3**. If you have not migrated yet: `python -m app.db.migrate` from `backend\` (it backs up to `data\app.db.v2-<UTC>.bak` first), or start once with `--reset-demo`. (You connected Gmail live on this branch, so yours is already v3.)
 
 ---
 
@@ -236,13 +237,12 @@ Each path ran on its own fresh demo database, with the recorded extract-v5 repli
 ## Current milestone and state
 - M0-M3 complete; M4, PO integration, line-item consumption, review actions and the dashboard (+ clickable summaries) committed. Open with you: the browser checks (M4 stage 5, PO stage 7, review actions stage 4, dashboard stage 3), the review of the line-item build, and the demo-loader question.
 - **Deployment (Render + Vercel)**: all 3 stages done, pushed to GitHub, then **switched to Render's FREE instance type** (no card): no disk, no Shell, ephemeral data, demo database seeded by the build. The Render and Vercel dashboard setup is yours, following **`DEPLOY.md`** (push this commit first).
-- **Your `data\app.db` is still schema version 1**: run `python -m app.db.migrate` from `backend\` (backup first) or start the server with `--reset-demo`.
+- *(Historical, superseded.)* At the time, `data\app.db` was schema v1 and needed `python -m app.db.migrate`. It has since been migrated; the current schema is v3 (see the Gmail sections above).
 - No live calls.
 
 ## Test count and result
 - Frontend: **85 passed** (vitest; deployment stage 2 added 6; no existing test changed); `tsc --noEmit` clean; `vite build` OK.
 - Backend: **2172 passed, 0 failed, 2 deselected** (`pytest -W error`); the free-tier switch rewrote the render.yaml checks in `tests/test_deploy_files.py` (7 -> 9) and added the build-then-start flow test to `tests/api/test_deploy.py`; nothing else changed. Earlier: review actions added 47. Earlier: the line-item build added 72 tests (stage 1: 20, stage 2: 30, stage 3: 13 + 1 re-based, stage 4: 7 + 2 assertions). Existing tests changed only for new tables/events/rule counts, **except ONE decision on a hand-written fixture** (stage 3 below). 
-- Frontend: **54 passed** (vitest; stage 1 added 8, stage 3 added 11, stage 5 added 6, stage 6 added 4); `tsc --noEmit` clean; `vite build` OK.
 
 ## What changed (deployment: switch to Render's free tier)
 - Checked in Render's docs (not from memory): `plan: free` is the Blueprint value; free web services have **no persistent disk, no Shell access, no one-off jobs and no pre-deploy command**, spin down after **15 minutes without traffic**, and lose every runtime filesystem change on spin-down, restart or redeploy; files created by the **build command** are part of what each start begins from.

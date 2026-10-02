@@ -11,6 +11,8 @@ from app.api.access import AccessTokenMiddleware, health
 from app.api.clients import Mode
 from app.api.worker import RunWorker
 from app.config import Settings
+from app.gmail.client import GmailClient
+from app.gmail.service import GmailService
 from app.llm.budget import CostTracker
 from app.llm.types import LLMClient
 
@@ -21,19 +23,22 @@ class ApiState:
     mode: Mode
     db_path: Path
     worker: RunWorker
+    gmail: GmailService
     tracker: CostTracker | None = None
     replay_dir: Path | None = None
 
 
 def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Path | None = None, tracker: CostTracker | None = None,
-               replay_dir: Path | None = None, worker: RunWorker | None = None) -> FastAPI:
+               replay_dir: Path | None = None, worker: RunWorker | None = None, gmail_client: GmailClient | None = None) -> FastAPI:
     from app.api.routes import router          # imported here so the routes can import ApiState without a cycle
     from app.api.routes_po import router as po_router
+    from app.api.routes_gmail import router as gmail_router
     from app.api.routes_review import router as review_router
 
     db_path = Path(db_path or settings.db_path)
     state = ApiState(settings=settings, mode=mode, db_path=db_path, tracker=tracker, replay_dir=replay_dir,
-                     worker=worker or RunWorker(db_path, client, settings))
+                     worker=worker or RunWorker(db_path, client, settings),
+                     gmail=GmailService(settings, db_path, client=gmail_client))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -60,4 +65,5 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     app.include_router(router, prefix="/api")
     app.include_router(po_router, prefix="/api")
     app.include_router(review_router, prefix="/api")
+    app.include_router(gmail_router, prefix="/api")
     return app

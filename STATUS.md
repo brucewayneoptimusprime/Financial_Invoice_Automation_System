@@ -7,12 +7,29 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 ## Current state
 - Plan approved 2026-10-02 with changes: decision 3 (LLM ranker) declined; stage order 1, 2, 3, 5, 6, 4, 7; you asked for stages 1-3, then stop.
 - **Stage 1 done:** schema v3 + migration, token cipher, key generator, Gmail settings, the callback-address check.
-- Next: stage 2 (fake Gmail client + search, no model, no OAuth).
-- No live calls. No Google call (there is no Gmail client yet). Nothing pushed.
+- **Stage 2 done:** fake Gmail client + search (allowlist, eligibility, preview list, search sessions), with no model and no OAuth.
+- Next: stage 3 (import into the unchanged pipeline).
+- No live calls. No Google call (the real client arrives in stage 6). Nothing pushed.
 
-## Test count and result (stage 1)
-- Backend: **2205 passed, 0 failed, 2 deselected** (`pytest -W error`; 2172 before + 33 new in `tests/gmail/test_stage1_schema_crypto.py`).
+## Test count and result (stage 2)
+- Backend: **2318 passed, 0 failed, 2 deselected** (`pytest -W error`; stage 1: 2205; stage 2 added 113 in `tests/gmail/test_stage2_search.py`; no existing test changed).
 - Frontend: **85 passed** (unchanged).
+
+## What changed (Gmail stage 2)
+- `app/gmail/query.py`: the allowlist validator and `finalize` (SPEC item 84). It is tested with 30 allowed and 37 refused queries, each refusal naming its problem. The system adds `has:attachment` and `newer_than:180d`, or an `after:` 180 days before an upper bound.
+- `app/gmail/attachments.py`: `walk_parts` (named parts only, depth at most 10) and `eligibility`:
+  - PDF/PNG/JPEG are eligible, and so is octet-stream with a matching extension.
+  - Archives, Word/Excel, other types, empty parts and parts over 20 MB are listed greyed with the reason.
+- `app/gmail/client.py`: the `GmailClient` interface, with four methods and nothing that writes.
+- `app/gmail/fake.py` + `data/gmail_fake/inbox.json`: the FAKE inbox (labelled). It holds the six real invoices by path (14021 and 14130 in one email), plus an archive, a declared 25 MB scan, an Acme email with an inline logo and a text file named `.pdf` sent as octet-stream, an email whose subject and snippet address an AI, an old email, and one without attachments.
+- `app/gmail/service.py`:
+  - `status` and `search`, the second producing a cleaned preview and the injection flag.
+  - The search session: the candidate set, 15-minute TTL, at most 20 sessions kept.
+  - A search writes nothing to the database (tested by comparing every table's row count).
+- `app/gmail/store.py`: the only code that touches the Gmail tables (structural test).
+- `app/gmail/errors.py`: one `GmailError` with plain codes.
+- `app/api/routes_gmail.py`: `GET /api/gmail/status` and `POST /api/gmail/search`, both behind `ACCESS_TOKEN` (tested); `create_app(..., gmail_client=)` for tests.
+- Try it: `GMAIL_BACKEND=fake`, then `POST /api/gmail/search {"query": "after:2026/08/01"}` lists 9 emails. `{"query": "in:anywhere"}` gives a 422 saying spam, trash and all mail are never searched.
 
 ## What changed (Gmail stage 1)
 - **Schema v3** (`app/db/schema_v3.sql`): `oauth_credentials` and `gmail_imports` (SPEC section 5, item 82). `init_db` creates v3; `python -m app.db.migrate` goes 2 -> 3 (and 1 -> 2 -> 3), with a byte-identical `.v<N>-<UTC>.bak` backup before each step; a failing step rolls back and says which version the file is at. `serve`, the pipeline CLI and `/health` refuse v1 and v2 with the migrate command. `reset` also deletes the Gmail tables' rows.

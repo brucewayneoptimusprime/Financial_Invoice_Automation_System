@@ -541,6 +541,29 @@ On **Invoices** (`/invoices`), above the drop zone, the **Import from Gmail** pa
 - `GMAIL_BACKEND=fake` runs everything on a labelled fake inbox, with no Google account.
 - The plans and reports are `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are `SPEC.md` §11 items 81-89.
 
+## Export purchase orders (branch `feature/po-export`)
+
+Purchase orders can be saved as **PDF, Word (.docx), Excel (.xlsx) or CSV**. The buttons say **Export** with a download icon, because the system never sends anything: the browser saves a file. Files are built on the backend from the same data the screens show, so every exported number equals the displayed one. There is no model call, no cost and no database write.
+
+- **The list (Purchase orders page).**
+  - Tick rows with the tick-boxes ("select all shown" in the header).
+  - **Export N selected** exports only those. With nothing ticked, **Export all N shown** exports everything the list currently shows, under its search, status and currency filters.
+  - The file states which scope applied: "Ticked: N of M shown", "Filter: …" or "All purchase orders".
+  - Columns: PO number, vendor, currency, total, balance, status, invoices, entered. Amounts in different currencies are never added together.
+  - At most 1,000 POs per export.
+- **One PO.** A small **Export** button at the far right of every row, and the same button at the top of a PO page (one component, identical behaviour). The tick-boxes never affect it.
+  - **Financial:** PO, totals, invoices matched, lines (with consumed and remaining) and the ledger.
+  - **Full (with metadata):** also "How the commits are allocated" and "Where this PO came from".
+- **Formats.**
+  - CSV: UTF-8 with a header block, then one table (list) or labelled stacked `[Section]` blocks (one PO).
+  - Excel: one sheet (list), or one sheet per section (one PO); money cells are real numbers.
+  - Word and PDF: landscape tables with repeating headers; the PDF has page numbers.
+  - The PDF uses the built-in Helvetica font: characters it cannot draw (for example ₹ or CJK names) become "?", and the page footer says so. Word, Excel and CSV keep every character.
+- **Safety.** The export routes sit behind `ACCESS_TOKEN`; the UI fetches the file with the token and saves it.
+  - Text cells that start with `= + - @` are escaped in CSV and Excel against spreadsheet formula injection. Money stays numeric, so a reversal is `-1500.00`.
+  - File names are sanitised. Responses are `Cache-Control: no-store`.
+- **API.** `GET /api/pos/export?format=pdf|docx|xlsx|csv[&q=&status=&currency=][&ids=]` and `GET /api/pos/{id}/export?format=…&level=financial|full`. See `EXPORT_PLAN.md`, `EXPORT_REPORT.md` and `SPEC.md` §11 item 90.
+
 ## Known limitations / scope gaps
 
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.
@@ -559,6 +582,7 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 - **Gmail import: replay recordings are date-bound for sentence searches.** The plain-English search sends today's date to the model, and a replay recording is keyed on the exact request. A recorded sentence search therefore replays only on the day it was recorded, and its labels only while the inbox returns the same emails. Otherwise the panel falls back to the editable query box and shows no labels. Typed searches need no recording.
 - **Gmail import: the Google connection lasts about 7 days in Testing mode.** While the OAuth consent screen is in Google's *Testing* status, Google expires the refresh token after about 7 days. The panel then asks you to connect again (one click). Publishing the consent screen would remove this.
 - **Gmail import: no "From Gmail" filter.** Gmail-sourced runs are marked on the run page and the dashboard, but the run lists cannot be filtered by source yet.
+- **PO export: PDFs draw Latin characters only.** The built-in Helvetica font has no rupee sign or CJK characters; those become "?" in the PDF, with a footer note. Use the Word, Excel or CSV export when that matters. Bundling a Unicode font (for example DejaVu Sans) would remove this.
 - **Line-match edge case.** Short PO line descriptions one letter apart ("Widget A" / "Widget B") with identical prices come out `ambiguous`. That is the safe side, but it means more reviewer choices.
 
 ---

@@ -412,6 +412,8 @@ The UI is graded. Keep it clean, intentional and easy to demo.
    - **Formula injection:** a user-derived text cell starting with `= + - @`, a tab or a carriage return gets a leading `'` in CSV and Excel, and Excel text is never stored as a formula. Money and quantities stay numbers, so a reversal is `-1500.00`.
    - **File names** are limited to `[A-Za-z0-9._-]`, at most 80 characters, with an RFC 5987 `filename*`. Responses are `Content-Disposition: attachment`, `Cache-Control: no-store`.
    - **Dependencies:** reportlab moved from the dev extra to the main dependencies; python-docx added (it pulls in lxml; decision 7).
+   - **Frontend:** one `POExportButton` serves the row and the PO page (level + format). The list adds tick-boxes ("select all shown"); a tick on a row the filter hides is dropped; ticks apply only to the summary export. Clicking a row's Export button or tick-box never navigates. The file is fetched with the token and saved under the server's `Content-Disposition` name; CORS exposes that header for a frontend on another origin.
+   - **Unit prices** are shown like quantities (the stored decimal text) with the currency in the column header; money columns carry the PO's currency in Word and PDF headers.
 
 ## 12. Milestones (ordered by dependency, not by date)
 

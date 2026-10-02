@@ -521,6 +521,7 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 - **Single-user, local-first.** Locally there is no authentication, and the reviewer is recorded as "reviewer (local UI)". The deployed build has only an optional shared access token.
 - **Scope assumptions** (from `SPEC.md` §11): 2-way match only (no goods receipt / 3-way match); one PO per invoice; a single currency per run with no FX; 2-decimal currencies only; credit notes are flagged, not processed; PO totals are treated as tax-inclusive.
 - **Demo-scale data loading.** The facts snapshot loads whole tables per run. That is fine at demo scale, but an indexed pre-filter would be needed for large volumes.
+- **Gmail import (branch `feature/gmail-integration`): a rejected import keeps its dedupe row.** The import records the attachment just before queueing it. If the worker's ingest then rejected the file (unlikely, since the same file check already passed), importing that attachment from that email again reports "already imported" pointing at a run that never started; uploading the file by hand still works. Recorded in `SPEC.md` §11 item 86, deliberately not fixed yet.
 - **Line-match edge case.** Short PO line descriptions one letter apart ("Widget A" / "Widget B") with identical prices come out `ambiguous`. That is the safe side, but it means more reviewer choices.
 
 ---

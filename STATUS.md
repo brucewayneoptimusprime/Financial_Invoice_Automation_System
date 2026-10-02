@@ -8,7 +8,8 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 - **1. Collapsible query box.** The editable Gmail query and the Search button sit behind an **"Edit search query"** toggle (a real `<button>` with `aria-expanded` / `aria-controls`; the caret rotates when open, with no animation under reduced motion). It is collapsed by default when the translator is available. It opens automatically when a translation is refused or fails, and without a model there is no toggle and the box is always shown. "Sent to Gmail", the cost line, the labels hint, the results and the chips stay visible. Tests changed (they now open the toggle first, as a user would): see GMAIL_STAGE_REPORT_4.md.
 - **2. Wording.** The hint under the sentence box now says that Claude turns the sentence into a Gmail search and, when the labeller is on, labels the results from each email's sender, subject, snippet and attachment names, never the full email or the PDFs. No test asserted the old wording.
-- Items done: 1, 2 of 5. Backend behaviour unchanged; no new dependency.
+- **3. Gmail logo.** `frontend/src/assets/gmail-icon.png` (moved from the repository root) sits in the panel header next to "Import from Gmail": 24 px tall, `alt=""`, transparent background (the bright M reads on light and dark themes).
+- Items done: 1, 2, 3 of 5. Backend behaviour unchanged; no new dependency.
 
 ## Current state
 - Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself).

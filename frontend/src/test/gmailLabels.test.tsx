@@ -121,7 +121,7 @@ describe("relevance labels", () => {
     const { container } = render(<GmailImport onImported={() => {}} />);
     await searchQuery();
     expect(await screen.findByText('<img src=x onerror="alert(1)"> invoice')).toBeInTheDocument();
-    expect(container.querySelector(".gmail-panel img")).toBeNull();
+    expect(container.querySelector(".gmail-panel img:not(.gmail-logo)")).toBeNull();
   });
 
   it("shows 'Labelling…' while the labels are on their way", async () => {

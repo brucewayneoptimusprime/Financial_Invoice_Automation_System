@@ -148,4 +148,14 @@ describe("the sentence box", () => {
     expect(hint).toHaveTextContent("Claude turns this sentence into a Gmail search.");
     expect(hint).not.toHaveTextContent("labels");
   });
+
+  it("shows the Gmail logo next to the panel title, decorative (alt=\"\") so the heading reads 'Import from Gmail'", async () => {
+    mockApi({ "GET /api/gmail/status": () => [200, statusLive] });
+    render(<GmailImport onImported={() => {}} />);
+    const heading = await screen.findByRole("heading", { name: "Import from Gmail" });
+    const logo = heading.querySelector("img")!;
+    expect(logo).toHaveAttribute("alt", "");
+    expect(logo.getAttribute("src")).toMatch(/gmail-icon/);
+    expect(logo).toHaveAttribute("height", "24");
+  });
 });

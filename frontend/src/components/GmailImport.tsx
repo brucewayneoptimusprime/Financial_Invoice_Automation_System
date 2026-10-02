@@ -4,6 +4,7 @@ import { usd, when } from "../format";
 import { linkProps } from "../router";
 import type { GmailImportOutcome, GmailLabel, GmailMessage, GmailSearchResult, GmailStatus } from "../types";
 import { Chip } from "./common";
+import gmailIcon from "../assets/gmail-icon.png";
 
 // Gmail import (read-only). Search -> the person ticks attachments -> import. Nothing is pre-ticked, nothing is imported on its own,
 // and every text that came from an email (sender, subject, snippet, file names) is shown as plain text, never as HTML.
@@ -214,7 +215,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   return (
     <section className="gmail-panel" aria-labelledby="gmail-h">
       <div className="gmail-head">
-        <h2 id="gmail-h">Import from Gmail</h2>
+        <h2 id="gmail-h"><img src={gmailIcon} alt="" className="gmail-logo" width={24} height={24} />Import from Gmail</h2>
         {status?.fake && <Chip tone="flag" title="GMAIL_BACKEND=fake: labelled test data, Google is never contacted">FAKE INBOX (test data)</Chip>}
         {status?.connected && <span className="dim small">{status.account_email} · read-only</span>}
         {status?.connected && !status.fake && (confirmDisconnect ? (

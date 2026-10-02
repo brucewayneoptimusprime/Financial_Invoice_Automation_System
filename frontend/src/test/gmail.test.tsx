@@ -140,7 +140,7 @@ describe("searching", () => {
     await searchFor("x");
     expect(await screen.findByText('<img src=x onerror="alert(1)"><b>bold</b>')).toBeInTheDocument();
     expect(screen.getByText("<script>alert(2)</script>")).toBeInTheDocument();
-    expect(container.querySelector(".gmail-panel img, .gmail-panel script, .gmail-panel b")).toBeNull();
+    expect(container.querySelector(".gmail-panel img:not(.gmail-logo), .gmail-panel script, .gmail-panel b")).toBeNull();
   });
 
   it("marks text addressed to an AI, greys ineligible files with the reason, and links what was imported", async () => {

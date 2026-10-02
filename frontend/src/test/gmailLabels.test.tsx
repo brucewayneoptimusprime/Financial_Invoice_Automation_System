@@ -28,6 +28,8 @@ afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState(null, "", "
 const posts = (path: string) => calls.filter((c) => c.method === "POST" && c.url === path).map((c) => c.body);
 
 async function searchQuery(text = "SuperStore after:2026/09/01") {
+  const toggle = await screen.findByRole("button", { name: "Edit search query" });      // the query box is collapsed by default
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
   fireEvent.change(await screen.findByLabelText("Gmail search"), { target: { value: text } });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: /^Search/ })); });
 }

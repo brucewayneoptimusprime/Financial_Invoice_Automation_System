@@ -4,6 +4,11 @@ Last updated: 2026-10-02. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 # Gmail import (branch `feature/gmail-integration`; `master` = the submitted version, untouched)
 
+## Polish pass (after Plan 2; no plan file, owner request 2026-10-02)
+
+- **1. Collapsible query box.** The editable Gmail query and the Search button sit behind an **"Edit search query"** toggle (a real `<button>` with `aria-expanded` / `aria-controls`; the caret rotates when open, with no animation under reduced motion). It is collapsed by default when the translator is available. It opens automatically when a translation is refused or fails, and without a model there is no toggle and the box is always shown. "Sent to Gmail", the cost line, the labels hint, the results and the chips stay visible. Tests changed (they now open the toggle first, as a user would): see GMAIL_STAGE_REPORT_4.md.
+- Items done: 1 of 5. Backend behaviour unchanged; no new dependency.
+
 ## Current state
 - Plan 2 (`GMAIL_PLAN_2.md`) approved 2026-10-02: plain-English search (B) then relevance labels (C); open questions 1-8 as recommended (7: you record the demo session yourself).
 - **B1** (`40c953a`), **B2** (`aa197a3`), **C1** (`da38d24`) and **C2** (this commit) are done. **Stopped here as asked.** The report is `GMAIL_STAGE_REPORT_3.md`.

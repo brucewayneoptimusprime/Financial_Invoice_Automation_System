@@ -63,6 +63,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
   const [labelsState, setLabelsState] = useState<"idle" | "loading" | "done" | "unavailable">("idle");
   const [labelsCost, setLabelsCost] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [queryOpen, setQueryOpen] = useState(false);          // the editable Gmail query: collapsed unless needed or asked for
   const [problems, setProblems] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<GmailSearchResult | null>(null);
@@ -133,6 +134,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
         setMessage(r.body.message ?? `The search failed (${r.status}).`);
         setProblems(r.body.problems ?? []);
         if (fromSentence && r.body.error === "translation_failed") {
+          setQueryOpen(true);                                 // the manual query is now the way forward: show it
           if (r.body.query) setQuery(r.body.query);           // the refused query, to fix by hand
           setTranslateCost(r.body.cost?.translate_usd ?? null);
         }
@@ -267,10 +269,17 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
           )}
           {translated && (
             <p className="gmail-translated small" role="status">
-              Claude wrote this search: edit it and press Search again if needed.{translated.notes ? ` ${translated.notes}` : ""}
+              Claude wrote this search; open "Edit search query" to change it.{translated.notes ? ` ${translated.notes}` : ""}
             </p>
           )}
-          <form className="gmail-search" onSubmit={submit} role="search">
+          {status.translator_available && (
+            <button type="button" className="gmail-toggle" aria-expanded={queryOpen} aria-controls="gmail-query-box"
+                    onClick={() => setQueryOpen((open) => !open)}>
+              <span className="gmail-caret" aria-hidden="true">▾</span> Edit search query
+            </button>
+          )}
+          {(queryOpen || !status.translator_available) && (       // without a model the query box is the only way to search
+          <form className="gmail-search" onSubmit={submit} role="search" id="gmail-query-box">
             <label htmlFor="gmail-q">Gmail search</label>
             <div className="gmail-search-row">
               <input id="gmail-q" type="search" value={query} maxLength={status.caps.query_max_chars} placeholder='from:billing@acme.com after:2026/08/01'
@@ -282,6 +291,7 @@ export function GmailImport({ onImported, hostname = window.location.hostname, n
               Only emails with attachments from the last {status.caps.default_window_days} days are searched unless you give a date.
             </p>
           </form>
+          )}
 
           {message && (
             <div className="error" role="alert">

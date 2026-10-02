@@ -37,15 +37,31 @@ describe("the sentence box", () => {
     mockApi({ "GET /api/gmail/status": () => [200, statusLive] });
     render(<GmailImport onImported={() => {}} />);
     expect(await screen.findByLabelText("Describe what you're looking for")).toHaveAttribute("maxLength", "300");
-    expect(screen.getByLabelText("Gmail search")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Gmail search")).toBeNull();                       // the manual query is collapsed by default
+    expect(screen.getByRole("button", { name: "Edit search query" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Find" })).toBeDisabled();             // nothing typed yet
+  });
+
+  it("the 'Edit search query' toggle opens and closes the manual query box, from the keyboard too", async () => {
+    mockApi({ "GET /api/gmail/status": () => [200, statusLive] });
+    render(<GmailImport onImported={() => {}} />);
+    const toggle = await screen.findByRole("button", { name: "Edit search query" });
+    expect(toggle.tagName).toBe("BUTTON");                                            // a real button: Enter and Space work natively
+    expect(toggle).toHaveAttribute("aria-controls", "gmail-query-box");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Gmail search").closest("#gmail-query-box")).not.toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Gmail search")).toBeNull();
   });
 
   it("is absent without the translator: the manual box alone, exactly as before", async () => {
     mockApi({ "GET /api/gmail/status": () => [200, statusFake] });
     render(<GmailImport onImported={() => {}} />);
-    await screen.findByLabelText("Gmail search");
+    await screen.findByLabelText("Gmail search");                                     // open: without a model it is the only way
     expect(screen.queryByLabelText("Describe what you're looking for")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit search query" })).toBeNull();
   });
 
   it("sends the sentence, puts Claude's query in the editable box, shows the notes and the cost, and ticks nothing", async () => {
@@ -53,6 +69,8 @@ describe("the sentence box", () => {
     render(<GmailImport onImported={() => {}} />);
     await find("invoices from SuperStore since September");
     expect(searches()).toEqual([{ sentence: "invoices from SuperStore since September" }]);
+    expect(screen.queryByLabelText("Gmail search")).toBeNull();                       // success: the query box stays collapsed
+    fireEvent.click(screen.getByRole("button", { name: "Edit search query" }));
     expect(screen.getByLabelText("Gmail search")).toHaveValue("SuperStore after:2026/09/01");
     expect(screen.getByRole("status")).toHaveTextContent("Claude wrote this search");
     expect(screen.getByRole("status")).toHaveTextContent("Emails mentioning SuperStore since 1 September 2026.");
@@ -65,6 +83,7 @@ describe("the sentence box", () => {
     mockApi({ "GET /api/gmail/status": () => [200, statusLive], "POST /api/gmail/search": (b) => [200, b.sentence ? searchSentence : searchOk] });
     render(<GmailImport onImported={() => {}} />);
     await find("invoices from SuperStore since September");
+    fireEvent.click(screen.getByRole("button", { name: "Edit search query" }));
     fireEvent.change(screen.getByLabelText("Gmail search"), { target: { value: "SuperStore after:2026/08/01" } });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Search again" })); });
     expect(searches()[1]).toEqual({ query: "SuperStore after:2026/08/01" });
@@ -80,7 +99,8 @@ describe("the sentence box", () => {
     expect(alert).toHaveTextContent("Claude's search was not accepted; edit it in the Gmail search box.");
     expect(alert).toHaveTextContent("never looks in spam, trash or all mail");
     expect(alert).toHaveTextContent(/Cost of the attempt: \$0\.00/);
-    expect(screen.getByLabelText("Gmail search")).toHaveValue("in:anywhere SuperStore");
+    expect(screen.getByLabelText("Gmail search")).toHaveValue("in:anywhere SuperStore");   // opened automatically on a refusal
+    expect(screen.getByRole("button", { name: "Edit search query" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
@@ -92,6 +112,7 @@ describe("the sentence box", () => {
                           cost: { translate_usd: "0.000000", tokens_in: 0, tokens_out: 0 } }]
                 : [200, searchOk] });
     render(<GmailImport onImported={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit search query" }));
     fireEvent.change(await screen.findByLabelText("Gmail search"), { target: { value: "after:2026/08/01" } });
     await find("invoices from SuperStore");
     expect(screen.getByRole("alert")).toHaveTextContent("use the Gmail search box");

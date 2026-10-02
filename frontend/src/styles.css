@@ -503,3 +503,5 @@ a.stat-link:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .gmail-caret { transition: none; } }
 .gmail-head h2 { display: inline-flex; align-items: center; gap: 8px; }
 .gmail-logo { height: 24px; width: auto; flex: none; display: block; }   /* transparent PNG: the bright M reads on light and dark */
+.gmail-marker { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.gmail-marker img { display: block; flex: none; }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { getDashboard } from "../api";
+import { getDashboard, getRun, isRunView } from "../api";
+import gmailIcon from "../assets/gmail-icon.png";
 import { Chip, Section, Stat } from "../components/common";
 import { DECISION, humanize, money, usd, when } from "../format";
 import { reviewReasons } from "../reasons";
 import { linkProps } from "../router";
-import type { Dashboard, Decision } from "../types";
+import type { Dashboard, Decision, RunView } from "../types";
 
 const ORDER: Decision[] = ["approve", "review", "request_info", "reject"];
 // Review items are worked in the review queue; the other decisions open the Invoices list filtered to that decision.
@@ -26,9 +27,43 @@ export function DecisionBar({ counts }: { counts: Record<Decision, number> }) {
   );
 }
 
+// Where each recent run's file came from, read from its existing run view (`source`, built from the source_gmail audit event).
+// A run's source never changes once the run exists, so each run is asked about once per page load (no backend change needed).
+type Source = RunView["source"] | null;
+const sourceCache = new Map<string, Source>();
+
+function useRunSources(ids: string[]): Map<string, Source> {
+  const [, bump] = useState(0);
+  const key = ids.join(",");
+  useEffect(() => {
+    let stop = false;
+    for (const id of key ? key.split(",") : []) {
+      if (sourceCache.has(id)) continue;
+      getRun(id).then((v) => {
+        if (!isRunView(v)) return;                        // still queued: ask again on the next refresh
+        sourceCache.set(id, v.source ?? null);
+        if (!stop) bump((n) => n + 1);
+      }).catch(() => { /* the marker is optional: never break the dashboard */ });
+    }
+    return () => { stop = true; };
+  }, [key]);
+  return sourceCache;
+}
+
+export function GmailMarker({ source }: { source: Source | undefined }) {
+  if (source?.kind !== "gmail") return null;
+  return (
+    <span className="gmail-marker" title={source.sender ? `From Gmail: ${source.sender}` : "From Gmail"}>
+      <img src={gmailIcon} alt="" width={14} height={14} />From Gmail
+    </span>
+  );
+}
+
 export function DashboardScreen() {
   const [d, setD] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sources = useRunSources(d ? d.recent_runs.map((r) => r.id) : []);
 
   useEffect(() => {
     let stop = false;
@@ -124,7 +159,7 @@ export function DashboardScreen() {
                   <li key={r.id}>
                     <a {...linkProps(`/runs/${r.id}`)} className="run-link">
                       <span className="run-file">{r.vendor ?? r.source_file}{r.invoice_number && <span className="dim"> · {r.invoice_number}</span>}</span>
-                      <span className="run-meta">{when(r.started_at)}</span>
+                      <span className="run-meta">{when(r.started_at)} <GmailMarker source={sources.get(r.id)} /></span>
                       <span className="run-chips">
                         {dec ? <Chip tone={dec.tone}>{dec.label}</Chip> : <Chip tone={r.status === "failed" ? "fail" : "muted"}>{r.status}</Chip>}
                         {changed && <Chip tone={now === "approved" ? "pass" : now === "rejected" ? "fail" : "muted"}>now {humanize(now!)}</Chip>}

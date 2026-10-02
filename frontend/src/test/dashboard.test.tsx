@@ -7,6 +7,8 @@ import { parse } from "../router";
 import busy from "./fixtures/dashboard_busy.json";
 import empty from "./fixtures/dashboard_empty.json";
 import matched from "./fixtures/po_detail_matched.json";
+import gmailRunView from "./fixtures/gmail_run_view.json";
+import uploadRunView from "./fixtures/ss_10963.view.json";
 
 function mockFetch(dashboard: unknown, other: Record<string, unknown> = {}) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
@@ -127,5 +129,24 @@ describe("clickable summaries", () => {
     render(<DashboardScreen />);
     expect((await screen.findByText(/^USD · 5 POs$/)).closest("a")).toHaveAttribute("href", "/pos?currency=USD");
     expect(screen.getByText(/^INR · 1 PO$/).closest("a")).toHaveAttribute("href", "/pos?currency=INR");
+  });
+});
+
+describe("the Gmail marker on recent runs", () => {
+  it("marks only the runs whose file came from Gmail, like the run page does", async () => {
+    const fromGmail = "95a899bb59054fd9a378ae3130b368af", uploaded = "2e0a5ac06bec4c9d829f348bb3ce2182";
+    mockFetch(busy, {
+      [`/api/runs/${fromGmail}`]: { ...gmailRunView, run: { ...gmailRunView.run, id: fromGmail } },
+      [`/api/runs/${uploaded}`]: { ...uploadRunView, run: { ...uploadRunView.run, id: uploaded } },
+    });
+    render(<DashboardScreen />);
+    const runs = (await screen.findByRole("heading", { name: "Recent runs" })).closest("section")!;
+    const marker = await within(runs).findByText("From Gmail");
+    const row = (id: string) => runs.querySelector(`a[href="/runs/${id}"]`)!;
+    expect(row(fromGmail).contains(marker)).toBe(true);
+    expect(marker.closest(".gmail-marker")).toHaveAttribute("title", "From Gmail: SuperStore Billing <billing@superstore.example>");
+    expect(marker.closest(".gmail-marker")!.querySelector("img")).toHaveAttribute("alt", "");
+    expect(within(row(uploaded) as HTMLElement).queryByText("From Gmail")).toBeNull();
+    expect(within(runs).getAllByText("From Gmail")).toHaveLength(1);
   });
 });

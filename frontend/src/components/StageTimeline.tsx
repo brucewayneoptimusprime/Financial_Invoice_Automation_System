@@ -52,6 +52,12 @@ function LiveRules({ events }: { events: AuditEvent[] }) {
   );
 }
 
+// The settings the run was judged under (one settings_applied event in the validate stage; SPEC section 11 item 93).
+function SettingsUsedLine({ events }: { events: AuditEvent[] }) {
+  const e = events.find((x) => x.event_type === "settings_applied");
+  return e ? <p className="stage-line settings-used">{e.message}</p> : null;
+}
+
 export function StageCard({ name, stage, index }: { name: StageName; stage: StageState; index: number }) {
   const [open, setOpen] = useState(false);
   const line = stage.status === "running" || stage.status === "waiting" ? STAGE_HINT[name] : stageLine(name, stage.summary);
@@ -72,6 +78,7 @@ export function StageCard({ name, stage, index }: { name: StageName; stage: Stag
           {canOpen && <span className={`caret ${open ? "up" : ""}`} aria-hidden="true" />}
         </button>
         <p className="stage-line">{line}</p>
+        {name === "validate" && <SettingsUsedLine events={stage.events} />}
         {name === "validate" && !open && <LiveRules events={stage.events} />}
         {open && (
           <ul className="events" aria-label={`${STAGE_LABEL[name]} events`}>

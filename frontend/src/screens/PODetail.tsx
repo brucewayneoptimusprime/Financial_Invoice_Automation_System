@@ -5,6 +5,7 @@ import { POExportButton } from "../components/POExportButton";
 import { DECISION, FIELD_LABEL, humanize, money, score, usd, when } from "../format";
 import { linkProps } from "../router";
 import { StatusChip } from "./POList";
+import { RulesForThisPO } from "./POSettings";
 import type { Decision, PODetail } from "../types";
 
 function DecisionChip({ d }: { d: Decision | null }) {
@@ -184,6 +185,8 @@ export function PODetailScreen({ id }: { id: number }) {
           </div>
         </Section>
       )}
+
+      <RulesForThisPO poId={id} />
 
       <Section title="Where this PO came from" id="po-provenance"><Provenance p={d.provenance} /></Section>
     </div>

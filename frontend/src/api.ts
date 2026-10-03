@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
 // proxy), the Render URL and the access token when deployed.
 import { apiFetch, apiUrl } from "./apiBase";
-import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GlobalSettings, POSettings, SettingsEvent, SettingsPORow, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -161,3 +161,18 @@ export const gmailImport = (searchId: string, items: { message_id: string; part_
 export const gmailLabels = (searchId: string) => act<GmailLabelsResult>("/api/gmail/labels", { search_id: searchId });
 export const gmailConnectStart = () => post("/api/gmail/oauth/start", {}).then((r) => json<{ authorization_url: string }>(r));
 export const gmailDisconnect = () => act<{ disconnected: boolean; revoked: boolean; message?: string }>("/api/gmail/disconnect", { confirm: true });
+
+// ---------------------------------------------------------------------------------------------- rules settings (no model, no cost)
+// Changes apply to invoices processed from now on; each changed value is logged. A 422 carries `problems: {key: reason}`.
+export type SettingsProblems = Record<string, string>;
+export const getSettings = () => apiFetch("/api/settings").then((r) => json<GlobalSettings>(r));
+export const saveGlobalSettings = (body: { values?: Record<string, unknown>; rules?: Record<string, boolean>; restore?: string[] }) =>
+  act<GlobalSettings & { problems?: SettingsProblems }>("/api/settings/global", body);
+export const listSettingsPOs = (q = "") =>
+  apiFetch(`/api/settings/pos${q ? `?q=${encodeURIComponent(q)}` : ""}`).then((r) => json<{ pos: SettingsPORow[] }>(r));
+export const getPOSettings = (id: number) => apiFetch(`/api/settings/pos/${id}`).then((r) => json<POSettings>(r));
+export const savePOSettings = (id: number, body: { values?: Record<string, unknown>; rules?: Record<string, boolean | null> }) =>
+  act<POSettings & { problems?: SettingsProblems }>(`/api/settings/pos/${id}`, body);
+export const settingsHistory = (params: { scope?: string; po_id?: number; limit?: number } = {}) =>
+  apiFetch(`/api/settings/history?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`)
+    .then((r) => json<{ events: SettingsEvent[] }>(r));

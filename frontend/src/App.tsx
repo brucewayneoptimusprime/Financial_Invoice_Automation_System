@@ -9,6 +9,8 @@ import { PODetailScreen } from "./screens/PODetail";
 import { PONewScreen } from "./screens/PONew";
 import { ReviewListScreen } from "./screens/ReviewList";
 import { ReviewItemScreen } from "./screens/ReviewItem";
+import { SettingsScreen } from "./screens/Settings";
+import { POSettingsScreen } from "./screens/POSettings";
 import { usd } from "./format";
 import { TokenGate } from "./components/TokenGate";
 import type { Health } from "./types";
@@ -65,6 +67,14 @@ export function App() {
             </span>
           )}
           <ModeBadge health={health} error={down} />
+          {route.name !== "upload" && (
+            <a {...linkProps("/settings")} className={`gear${route.name.startsWith("settings") ? " active" : ""}`} aria-label="Settings" title="Settings">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+              </svg>
+            </a>
+          )}
         </div>
       </header>
       <main className="page">
@@ -76,6 +86,8 @@ export function App() {
         {route.name === "po" && <PODetailScreen key={route.id} id={route.id} />}
         {route.name === "review" && <ReviewListScreen />}
         {route.name === "reviewItem" && <ReviewItemScreen key={route.id} id={route.id} />}
+        {route.name === "settings" && <SettingsScreen />}
+        {route.name === "settingsPO" && <POSettingsScreen key={route.id} id={route.id} />}
         {route.name === "missing" && (
           <div className="empty">
             <h1>Page not found</h1>

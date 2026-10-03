@@ -3,7 +3,8 @@ import { Chip, Confidence, DetailList, Disclosure, Section } from "./common";
 import { PageViewer, type PageTarget } from "./PageViewer";
 import { plainReason, reviewReasons, type PlainReason } from "../reasons";
 import { DECISION, FIELD_LABEL, GROUNDING, HEADER_FIELDS, MONEY_FIELDS, OUTCOME, humanize, money, score, usd } from "../format";
-import type { Decision, EvidencedField, RuleRow, RunView } from "../types";
+import { linkProps } from "../router";
+import type { Decision, EvidencedField, RuleRow, RunView, SettingsUsed } from "../types";
 
 // ------------------------------------------------------------------------------------------------ reasons
 
@@ -341,6 +342,27 @@ export function CostPanel({ view }: { view: RunView }) {
 
 // ------------------------------------------------------------------------------------------------ the whole result
 
+// Which settings judged this run: the matched PO's effective settings, or the global defaults (SPEC section 11 item 93).
+export function SettingsUsedPanel({ used }: { used: SettingsUsed }) {
+  const overridden = Object.entries(used.sources).filter(([, s]) => s === "override").map(([k]) => k);
+  const off = Object.entries(used.rules_enabled).filter(([, on]) => !on).map(([id]) => id);
+  return (
+    <div className="settings-used-panel">
+      <p>{used.message}</p>
+      <dl className="kv">
+        {Object.entries(used.values ?? {}).map(([k, v]) => (
+          <div className="kv-row" key={k}>
+            <dt><code>{k}</code></dt>
+            <dd>{String(v)} {overridden.includes(k) ? <Chip tone="info">this PO</Chip> : <Chip tone="muted">default</Chip>}</dd>
+          </div>
+        ))}
+        <div className="kv-row"><dt>Rules switched off</dt><dd>{off.length ? off.map((id) => <code key={id}>{id} </code>) : "none"}</dd></div>
+      </dl>
+      {used.scope === "po" && used.po_id !== null && <p className="dim small"><a {...linkProps(`/settings/pos/${used.po_id}`)}>Rules for {used.po_number}</a></p>}
+    </div>
+  );
+}
+
 export function ResultView({ view }: { view: RunView }) {
   const [target, setTarget] = useState<PageTarget | null>(null);
   const decision = view.decision as Decision | null;
@@ -354,6 +376,7 @@ export function ResultView({ view }: { view: RunView }) {
         </Section>
       )}
       {view.rules.length > 0 && <Section title="Checks" id="rules"><RulesTable rules={view.rules} /></Section>}
+      {view.settings_used && <Section title="Settings used" id="settings-used"><SettingsUsedPanel used={view.settings_used} /></Section>}
       {view.vendor && <Section title="Vendor and purchase order" id="match"><MatchPanel view={view} /></Section>}
       {decision && <Section title="What was written" id="actions"><ActionsPanel view={view} /></Section>}
       <Section title="Cost" id="cost"><CostPanel view={view} /></Section>

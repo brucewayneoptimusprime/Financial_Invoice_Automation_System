@@ -155,6 +155,7 @@ export interface RunView {
   stage_costs: Record<string, string>;
   error: { message: string; error_type: string } | null;
   source?: { kind: "gmail"; sender: string | null; message_date: string | null; filename: string | null } | null;
+  settings_used?: SettingsUsed | null;
   event_count: number;
 }
 
@@ -334,4 +335,44 @@ export interface GmailImportOutcome {
   message_id: string; part_id: string; filename: string;
   status: "queued" | "already_imported" | "already_processed" | "refused";
   run_id?: string | null; reason?: string;
+}
+
+// ---------------------------------------------------------------------------------------------- rules settings (global -> PO)
+
+export type SettingKind = "percent" | "money" | "mode" | "threshold" | "days";
+export type SettingValue = number | string;
+
+export interface SettingField {
+  key: string; label: string; kind: SettingKind; help: string;
+  min: string | null; max: string | null; step: string | null; options: string[] | null;
+}
+
+export interface GlobalSettingField extends SettingField { value: SettingValue; builtin: SettingValue }
+export interface POSettingField extends SettingField { value: SettingValue; default: SettingValue; source: "inherits" | "overridden"; looser: boolean }
+
+export interface SettingsRule { id: string; name: string; enabled: boolean; locked: boolean; reason: string | null; switchable: boolean }
+export interface POSettingsRule { id: string; name: string; enabled: boolean; default: boolean; source: "inherits" | "overridden"; locked: boolean;
+                                  reason: string | null; looser: boolean }
+export interface SettingsFloor { id: string; name: string; reason: string }
+
+export interface GlobalSettings {
+  values: GlobalSettingField[]; rules: SettingsRule[]; floors: SettingsFloor[]; custom_po_count: number; actor: string; changed?: number;
+}
+
+export interface SettingsPORow { id: number; po_number: string; currency: string; status: string; vendor: string; overrides: number; custom: boolean; looser: boolean }
+
+export interface POSettings {
+  po: { id: number; po_number: string; currency: string; status: string; vendor: string };
+  values: POSettingField[]; rules: POSettingsRule[]; floors: SettingsFloor[]; overrides: number; looser: boolean;
+}
+
+export interface SettingsEvent {
+  id: number; scope: "global" | "po"; po_id: number | null; po_number: string | null; key: string;
+  old_value: unknown; new_value: unknown; actor: string; message: string; created_at: string;
+}
+
+export interface SettingsUsed {
+  message: string; scope: "global" | "po"; po_id: number | null; po_number: string | null;
+  values: Record<string, SettingValue>; sources: Record<string, "default" | "override">;
+  rules_enabled: Record<string, boolean>; rule_sources: Record<string, "default" | "override">;
 }

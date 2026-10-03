@@ -524,3 +524,19 @@ td.tick, th.tick { width: 28px; text-align: center; }
 td.row-actions, th.row-actions { width: 1%; text-align: right; white-space: nowrap; }
 tr.ticked td, tr.ticked th { background: var(--accent-soft); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Settings (gear, global defaults, PO editor) */
+.gear { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); }
+.gear:hover, .gear.active { background: var(--surface-2); color: var(--accent-text); }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 12px 0; }
+.setting-row { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.setting-row input, .setting-row select { max-width: 220px; }
+.setting-label { font-weight: 600; }
+.setting-status { margin: 0; font-size: 13px; }
+.settings-sub { margin: 18px 0 6px; font-size: 14px; }
+.rule-switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.rule-switches li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.settings-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.settings-used { color: var(--accent-text); }
+input[type="search"] { width: 100%; max-width: 360px; margin-bottom: 10px; }

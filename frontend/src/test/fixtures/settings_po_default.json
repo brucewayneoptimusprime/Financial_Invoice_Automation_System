@@ -1,0 +1,254 @@
+{
+  "po": {
+    "id": 2,
+    "po_number": "PO-SS-002",
+    "currency": "USD",
+    "status": "open",
+    "vendor": "SuperStore"
+  },
+  "values": [
+    {
+      "key": "tolerance_pct",
+      "label": "Tolerance over the PO balance (percent)",
+      "kind": "percent",
+      "help": "How far above the remaining PO balance an invoice may go, as a percentage of that balance.",
+      "default": 2.0,
+      "value": 2.0,
+      "source": "inherits",
+      "looser": false,
+      "min": "0",
+      "max": "25",
+      "step": "0.01",
+      "options": null
+    },
+    {
+      "key": "tolerance_abs",
+      "label": "Tolerance over the PO balance (amount)",
+      "kind": "money",
+      "help": "The same limit as an amount, in the invoice's / PO's currency (the global default has no currency).",
+      "default": "50.00",
+      "value": "50.00",
+      "source": "inherits",
+      "looser": false,
+      "min": "0",
+      "max": "1000000",
+      "step": "0.01",
+      "options": null
+    },
+    {
+      "key": "tolerance_mode",
+      "label": "How the two tolerance limits combine",
+      "kind": "mode",
+      "help": "Both limits (the smaller one applies, stricter) or either limit (the larger one applies).",
+      "default": "lesser_of",
+      "value": "lesser_of",
+      "source": "inherits",
+      "looser": false,
+      "min": null,
+      "max": null,
+      "step": null,
+      "options": [
+        "lesser_of",
+        "greater_of"
+      ]
+    },
+    {
+      "key": "confidence_threshold",
+      "label": "Required-field confidence threshold",
+      "kind": "threshold",
+      "help": "A required field read with less confidence than this sends the invoice to review.",
+      "default": 0.8,
+      "value": 0.8,
+      "source": "inherits",
+      "looser": false,
+      "min": "0.5",
+      "max": "0.99",
+      "step": "0.01",
+      "options": null
+    },
+    {
+      "key": "duplicate_days",
+      "label": "Near-duplicate window (days)",
+      "kind": "days",
+      "help": "Same vendor and amount, a different number, and invoice dates within this many days count as a near-duplicate.",
+      "default": 10,
+      "value": 10,
+      "source": "inherits",
+      "looser": false,
+      "min": "0",
+      "max": "90",
+      "step": "1",
+      "options": null
+    },
+    {
+      "key": "duplicate_amount",
+      "label": "Near-duplicate amount tolerance",
+      "kind": "money",
+      "help": "How far apart two amounts may be and still count as the same (0 = exact).",
+      "default": "0.00",
+      "value": "0.00",
+      "source": "inherits",
+      "looser": false,
+      "min": "0",
+      "max": "10000",
+      "step": "0.01",
+      "options": null
+    }
+  ],
+  "rules": [
+    {
+      "id": "r_arithmetic",
+      "name": "Lines, tax and totals are consistent",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_currency_mismatch",
+      "name": "Invoice currency matches the PO's currency",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_document_type",
+      "name": "The document is an invoice",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_duplicate_exact",
+      "name": "Not an exact duplicate of a prior invoice",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": true,
+      "reason": "Locked: an exact duplicate must always be caught.",
+      "looser": false
+    },
+    {
+      "id": "r_duplicate_fuzzy",
+      "name": "Not a near-duplicate of a prior invoice",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_extraction_confidence",
+      "name": "Extraction confidence is sufficient",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_po_ambiguity",
+      "name": "PO match is unambiguous",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_po_found",
+      "name": "Invoice matches a purchase order",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_po_line_price",
+      "name": "Invoice line prices match the PO line prices",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_po_status",
+      "name": "PO is not already fully billed",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_required_fields",
+      "name": "Required fields are present",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_tolerance_pct",
+      "name": "Invoice within tolerance of PO balance",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_vendor_po_mismatch",
+      "name": "Invoice vendor matches the PO's vendor",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": false,
+      "reason": null,
+      "looser": false
+    },
+    {
+      "id": "r_vendor_status",
+      "name": "Vendor is approved (not blocked)",
+      "default": true,
+      "enabled": true,
+      "source": "inherits",
+      "locked": true,
+      "reason": "Locked: a blocked or unknown vendor must always be caught.",
+      "looser": false
+    }
+  ],
+  "floors": [
+    {
+      "id": "engine_floor",
+      "name": "Engine floor",
+      "reason": "Always on: the system's own minimum checks (confident PO match, comparable amount, required fields), not a rule."
+    },
+    {
+      "id": "engine_floor_reference",
+      "name": "Reference floor",
+      "reason": "Always on: a PO reached through a resembling or unmatched printed reference is never auto-approved."
+    }
+  ],
+  "overrides": 0,
+  "looser": false
+}

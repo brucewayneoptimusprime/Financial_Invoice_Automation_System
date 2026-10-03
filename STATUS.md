@@ -7,7 +7,8 @@ Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - Plan `SETTINGS_PLAN.md` approved 2026-10-03 (decisions 1 A, 2-7 yes, 8 no (line-price tolerance not editable), 9-11 yes; plus: a "looser than default" marker; "Settings used" shown in the run view). Building S1-S5 without stopping; stop after S5.
 - **S1: schema v4 and the loader.** `po_settings`, `po_rule_switches`, `settings_events` (migrate 3 -> 4 with a backup; init creates v4; serve / health refuse v3). `app/rulesettings/catalog.py` (the editable values, ranges, "looser" direction). `engine/loader.load_effective(conn, po_id)`: global, then the matched PO's overrides; nothing else in the engine changed. The runner applies it after the match stage and writes one `settings_applied` event ("Settings used") in the validate stage. The review preview and allocation use the PO's effective tolerance.
 - **S2: settings API and audit.** `GET/POST /api/settings`, `/api/settings/pos`, `/api/settings/pos/{id}`, `/api/settings/history`; ranges, locked rules, "looser than default", one `settings_events` row per changed value (actor: unauthenticated demo user).
-- Done: S1, S2. Tests now: backend **2534 passed**, 0 failed, 4 deselected; frontend **136 passed**.
+- **S3: settings UI.** Header gear (not on `/invoices`), `/settings` (global defaults, rules, recent changes, PO list with default / custom / looser), `/settings/pos/:id` editor, "Rules for this PO" on the PO page, "Settings used" in the run timeline and run view.
+- Done: S1, S2, S3. Tests now: backend **2536 passed**, 0 failed, 4 deselected; frontend **155 passed**.
 - **Your `data\app.db` must be migrated to v4** (keeps your Gmail connection): `python -m app.db.migrate` from `backend\`. Do NOT use `--reset-demo` (it deletes the stored Gmail connection).
 
 ---

@@ -138,6 +138,12 @@ def line_match_view(conn: sqlite3.Connection, run_id: str, events: list[dict], i
     return view
 
 
+def _settings_used(events: list[dict]) -> dict | None:
+    """The settings the run was judged under (the settings_applied event; SPEC section 11 item 93). None for runs before v4."""
+    e = _first(events, "settings_applied")
+    return None if e is None else {"message": e["message"], **e["detail"]}
+
+
 def _source(events: list[dict]) -> dict | None:
     """Where the file came from when it was not uploaded: the Gmail provenance event (sender, date, filename), as data."""
     e = _first(events, "source_gmail")
@@ -212,5 +218,6 @@ def run_view(conn: sqlite3.Connection, run_id: str, runs_dir: Path) -> dict | No
         "error": None if error_ev is None else {"message": error_ev["message"], "error_type": error_ev["detail"].get("error_type")},
         "line_matches": line_match_view(conn, run_id, events, invoice),
         "source": _source(events),
+        "settings_used": _settings_used(events),
         "event_count": len(events),
     }

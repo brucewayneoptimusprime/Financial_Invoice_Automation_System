@@ -1,10 +1,10 @@
 {
   "run": {
-    "id": "d455375ee8b64cd1a3fcd01dad99a9e7",
-    "source_file": "invoice_Bill Eplett_14021.pdf",
+    "id": "fd2986198f0e44c2b360d78cf31f30c2",
+    "source_file": "superstore_10963.pdf",
     "status": "completed",
-    "started_at": "2026-10-03T02:07:30Z",
-    "finished_at": "2026-10-03T02:07:30Z",
+    "started_at": "2026-10-03T01:58:47Z",
+    "finished_at": "2026-10-03T01:58:47Z",
     "final_decision": "review",
     "tokens_in": 6800,
     "tokens_out": 920,
@@ -15,14 +15,14 @@
     {
       "stage": "ingest",
       "status": "ok",
-      "duration_ms": 88,
+      "duration_ms": 271,
       "summary": {
         "failure_code": null,
         "failure_kind": null,
         "media_type": "application/pdf",
         "pages_processed": 1,
         "pages_total": 1,
-        "size_bytes": 14708,
+        "size_bytes": 14490,
         "text_layer": "usable",
         "truncated": false
       }
@@ -30,7 +30,7 @@
     {
       "stage": "extract",
       "status": "ok",
-      "duration_ms": 18,
+      "duration_ms": 21,
       "summary": {
         "adjustments": 1,
         "attempts": 1,
@@ -56,7 +56,7 @@
     {
       "stage": "match",
       "status": "ok",
-      "duration_ms": 1,
+      "duration_ms": 2,
       "summary": {
         "candidate_count": 5,
         "line_counts": {
@@ -67,9 +67,9 @@
         },
         "line_mode": "line_level",
         "match_status": "matched",
-        "matched_po": "PO-SS-003",
-        "top_candidate": "PO-SS-003",
-        "top_score": 0.567739,
+        "matched_po": "PO-SS-001",
+        "top_candidate": "PO-SS-001",
+        "top_score": 0.576368,
         "vendor": "SuperStore",
         "vendor_ambiguous": false,
         "vendor_id": 1,
@@ -80,17 +80,19 @@
     {
       "stage": "validate",
       "status": "flagged",
-      "duration_ms": 6,
+      "duration_ms": 5,
       "summary": {
         "counts": {
           "fail": 0,
-          "flag": 1,
+          "flag": 3,
           "info": 0,
-          "pass": 15
+          "pass": 12
         },
-        "results": 16,
+        "results": 15,
         "triggered": [
-          "r_po_found"
+          "r_extraction_confidence",
+          "r_po_found",
+          "engine_floor"
         ]
       }
     },
@@ -136,49 +138,63 @@
   "explanation": {
     "attempts": 0,
     "cited_facts": [
-      "F2"
+      "F2",
+      "F3",
+      "F4"
     ],
     "cost_usd": "0",
     "fallback_reason": "disabled in configuration",
     "model": null,
     "next_step": "A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
-    "one_line": "review: r_po_found matched_without_reference",
+    "one_line": "review: required_fields_low_confidence; r_extraction_confidence low_confidence; r_po_found matched_without_reference",
     "reasons": [
       {
         "facts": [
           "F2"
         ],
-        "text": "r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-003 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."
+        "text": "Engine floor (required_fields_low_confidence): required fields below the confidence threshold: currency, total."
+      },
+      {
+        "facts": [
+          "F3"
+        ],
+        "text": "r_extraction_confidence (Extraction confidence is sufficient) - low_confidence, severity 1: Low extraction confidence on: currency (0.85 < 0.90), total (0.85 < 0.90)."
+      },
+      {
+        "facts": [
+          "F4"
+        ],
+        "text": "r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it."
       }
     ],
     "source": "template",
-    "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-003 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F2]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
+    "text": "Decision: REVIEW. A person needs to look at this invoice before it can be paid. It has been placed in the review queue.\nWhy:\n- Engine floor (required_fields_low_confidence): required fields below the confidence threshold: currency, total. [F2]\n- r_extraction_confidence (Extraction confidence is sufficient) - low_confidence, severity 1: Low extraction confidence on: currency (0.85 < 0.90), total (0.85 < 0.90). [F3]\n- r_po_found (Invoice matches a purchase order) - matched_without_reference, severity 1: The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it. [F4]\nNext step: A reviewer should check the flagged items in the review queue and approve or reject the invoice.",
     "tokens_in": 0,
     "tokens_out": 0
   },
   "invoice": {
-    "id": 3,
+    "id": 2,
     "vendor_id": 1,
-    "invoice_number": "14021",
+    "invoice_number": "10963",
     "invoice_date": "2013-03-07",
     "currency": "USD",
-    "po_id": 3,
+    "po_id": 1,
     "decision": "review",
     "status": "in_review",
-    "source_file": "invoice_Bill Eplett_14021.pdf",
-    "file_hash": "df9dd5d1de70a56b0c83d2ecec3b5bf83a3d7210787c22620f77117c9ad6e073",
-    "created_at": "2026-10-03T02:07:30Z",
-    "subtotal": "9466.50",
+    "source_file": "superstore_10963.pdf",
+    "file_hash": "b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44",
+    "created_at": "2026-10-03T01:58:47Z",
+    "subtotal": "5141.76",
     "tax": null,
-    "total": "9671.51"
+    "total": "5338.08"
   },
   "lines": [
     {
       "line_no": 1,
-      "description": "Canon Wireless Fax, Laser (Copiers, Technology)",
-      "quantity": "5",
-      "unit_price": "1893.30",
-      "amount": "9466.50"
+      "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+      "quantity": "4",
+      "unit_price": "1285.44",
+      "amount": "5141.76"
     }
   ],
   "extracted": {
@@ -215,9 +231,9 @@
       "grounding": "exact"
     },
     "invoice_number": {
-      "value": "14021",
+      "value": "10963",
       "page": 1,
-      "source_text": "# 14021",
+      "source_text": "# 10963",
       "confidence": 0.95,
       "model_confidence": 0.95,
       "grounding": "exact"
@@ -226,16 +242,16 @@
       "value": "2013-03-07",
       "page": 1,
       "source_text": "Mar 07 2013",
-      "confidence": 0.9,
-      "model_confidence": 0.9,
+      "confidence": 0.95,
+      "model_confidence": 0.95,
       "grounding": "exact"
     },
     "currency": {
       "value": "USD",
       "page": 1,
-      "source_text": "$9,671.51",
+      "source_text": "$5,338.08",
       "confidence": 0.85,
-      "model_confidence": 0.6,
+      "model_confidence": 0.7,
       "grounding": "exact"
     },
     "po_reference": {
@@ -248,9 +264,9 @@
       "explicit": null
     },
     "subtotal": {
-      "value": "9466.50",
+      "value": "5141.76",
       "page": 1,
-      "source_text": "Subtotal: $9,466.50",
+      "source_text": "Subtotal: $5,141.76",
       "confidence": 0.85,
       "model_confidence": 0.95,
       "grounding": "value_present"
@@ -265,22 +281,22 @@
       "included_in_total": null
     },
     "total": {
-      "value": "9671.51",
+      "value": "5338.08",
       "page": 1,
-      "source_text": "Total: $9,671.51",
+      "source_text": "Total: $5,338.08",
       "confidence": 0.85,
       "model_confidence": 0.95,
       "grounding": "value_present"
     },
     "line_items": [
       {
-        "description": "Canon Wireless Fax, Laser (Copiers, Technology)",
-        "item_code": "TEC-CO-3710",
-        "quantity": "5",
-        "unit_price": "1893.30",
-        "amount": "9466.50",
+        "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+        "item_code": "TEC-CO-4575",
+        "quantity": "4",
+        "unit_price": "1285.44",
+        "amount": "5141.76",
         "page": 1,
-        "source_text": "Canon Wireless Fax, Laser 5 $1,893.30 $9,466.50",
+        "source_text": "Hewlett Fax Machine, Color 4 $1,285.44 $5,141.76",
         "confidence": 0.9,
         "model_confidence": 0.9,
         "grounding": "exact"
@@ -290,10 +306,10 @@
       {
         "kind": "shipping",
         "description": "Shipping",
-        "printed_amount": "205.01",
-        "amount": "205.01",
+        "printed_amount": "196.32",
+        "amount": "196.32",
         "page": 1,
-        "source_text": "Shipping: $205.01",
+        "source_text": "Shipping: $196.32",
         "confidence": 0.85,
         "model_confidence": 0.95,
         "grounding": "value_present"
@@ -304,7 +320,7 @@
       "issues": [],
       "contains_reader_instructions": false
     },
-    "extraction_notes": "Order ID present but not labeled as a purchase order, so po_reference not extracted. Currency symbol only ($), country address is UK but symbol used is $, so currency uncertain - kept as literal symbol. No tax line present on this invoice.\n[system] currency '$' was mapped to USD by configuration\n[system] currency confidence set to 0.85 from configuration (symbol-derived; the model reported 0.6)\n[system] grounding: 9 item(s) checked: 6 exact, 3 value_present"
+    "extraction_notes": "Order ID field is not a purchase-order labeled reference, so po_reference not extracted. Currency symbol only ($) present; country is Austria but symbol used is $, so currency left as printed symbol rather than inferring EUR.\n[system] currency '$' was mapped to USD by configuration\n[system] currency confidence set to 0.85 from configuration (symbol-derived; the model reported 0.7)\n[system] grounding: 9 item(s) checked: 6 exact, 3 value_present"
   },
   "vendor": {
     "ambiguous": false,
@@ -324,45 +340,13 @@
   },
   "match": {
     "status": "matched",
-    "matched_po": "PO-SS-003",
-    "message": "Matched PO-SS-003 (score 0.57).",
+    "matched_po": "PO-SS-001",
+    "message": "Matched PO-SS-001 (score 0.58).",
     "candidates": [
       {
         "breakdown": {
-          "amount": 0.180596,
-          "lines": 0.137143,
-          "reference": 0.0,
-          "vendor": 0.25
-        },
-        "po_number": "PO-SS-003",
-        "reasons": [
-          "reference:none",
-          "vendor:match",
-          "amount:fits(0.81 of balance)",
-          "lines:overlap(0.91)"
-        ],
-        "score": 0.567739
-      },
-      {
-        "breakdown": {
-          "amount": 0.196715,
-          "lines": 0.0,
-          "reference": 0.0,
-          "vendor": 0.25
-        },
-        "po_number": "PO-SS-004",
-        "reasons": [
-          "reference:none",
-          "vendor:match",
-          "amount:fits(0.97 of balance)",
-          "lines:overlap(0.00)"
-        ],
-        "score": 0.446715
-      },
-      {
-        "breakdown": {
-          "amount": 0.077616,
-          "lines": 0.07,
+          "amount": 0.188968,
+          "lines": 0.1374,
           "reference": 0.0,
           "vendor": 0.25
         },
@@ -370,14 +354,30 @@
         "reasons": [
           "reference:none",
           "vendor:match",
-          "amount:over(+61.19%)",
-          "lines:overlap(0.47)"
+          "amount:fits(0.89 of balance)",
+          "lines:overlap(0.92)"
         ],
-        "score": 0.397616
+        "score": 0.576368
       },
       {
         "breakdown": {
-          "amount": 0.142093,
+          "amount": 0.144484,
+          "lines": 0.073784,
+          "reference": 0.0,
+          "vendor": 0.25
+        },
+        "po_number": "PO-SS-003",
+        "reasons": [
+          "reference:none",
+          "vendor:match",
+          "amount:fits(0.44 of balance)",
+          "lines:overlap(0.49)"
+        ],
+        "score": 0.468268
+      },
+      {
+        "breakdown": {
+          "amount": 0.171174,
           "lines": 0.0,
           "reference": 0.0,
           "vendor": 0.25
@@ -386,10 +386,26 @@
         "reasons": [
           "reference:none",
           "vendor:match",
-          "amount:over(+28.95%)",
+          "amount:fits(0.71 of balance)",
           "lines:overlap(0.00)"
         ],
-        "score": 0.392093
+        "score": 0.421174
+      },
+      {
+        "breakdown": {
+          "amount": 0.153381,
+          "lines": 0.0,
+          "reference": 0.0,
+          "vendor": 0.25
+        },
+        "po_number": "PO-SS-004",
+        "reasons": [
+          "reference:none",
+          "vendor:match",
+          "amount:fits(0.53 of balance)",
+          "lines:overlap(0.00)"
+        ],
+        "score": 0.403381
       },
       {
         "breakdown": {
@@ -402,7 +418,7 @@
         "reasons": [
           "reference:none",
           "vendor:match",
-          "amount:over(+286.86%)",
+          "amount:over(+113.52%)",
           "lines:overlap(0.00)"
         ],
         "score": 0.25
@@ -421,31 +437,31 @@
       "detail": {
         "checks": [
           {
-            "actual": "9466.50",
-            "allowance": "0.035",
+            "actual": "5141.76",
+            "allowance": "0.030",
             "check": "line_math",
             "difference": "0.00",
-            "expected": "9466.50",
+            "expected": "5141.76",
             "line": 1,
             "ok": true
           },
           {
-            "actual": "9466.50",
+            "actual": "5141.76",
             "allowance": "0.01",
             "check": "lines_vs_subtotal",
             "difference": "0.00",
-            "expected": "9466.50",
+            "expected": "5141.76",
             "ok": true,
             "terms": 1
           },
           {
-            "actual": "9671.51",
+            "actual": "5338.08",
             "adjustment_count": 1,
-            "adjustments_total": "205.01",
+            "adjustments_total": "196.32",
             "allowance": "0.02",
             "check": "subtotal_plus_adjustments_equals_total",
             "difference": "0.00",
-            "expected": "9671.51",
+            "expected": "5338.08",
             "ok": true,
             "tax_assumed_zero": true,
             "tax_included_in_total": null
@@ -470,7 +486,7 @@
         "invoice_currency": "USD",
         "outcome_key": "match",
         "po_currency": "USD",
-        "po_number": "PO-SS-003",
+        "po_number": "PO-SS-001",
         "severity": 0
       }
     },
@@ -505,9 +521,9 @@
           "in_review",
           "pending"
         ],
-        "file_hash": "df9dd5d1de70a56b0c83d2ecec3b5bf83a3d7210787c22620f77117c9ad6e073",
+        "file_hash": "b5567cc47172d0861ef90df43cbeb6bad2432eb698e06ab159169f3b54d96a44",
         "matches": [],
-        "normalized_invoice_number": "14021",
+        "normalized_invoice_number": "10963",
         "outcome_key": "no_duplicate",
         "severity": 0,
         "skipped": [],
@@ -525,22 +541,22 @@
       "detail": {
         "amount_tolerance": 0.0,
         "invoice_date": "2013-03-07",
-        "invoice_total": "9671.51",
+        "invoice_total": "5338.08",
         "matches": [],
         "outcome_key": "no_near_duplicate",
         "severity": 0,
         "vendor_id": 1,
-        "window_days": 7
+        "window_days": 10
       }
     },
     {
       "rule_id": "r_extraction_confidence",
       "name": "Extraction confidence is sufficient",
       "kind": "rule",
-      "outcome": "pass",
-      "severity": 0,
-      "outcome_key": "confident",
-      "message": "All 5 checked fields meet the confidence threshold (0.80).",
+      "outcome": "flag",
+      "severity": 1,
+      "outcome_key": "low_confidence",
+      "message": "Low extraction confidence on: currency (0.85 < 0.90), total (0.85 < 0.90).",
       "detail": {
         "checked": [
           {
@@ -552,7 +568,7 @@
             "field": "invoice_number"
           },
           {
-            "confidence": 0.9,
+            "confidence": 0.95,
             "field": "invoice_date"
           },
           {
@@ -564,11 +580,22 @@
             "field": "total"
           }
         ],
-        "low_confidence": [],
-        "outcome_key": "confident",
-        "severity": 0,
+        "low_confidence": [
+          {
+            "confidence": 0.85,
+            "field": "currency",
+            "threshold": 0.9
+          },
+          {
+            "confidence": 0.85,
+            "field": "total",
+            "threshold": 0.9
+          }
+        ],
+        "outcome_key": "low_confidence",
+        "severity": 1,
         "skipped_missing": [],
-        "threshold": 0.8
+        "threshold": 0.9
       }
     },
     {
@@ -583,8 +610,24 @@
         "candidates": [
           {
             "breakdown": {
-              "amount": 0.180596,
-              "lines": 0.137143,
+              "amount": 0.188968,
+              "lines": 0.1374,
+              "reference": 0.0,
+              "vendor": 0.25
+            },
+            "po_number": "PO-SS-001",
+            "reasons": [
+              "reference:none",
+              "vendor:match",
+              "amount:fits(0.89 of balance)",
+              "lines:overlap(0.92)"
+            ],
+            "score": 0.576368
+          },
+          {
+            "breakdown": {
+              "amount": 0.144484,
+              "lines": 0.073784,
               "reference": 0.0,
               "vendor": 0.25
             },
@@ -592,30 +635,14 @@
             "reasons": [
               "reference:none",
               "vendor:match",
-              "amount:fits(0.81 of balance)",
-              "lines:overlap(0.91)"
+              "amount:fits(0.44 of balance)",
+              "lines:overlap(0.49)"
             ],
-            "score": 0.567739
-          },
-          {
-            "breakdown": {
-              "amount": 0.196715,
-              "lines": 0.0,
-              "reference": 0.0,
-              "vendor": 0.25
-            },
-            "po_number": "PO-SS-004",
-            "reasons": [
-              "reference:none",
-              "vendor:match",
-              "amount:fits(0.97 of balance)",
-              "lines:overlap(0.00)"
-            ],
-            "score": 0.446715
+            "score": 0.468268
           }
         ],
         "outcome_key": "unambiguous",
-        "score_gap": 0.121024,
+        "score_gap": 0.1081,
         "severity": 0
       }
     },
@@ -626,45 +653,13 @@
       "outcome": "flag",
       "severity": 1,
       "outcome_key": "matched_without_reference",
-      "message": "The invoice has no PO reference; purchase order PO-SS-003 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+      "message": "The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
       "detail": {
         "candidates": [
           {
             "breakdown": {
-              "amount": 0.180596,
-              "lines": 0.137143,
-              "reference": 0.0,
-              "vendor": 0.25
-            },
-            "po_number": "PO-SS-003",
-            "reasons": [
-              "reference:none",
-              "vendor:match",
-              "amount:fits(0.81 of balance)",
-              "lines:overlap(0.91)"
-            ],
-            "score": 0.567739
-          },
-          {
-            "breakdown": {
-              "amount": 0.196715,
-              "lines": 0.0,
-              "reference": 0.0,
-              "vendor": 0.25
-            },
-            "po_number": "PO-SS-004",
-            "reasons": [
-              "reference:none",
-              "vendor:match",
-              "amount:fits(0.97 of balance)",
-              "lines:overlap(0.00)"
-            ],
-            "score": 0.446715
-          },
-          {
-            "breakdown": {
-              "amount": 0.077616,
-              "lines": 0.07,
+              "amount": 0.188968,
+              "lines": 0.1374,
               "reference": 0.0,
               "vendor": 0.25
             },
@@ -672,10 +667,42 @@
             "reasons": [
               "reference:none",
               "vendor:match",
-              "amount:over(+61.19%)",
-              "lines:overlap(0.47)"
+              "amount:fits(0.89 of balance)",
+              "lines:overlap(0.92)"
             ],
-            "score": 0.397616
+            "score": 0.576368
+          },
+          {
+            "breakdown": {
+              "amount": 0.144484,
+              "lines": 0.073784,
+              "reference": 0.0,
+              "vendor": 0.25
+            },
+            "po_number": "PO-SS-003",
+            "reasons": [
+              "reference:none",
+              "vendor:match",
+              "amount:fits(0.44 of balance)",
+              "lines:overlap(0.49)"
+            ],
+            "score": 0.468268
+          },
+          {
+            "breakdown": {
+              "amount": 0.171174,
+              "lines": 0.0,
+              "reference": 0.0,
+              "vendor": 0.25
+            },
+            "po_number": "PO-SS-005",
+            "reasons": [
+              "reference:none",
+              "vendor:match",
+              "amount:fits(0.71 of balance)",
+              "lines:overlap(0.00)"
+            ],
+            "score": 0.421174
           }
         ],
         "match_status": "matched",
@@ -683,40 +710,7 @@
         "po_reference": null,
         "reference_explicit": null,
         "severity": 1,
-        "top_score": 0.567739
-      }
-    },
-    {
-      "rule_id": "r_po_line_price",
-      "name": "Invoice line prices match the PO line prices",
-      "kind": "rule",
-      "outcome": "pass",
-      "severity": 0,
-      "outcome_key": "within_tolerance",
-      "message": "All 1 matched line(s) are priced within tolerance of PO-SS-003.",
-      "detail": {
-        "abs": "1.00",
-        "direction": "above",
-        "lines": [
-          {
-            "above_po": false,
-            "allowance": "1.00",
-            "below_po": false,
-            "difference": "0.00",
-            "invoice_line_no": 1,
-            "invoice_unit_price": "1893.30",
-            "ok": true,
-            "po_line_no": 1,
-            "po_unit_price": "1893.3",
-            "relative_difference": 0.0
-          }
-        ],
-        "mode": "lesser_of",
-        "outcome_key": "within_tolerance",
-        "pct": 1.0,
-        "po_number": "PO-SS-003",
-        "severity": 0,
-        "skipped": []
+        "top_score": 0.576368
       }
     },
     {
@@ -726,17 +720,17 @@
       "outcome": "pass",
       "severity": 0,
       "outcome_key": "open",
-      "message": "PO-SS-003 still has 12,000.00 USD available.",
+      "message": "PO-SS-001 still has 6,000.00 USD available.",
       "detail": {
-        "balance": "12000.00",
+        "balance": "6000.00",
         "currency": "USD",
         "derived_status": "open",
         "net_committed": "0.00",
         "outcome_key": "open",
-        "po_number": "PO-SS-003",
+        "po_number": "PO-SS-001",
         "severity": 0,
         "stored_status": "open",
-        "total": "12000.00"
+        "total": "6000.00"
       }
     },
     {
@@ -774,21 +768,21 @@
       "outcome": "pass",
       "severity": 0,
       "outcome_key": "within_balance",
-      "message": "Invoice total 9,671.51 USD is within the remaining PO balance 12,000.00 USD.",
+      "message": "Invoice total 5,338.08 USD is within the remaining PO balance 6,000.00 USD.",
       "detail": {
-        "abs_allowance": "50.00",
-        "allowance": "50.00",
-        "balance": "12000.00",
+        "abs_allowance": "100.00",
+        "allowance": "100.00",
+        "balance": "6000.00",
         "compare_field": "total",
-        "excess": "-2328.49",
-        "invoice_amount": "9671.51",
+        "excess": "-661.92",
+        "invoice_amount": "5338.08",
         "invoice_currency": "USD",
         "mode": "lesser_of",
         "outcome_key": "within_balance",
-        "pct": 2.0,
-        "pct_allowance": "240.00",
+        "pct": 5.0,
+        "pct_allowance": "300.00",
         "po_currency": "USD",
-        "po_number": "PO-SS-003",
+        "po_number": "PO-SS-001",
         "severity": 0,
         "within_balance": true,
         "within_tolerance": true
@@ -801,12 +795,12 @@
       "outcome": "pass",
       "severity": 0,
       "outcome_key": "match",
-      "message": "Invoice vendor matches the vendor on PO-SS-003.",
+      "message": "Invoice vendor matches the vendor on PO-SS-001.",
       "detail": {
         "invoice_vendor": "SuperStore",
         "invoice_vendor_id": 1,
         "outcome_key": "match",
-        "po_number": "PO-SS-003",
+        "po_number": "PO-SS-001",
         "po_vendor": "SuperStore",
         "po_vendor_id": 1,
         "severity": 0
@@ -841,19 +835,36 @@
       "rule_id": "engine_floor",
       "name": "engine floor",
       "kind": "floor",
-      "outcome": "pass",
-      "severity": 0,
-      "outcome_key": "floor_not_applied",
-      "message": "Engine floor not applied: PO confidently matched, amount comparable, required fields present and confident.",
+      "outcome": "flag",
+      "severity": 1,
+      "outcome_key": "floor_applied",
+      "message": "Engine floor applied (at least review): required fields below the confidence threshold: currency, total.",
       "detail": {
         "amount_evaluable": true,
         "amount_reason": null,
-        "confidence_threshold": 0.8,
+        "confidence_threshold": 0.9,
         "match_status": "matched",
-        "matched_po": "PO-SS-003",
-        "outcome_key": "floor_not_applied",
-        "reasons": [],
-        "severity": 0
+        "matched_po": "PO-SS-001",
+        "outcome_key": "floor_applied",
+        "reasons": [
+          {
+            "code": "required_fields_low_confidence",
+            "fields": [
+              {
+                "confidence": 0.85,
+                "field": "currency",
+                "threshold": 0.9
+              },
+              {
+                "confidence": 0.85,
+                "field": "total",
+                "threshold": 0.9
+              }
+            ],
+            "message": "required fields below the confidence threshold: currency, total"
+          }
+        ],
+        "severity": 1
       }
     },
     {
@@ -867,7 +878,7 @@
       "detail": {
         "matched": true,
         "outcome_key": "reference_floor_not_applied",
-        "po_number": "PO-SS-003",
+        "po_number": "PO-SS-001",
         "reference": null,
         "reference_explicit": null,
         "reference_reasons": [
@@ -883,7 +894,15 @@
     "final_severity": 1,
     "triggered": [
       {
+        "rule_id": "r_extraction_confidence",
+        "severity": 1
+      },
+      {
         "rule_id": "r_po_found",
+        "severity": 1
+      },
+      {
+        "rule_id": "engine_floor",
         "severity": 1
       }
     ]
@@ -894,8 +913,8 @@
     "escalated": null,
     "review": [
       {
-        "id": 2,
-        "reason": "Review: r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-003 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
+        "id": 1,
+        "reason": "Review: Engine floor (required_fields_low_confidence): required fields below the confidence threshold: currency, total. | r_extraction_confidence (low_confidence): Low extraction confidence on: currency (0.85 < 0.90), total (0.85 < 0.90). | r_po_found (matched_without_reference): The invoice has no PO reference; purchase order PO-SS-001 is a confident, unambiguous match on vendor, amount and lines. A person should confirm it.",
         "status": "open",
         "resolution": null,
         "resolved_at": null
@@ -916,24 +935,24 @@
     "bundled_hint": false,
     "reason": null,
     "po": {
-      "id": 3,
-      "po_number": "PO-SS-003",
+      "id": 1,
+      "po_number": "PO-SS-001",
       "currency": "USD"
     },
     "lines": [
       {
-        "invoice_line_id": 2,
+        "invoice_line_id": 1,
         "invoice_line_no": 1,
-        "description": "Canon Wireless Fax, Laser (Copiers, Technology)",
-        "quantity": "5",
-        "unit_price": "1893.30",
-        "amount": "9466.50",
+        "description": "Hewlett Fax Machine, Color; Copiers, Technology, TEC-CO-4575",
+        "quantity": "4",
+        "unit_price": "1285.44",
+        "amount": "5141.76",
         "status": "matched",
-        "po_line_id": 3,
+        "po_line_id": 1,
         "score": 1.0,
         "candidates": [
           {
-            "po_line_id": 3,
+            "po_line_id": 1,
             "po_line_no": 1,
             "score": 1.0,
             "breakdown": {
@@ -944,35 +963,34 @@
             },
             "reasons": [
               "description:1.00(contained)",
-              "code:exact(TEC-CO-3710)",
               "price:same",
               "quantity:fits",
               "amount:fits"
             ],
-            "description": "Canon Wireless Fax, Laser - Copiers, Technology, TEC-CO-3710",
-            "quantity": "5",
-            "unit_price": "1893.3",
-            "amount": "9466.50",
+            "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+            "quantity": "4",
+            "unit_price": "1285.44",
+            "amount": "5141.76",
             "consumed_quantity": "0",
             "consumed_amount": "0.00",
-            "remaining_quantity": "5",
-            "remaining_amount": "9466.50"
+            "remaining_quantity": "4",
+            "remaining_amount": "5141.76"
           }
         ]
       }
     ],
     "po_lines": [
       {
-        "id": 3,
+        "id": 1,
         "line_no": 1,
-        "description": "Canon Wireless Fax, Laser - Copiers, Technology, TEC-CO-3710",
-        "quantity": "5",
-        "unit_price": "1893.3",
-        "amount": "9466.50",
+        "description": "Hewlett Fax Machine, Color - Copiers, Technology",
+        "quantity": "4",
+        "unit_price": "1285.44",
+        "amount": "5141.76",
         "consumed_quantity": "0",
         "consumed_amount": "0.00",
-        "remaining_quantity": "5",
-        "remaining_amount": "9466.50"
+        "remaining_quantity": "4",
+        "remaining_amount": "5141.76"
       }
     ],
     "po_consumption": {
@@ -980,16 +998,11 @@
       "consumed_without_line": "0.00"
     }
   },
-  "source": {
-    "kind": "gmail",
-    "sender": "SuperStore Billing <billing@superstore.example>",
-    "message_date": "2026-09-20T11:00:00Z",
-    "filename": "invoice_Bill Eplett_14021.pdf"
-  },
+  "source": null,
   "settings_used": {
-    "message": "Settings used: PO-SS-003's settings (all inherited from the global defaults).",
-    "po_id": 3,
-    "po_number": "PO-SS-003",
+    "message": "Settings used: PO-SS-001's settings (4 overridden: tolerance_pct, tolerance_abs, confidence_threshold, r_po_line_price switched off).",
+    "po_id": 1,
+    "po_number": "PO-SS-001",
     "rule_sources": {
       "r_arithmetic": "default",
       "r_currency_mismatch": "default",
@@ -999,7 +1012,7 @@
       "r_extraction_confidence": "default",
       "r_po_ambiguity": "default",
       "r_po_found": "default",
-      "r_po_line_price": "default",
+      "r_po_line_price": "override",
       "r_po_status": "default",
       "r_required_fields": "default",
       "r_tolerance_pct": "default",
@@ -1015,7 +1028,7 @@
       "r_extraction_confidence": true,
       "r_po_ambiguity": true,
       "r_po_found": true,
-      "r_po_line_price": true,
+      "r_po_line_price": false,
       "r_po_status": true,
       "r_required_fields": true,
       "r_tolerance_pct": true,
@@ -1024,21 +1037,21 @@
     },
     "scope": "po",
     "sources": {
-      "confidence_threshold": "default",
+      "confidence_threshold": "override",
       "duplicate_amount": "default",
       "duplicate_days": "default",
-      "tolerance_abs": "default",
+      "tolerance_abs": "override",
       "tolerance_mode": "default",
-      "tolerance_pct": "default"
+      "tolerance_pct": "override"
     },
     "values": {
-      "confidence_threshold": 0.8,
+      "confidence_threshold": 0.9,
       "duplicate_amount": "0.00",
-      "duplicate_days": 7,
-      "tolerance_abs": "50.00",
+      "duplicate_days": 10,
+      "tolerance_abs": "100.00",
       "tolerance_mode": "lesser_of",
-      "tolerance_pct": 2.0
+      "tolerance_pct": 5.0
     }
   },
-  "event_count": 50
+  "event_count": 49
 }

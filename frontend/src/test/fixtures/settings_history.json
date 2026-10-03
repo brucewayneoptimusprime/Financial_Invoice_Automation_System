@@ -1,0 +1,64 @@
+{
+  "events": [
+    {
+      "id": 5,
+      "scope": "po",
+      "po_id": 1,
+      "po_number": "PO-SS-001",
+      "key": "rule:r_po_line_price",
+      "old_value": null,
+      "new_value": false,
+      "actor": "unauthenticated demo user",
+      "message": "Rule r_po_line_price for PO-SS-001: switched off.",
+      "created_at": "2026-10-03T01:58:47Z"
+    },
+    {
+      "id": 4,
+      "scope": "po",
+      "po_id": 1,
+      "po_number": "PO-SS-001",
+      "key": "confidence_threshold",
+      "old_value": null,
+      "new_value": 0.9,
+      "actor": "unauthenticated demo user",
+      "message": "Required-field confidence threshold for PO-SS-001: inherits 0.8 → 0.9.",
+      "created_at": "2026-10-03T01:58:47Z"
+    },
+    {
+      "id": 3,
+      "scope": "po",
+      "po_id": 1,
+      "po_number": "PO-SS-001",
+      "key": "tolerance_abs",
+      "old_value": null,
+      "new_value": "100.00",
+      "actor": "unauthenticated demo user",
+      "message": "Tolerance over the PO balance (amount) for PO-SS-001: inherits 50.00 → 100.00.",
+      "created_at": "2026-10-03T01:58:47Z"
+    },
+    {
+      "id": 2,
+      "scope": "po",
+      "po_id": 1,
+      "po_number": "PO-SS-001",
+      "key": "tolerance_pct",
+      "old_value": null,
+      "new_value": 5.0,
+      "actor": "unauthenticated demo user",
+      "message": "Tolerance over the PO balance (percent) for PO-SS-001: inherits 2.00% → 5.00%.",
+      "created_at": "2026-10-03T01:58:47Z"
+    },
+    {
+      "id": 1,
+      "scope": "global",
+      "po_id": null,
+      "po_number": null,
+      "key": "duplicate_days",
+      "old_value": 7,
+      "new_value": 10,
+      "actor": "unauthenticated demo user",
+      "message": "Near-duplicate window (days) (global default) changed: 7 days → 10 days.",
+      "created_at": "2026-10-03T01:58:47Z"
+    }
+  ]
+}

@@ -61,6 +61,7 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Rules settings and staged uploads](#rules-settings-and-staged-uploads-branch-featuresettings)
+- [Simulated ERP purchase-order feed](#simulated-erp-purchase-order-feed-branch-featureerp-feed)
 - [Known limitations / scope gaps](#known-limitations--scope-gaps)
 - [Project documents](#project-documents)
 
@@ -590,6 +591,31 @@ The rules engine's tolerances and switches can be changed from the UI, globally 
 - **Database.** Schema v4 adds `po_settings`, `po_rule_switches` and `settings_events`. Upgrade an existing database with `python -m app.db.migrate` from `backend\`, which takes a backup first and keeps your Gmail connection. Do **not** use `--reset-demo` for this: it rebuilds the demo database and deletes the stored Gmail connection.
 - **API.** `GET /api/settings`, `POST /api/settings/global`, `GET /api/settings/pos`, `GET|POST /api/settings/pos/{id}` (`null` = reset), `GET /api/settings/history`. See `SETTINGS_PLAN.md`, `SETTINGS_REPORT.md` and `SPEC.md` §11 items 91–96.
 
+## Simulated ERP purchase-order feed (branch `feature/erp-feed`)
+
+Mid-size and large companies send purchase orders from their ERP (SAP, Coupa, Oracle) as structured data, so nothing needs extracting. This feature shows that flow with a **Simulated ERP (demo)**: a bundled sample file stands in for the ERP connection. There is no model call, no cost and no extra service, so it works on a deployed backend as well as locally.
+
+- **Where.** On **Purchase orders**, click **Sync from ERP (simulated)**. The preview lists every PO in the feed. **Nothing is saved until you tick POs and confirm.**
+- **The three groups.**
+  - **New:** tick-boxes, none ticked for you. Each row shows the vendor ("existing: SuperStore (by name / alias / tax ID)", or "new vendor … status new"), the amount, the lines and any warnings from the PO form.
+  - **Already exists:** the exact PO number is already stored. The PO is skipped, links to the stored PO, and is **never changed**, even if the feed has different values.
+  - **Has problems:** each reason is listed and the PO cannot be ticked. Problems include:
+    - a PO number that appears twice in the feed;
+    - a look-alike of a stored PO number (e.g. `po-ss-002`), with a link to that PO;
+    - an ambiguous vendor;
+    - a quantity of zero or below;
+    - a PO the ERP has not released;
+    - any error of the PO form, and line amounts or lines that don't add up.
+- **Import.** **Import N purchase orders** → **Confirm import**. Each ticked PO is checked again against the current database and saved through the same writer and checks as the PO form. A new vendor is created once, with status `new`, like on the form. Syncing again shows the imported POs under "Already exists", and importing them again changes nothing.
+- **Provenance.** An imported PO shows **Entered by: Simulated ERP feed** under "Where this PO came from", with the feed file, sync time, ERP status, buyer reference and units of measure. The PO list's **Entered** column and the PO exports say the same.
+- **Adapters.** Each ERP format gets its own small adapter (`backend/app/erp/adapters/`) that maps its feed into the PO form's input. v1 has `simerp-v1`. A second ERP is one more adapter registered under its feed format; everything after the adapter is shared.
+- **Config.**
+  - `ERP_FEED_PATH`: defaults to the bundled `data/erp_feed_sample.json`, read from the repository checkout, also on Render.
+  - `ERP_FEED_ENABLED`: default true.
+  - Caps: `ERP_MAX_POS_PER_SYNC` (100), `ERP_MAX_IMPORT_PER_ACTION` (100) and `ERP_FEED_MAX_BYTES` (1 MB). Lines per PO are capped by `PO_MAX_LINES` (200).
+  - No schema change: provenance lives in the PO's `meta`.
+- **API.** `GET /api/erp/preview` (read-only) and `POST /api/erp/import {feed_sha256, po_numbers, confirm: true}`, both behind `ACCESS_TOKEN`. See `ERP_PLAN.md`, `ERP_REPORT.md` and `SPEC.md` §11 item 97.
+
 ## Known limitations / scope gaps
 
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.
@@ -609,6 +635,7 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 - **Gmail import: the Google connection lasts about 7 days in Testing mode.** While the OAuth consent screen is in Google's *Testing* status, Google expires the refresh token after about 7 days. The panel then asks you to connect again (one click). Publishing the consent screen would remove this.
 - **Gmail import: no "From Gmail" filter.** Gmail-sourced runs are marked on the run page and the dashboard, but the run lists cannot be filtered by source yet.
 - **PO export: PDFs draw Latin characters only.** The built-in Helvetica font has no rupee sign or CJK characters; those become "?" in the PDF, with a footer note. Use the Word, Excel or CSV export when that matters. Bundling a Unicode font (for example DejaVu Sans) would remove this.
+- **Simulated ERP feed: a demo stand-in, not a connector.** POs come from a bundled sample file, not a live ERP; there is no scheduled sync, no update of an existing PO (by design), and no ERP-side acknowledgement. On Render's free instance imported POs vanish with the database on every spin-down.
 - **Line-match edge case.** Short PO line descriptions one letter apart ("Widget A" / "Widget B") with identical prices come out `ambiguous`. That is the safe side, but it means more reviewer choices.
 
 ---

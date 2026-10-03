@@ -8,7 +8,8 @@ Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - **R1: source, adapter, preview.** `data/erp_feed_sample.json` (13 POs: 5 new, 1 existing, 7 problems incl. a look-alike), `app/erp/source.py` (bundled file via `ERP_FEED_PATH`, size cap, JSON with Decimal), `app/erp/adapters/` (simerp-v1 + registry), `app/erp/preview.py` (new / exists / problem with the PO form's own issues; read-only).
 - **R2: routes and import.** `GET /api/erp/preview`, `POST /api/erp/import` (re-classifies each pick against the current database, saves through `save_po`, never overwrites), six-invoice regression before and after importing the whole feed.
 - **R3: UI.** "Sync from ERP (simulated)" on the PO list, `/pos/erp-sync` preview (New / Already exists / Has problems), Entered and "Where this PO came from" show "Simulated ERP feed".
-- Done: R1, R2, R3. Tests now: backend **2594 passed**, 0 failed, 4 deselected; frontend **173 passed**.
+- **R4: docs.** README, SPEC section 11 final, `ERP_REPORT.md`.
+- Done: R1, R2, R3, R4. Tests now: backend **2594 passed**, 0 failed, 4 deselected; frontend **173 passed**.
 - No migration is needed for this feature (it adds no table).
 
 ---

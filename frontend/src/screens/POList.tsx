@@ -4,7 +4,7 @@ import { Chip } from "../components/common";
 import { ExportMenu } from "../components/ExportMenu";
 import { POExportButton } from "../components/POExportButton";
 import { downloadFile } from "../download";
-import { humanize, money } from "../format";
+import { enteredLabel, humanize, money } from "../format";
 import { linkProps } from "../router";
 import type { POListRow } from "../types";
 
@@ -71,7 +71,11 @@ export function POListScreen() {
           <h1>Purchase orders</h1>
           <p className="dim">Invoices are matched against these automatically. Balances are derived from the ledger.</p>
         </div>
-        <a className="btn" {...linkProps("/pos/new")}>New purchase order</a>
+        <div className="head-actions">
+          <a className="btn-ghost" {...linkProps("/pos/erp-sync")} title="Simulated ERP (demo): a bundled sample feed, not a real ERP connection">
+            Sync from ERP (simulated)</a>
+          <a className="btn" {...linkProps("/pos/new")}>New purchase order</a>
+        </div>
       </div>
       <div className="filters">
         <input type="search" placeholder="Search PO number or vendor" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
@@ -116,7 +120,7 @@ export function POListScreen() {
                     <td className={`num ${p.balance.startsWith("-") ? "neg" : ""}`}>{money(p.balance, p.currency)}</td>
                     <td><StatusChip status={p.status} /></td>
                     <td className="num">{p.invoice_count}</td>
-                    <td className="dim">{p.source ? humanize(p.source) : "—"}</td>
+                    <td className="dim">{p.source ? enteredLabel(p.source) : "—"}</td>
                     <td className="row-actions"><POExportButton poId={p.id} poNumber={p.po_number} size="small" /></td>
                   </tr>
                 ))}

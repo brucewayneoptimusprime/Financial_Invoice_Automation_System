@@ -376,3 +376,31 @@ export interface SettingsUsed {
   values: Record<string, SettingValue>; sources: Record<string, "default" | "override">;
   rules_enabled: Record<string, boolean>; rule_sources: Record<string, "default" | "override">;
 }
+
+// ---------------------------------------------------------------------------------------------- simulated ERP feed (ERP_PLAN)
+export interface ERPIssue { field: string; level: "error" | "warning"; code: string; message: string; blocks: boolean }
+export interface ERPLine { line_number: number | string | null; description: string | null; quantity: string | null; unit_price: string | null;
+                           amount: string | null; unit_of_measure: string | null }
+export type ERPVendor =
+  | { kind: "existing"; id: number; name: string; status: string; matched_by: string }
+  | { kind: "new"; name: string; tax_id: string | null; country: string | null; status: "new" }
+  | { kind: "ambiguous"; name: string | null; candidates: string[] };
+export interface ERPRow {
+  index: number; po_number: string | null; class: "new" | "exists" | "problem"; vendor: ERPVendor | null; currency: string | null;
+  total: string | null; issued_date: string | null; buyer_reference: string | null; erp_status: string | null; lines: ERPLine[];
+  issues: ERPIssue[]; existing_po: { id: number; po_number: string } | null;
+}
+export interface ERPPreview {
+  label: string;
+  feed: { name: string; sha256: string; format: string; adapter: string; system: string | null; exported_at: string | null; count: number;
+          shown: number; truncated: number };
+  counts: { new: number; exists: number; problem: number };
+  caps: { max_pos_per_sync: number; max_lines_per_po: number; max_import_per_action: number };
+  pos: ERPRow[];
+}
+export type ERPImportResult =
+  | { po_number: string; outcome: "imported"; po_id: number; vendor_id: number; new_vendor: boolean; warnings: ERPIssue[] }
+  | { po_number: string; outcome: "skipped_exists"; existing_po: { id: number; po_number: string } | null }
+  | { po_number: string; outcome: "refused"; issues: ERPIssue[] };
+export interface ERPImport { label: string; synced_at: string; feed: { name: string; sha256: string }; imported: number; skipped: number;
+                             refused: number; results: ERPImportResult[] }

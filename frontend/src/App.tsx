@@ -7,6 +7,7 @@ import { RunScreen } from "./screens/Run";
 import { POListScreen } from "./screens/POList";
 import { PODetailScreen } from "./screens/PODetail";
 import { PONewScreen } from "./screens/PONew";
+import { ERPSyncScreen } from "./screens/ERPSync";
 import { ReviewListScreen } from "./screens/ReviewList";
 import { ReviewItemScreen } from "./screens/ReviewItem";
 import { SettingsScreen } from "./screens/Settings";
@@ -83,6 +84,7 @@ export function App() {
         {route.name === "run" && <RunScreen key={route.id} runId={route.id} />}
         {route.name === "pos" && <POListScreen key={window.location.search} />}
         {route.name === "poNew" && <PONewScreen health={health} />}
+        {route.name === "erpSync" && <ERPSyncScreen />}
         {route.name === "po" && <PODetailScreen key={route.id} id={route.id} />}
         {route.name === "review" && <ReviewListScreen />}
         {route.name === "reviewItem" && <ReviewItemScreen key={route.id} id={route.id} />}

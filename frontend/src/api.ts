@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
 // proxy), the Render URL and the access token when deployed.
 import { apiFetch, apiUrl } from "./apiBase";
-import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, GlobalSettings, POSettings, SettingsEvent, SettingsPORow, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, ERPImport, ERPPreview, GlobalSettings, POSettings, SettingsEvent, SettingsPORow, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -143,6 +143,19 @@ export const approveItem = (id: number, stateToken: string, allocations: LineCho
     `/api/review-queue/${id}/approve`, { confirm: true, state_token: stateToken, allocations, note: note || null });
 export const rejectItem = (id: number, reason: string | null) =>
   act<{ status: string }>(`/api/review-queue/${id}/reject`, { confirm: true, reason: reason || null });
+
+// ---------------------------------------------------------------------------------------------- simulated ERP feed (no model, no cost)
+// The preview writes nothing; only erpImport() saves, and only the POs the person ticked.
+export const erpPreview = () => apiFetch("/api/erp/preview").then(async (r) => {
+  if (r.status === 422 || r.status === 404) {
+    const b = (await r.json().catch(() => ({}))) as { error?: string; message?: string };
+    throw new ApiError(r.status, b.error ?? "erp_feed", b.message ?? "The simulated ERP feed could not be read.");
+  }
+  return json<ERPPreview>(r);
+});
+export const erpImport = (feedSha256: string, poNumbers: string[]) =>
+  act<ERPImport & { preview?: ERPPreview; po_numbers?: string[] }>("/api/erp/import",
+                                                                 { feed_sha256: feedSha256, po_numbers: poNumbers, confirm: true });
 
 export const getDashboard = (recent = 8, review = 5) => apiFetch(`/api/dashboard?recent=${recent}&review=${review}`).then((r) => json<Dashboard>(r));
 

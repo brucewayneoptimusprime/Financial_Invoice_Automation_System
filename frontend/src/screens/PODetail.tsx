@@ -19,9 +19,22 @@ function Provenance({ p }: { p: Record<string, unknown> }) {
   return (
     <dl className="kv">
       <div className="kv-row"><dt>Entered by</dt><dd>{{ manual: "Form", text: "Typed text, drafted by the model, confirmed by a person",
-        document: "Uploaded document, drafted by the model, confirmed by a person", seed: "Demo dataset" }[source] ?? humanize(source)}</dd></div>
+        document: "Uploaded document, drafted by the model, confirmed by a person", seed: "Demo dataset",
+        erp: "Simulated ERP feed" }[source] ?? humanize(source)}
+        {source === "erp" && <> <Chip tone="info">Simulated ERP (demo)</Chip></>}</dd></div>
       {typeof p.entered_at === "string" && <div className="kv-row"><dt>Entered</dt><dd>{when(p.entered_at)}</dd></div>}
       {typeof p.file_name === "string" && <div className="kv-row"><dt>Document</dt><dd>{p.file_name}</dd></div>}
+      {source === "erp" && (
+        <>
+          {typeof p.feed_file === "string" && <div className="kv-row"><dt>Feed</dt><dd>{p.feed_file}</dd></div>}
+          {typeof p.synced_at === "string" && <div className="kv-row"><dt>Synced</dt><dd>{when(p.synced_at)}</dd></div>}
+          {typeof p.erp_status === "string" && <div className="kv-row"><dt>ERP status</dt><dd>{p.erp_status}</dd></div>}
+          {typeof p.buyer_reference === "string" && <div className="kv-row"><dt>Buyer reference</dt><dd>{p.buyer_reference}</dd></div>}
+          {Array.isArray(p.line_uom) && p.line_uom.some((u) => typeof u === "string") && (
+            <div className="kv-row"><dt>Units of measure</dt><dd>{(p.line_uom as unknown[]).map((u, i) => `line ${i + 1}: ${typeof u === "string" ? u : "—"}`).join(", ")}</dd></div>
+          )}
+        </>
+      )}
       {typeof p.model === "string" && <div className="kv-row"><dt>Model</dt><dd>{p.model}{p.cost_usd ? ` · ${usd(p.cost_usd)}` : ""}</dd></div>}
       {p.draft_id !== undefined && (
         <div className="kv-row"><dt>Changed by the person</dt><dd>{edited.length === 0 ? "nothing (the draft was saved as proposed)"

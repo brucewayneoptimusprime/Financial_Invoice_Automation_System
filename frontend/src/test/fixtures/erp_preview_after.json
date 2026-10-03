@@ -1,0 +1,493 @@
+{
+  "label": "Simulated ERP (demo)",
+  "feed": {
+    "name": "erp_feed_sample.json",
+    "sha256": "295ef7f7fb60ea2b83c67f6ee4b943b190d2093ff806a6e56b384278f81cb531",
+    "format": "simerp.po-feed/v1",
+    "adapter": "simerp-v1",
+    "system": "SIMERP",
+    "exported_at": "2026-10-03T09:00:00Z",
+    "count": 13,
+    "shown": 13,
+    "truncated": 0
+  },
+  "counts": {
+    "new": 3,
+    "exists": 3,
+    "problem": 7
+  },
+  "caps": {
+    "max_pos_per_sync": 100,
+    "max_lines_per_po": 200,
+    "max_import_per_action": 100
+  },
+  "pos": [
+    {
+      "index": 0,
+      "po_number": "4500012001",
+      "class": "exists",
+      "vendor": null,
+      "currency": "USD",
+      "total": "486.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7781 / J. Rao",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "LED desk lamp, white, 40 cm",
+          "quantity": "12",
+          "unit_price": "40.50",
+          "amount": "486.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "warning",
+          "code": "exists",
+          "message": "PO 4500012001 already exists; it is skipped and never changed.",
+          "blocks": true
+        }
+      ],
+      "existing_po": {
+        "id": 7,
+        "po_number": "4500012001"
+      }
+    },
+    {
+      "index": 1,
+      "po_number": "4500012002",
+      "class": "new",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "alias"
+      },
+      "currency": "USD",
+      "total": "312.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7790 / Facilities",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Whiteboard markers, assorted, box of 12",
+          "quantity": "24",
+          "unit_price": "8.50",
+          "amount": "204.00",
+          "unit_of_measure": "BOX"
+        },
+        {
+          "line_number": 20,
+          "description": "Cork notice board 60 x 90 cm",
+          "quantity": "4",
+          "unit_price": "27.00",
+          "amount": "108.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [],
+      "existing_po": null
+    },
+    {
+      "index": 2,
+      "po_number": "4500012003",
+      "class": "new",
+      "vendor": {
+        "kind": "existing",
+        "id": 2,
+        "name": "Electronics Mart India Limited",
+        "status": "approved",
+        "matched_by": "tax ID"
+      },
+      "currency": "INR",
+      "total": "1840.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-IN-221 / IT",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "USB-C charging cable, 1 m, braided",
+          "quantity": "8",
+          "unit_price": "230.00",
+          "amount": "1840.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [],
+      "existing_po": null
+    },
+    {
+      "index": 3,
+      "po_number": "4500012004",
+      "class": "exists",
+      "vendor": null,
+      "currency": "USD",
+      "total": "2150.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7802 / Office",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "A4 copier paper, 80 gsm, 5-ream carton",
+          "quantity": "50",
+          "unit_price": "43.00",
+          "amount": "2150.00",
+          "unit_of_measure": "CTN"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "warning",
+          "code": "exists",
+          "message": "PO 4500012004 already exists; it is skipped and never changed.",
+          "blocks": true
+        }
+      ],
+      "existing_po": {
+        "id": 8,
+        "po_number": "4500012004"
+      }
+    },
+    {
+      "index": 4,
+      "po_number": "4500012005",
+      "class": "new",
+      "vendor": {
+        "kind": "existing",
+        "id": 3,
+        "name": "Northwind Office Supplies Ltd",
+        "status": "new",
+        "matched_by": "tax ID"
+      },
+      "currency": "EUR",
+      "total": "980.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-EU-014 / Office",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Archive storage box, A4, pack of 10",
+          "quantity": "28",
+          "unit_price": "35.00",
+          "amount": "980.00",
+          "unit_of_measure": "PK"
+        }
+      ],
+      "issues": [
+        {
+          "field": "vendor",
+          "level": "warning",
+          "code": "new_vendor",
+          "message": "Northwind Office Supplies Ltd is a new vendor: its invoices go to review.",
+          "blocks": false
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 5,
+      "po_number": "PO-SS-005",
+      "class": "exists",
+      "vendor": null,
+      "currency": "USD",
+      "total": "1.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-0001",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Changed in the ERP: must never overwrite the stored PO",
+          "quantity": "1",
+          "unit_price": "1.00",
+          "amount": "1.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "warning",
+          "code": "exists",
+          "message": "PO PO-SS-005 already exists; it is skipped and never changed.",
+          "blocks": true
+        }
+      ],
+      "existing_po": {
+        "id": 5,
+        "po_number": "PO-SS-005"
+      }
+    },
+    {
+      "index": 6,
+      "po_number": "po-ss-002",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "95.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7811",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Stapler, heavy duty",
+          "quantity": "5",
+          "unit_price": "19.00",
+          "amount": "95.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "warning",
+          "code": "similar",
+          "message": "PO number po-ss-002 looks like existing PO-SS-002.",
+          "blocks": true
+        }
+      ],
+      "existing_po": {
+        "id": 2,
+        "po_number": "PO-SS-002"
+      }
+    },
+    {
+      "index": 7,
+      "po_number": "4500012006",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": null,
+      "total": "150.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7815",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Desk organiser, mesh",
+          "quantity": "10",
+          "unit_price": "15.00",
+          "amount": "150.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "currency",
+          "level": "error",
+          "code": "required",
+          "message": "Currency is required (it is never guessed).",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 8,
+      "po_number": "4500012007",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "109.95",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7820",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Ballpoint pens, blue, box of 50",
+          "quantity": "5",
+          "unit_price": "19.99",
+          "amount": "109.95",
+          "unit_of_measure": "BOX"
+        }
+      ],
+      "issues": [
+        {
+          "field": "lines[0].amount",
+          "level": "warning",
+          "code": "line_math",
+          "message": "Line 1: 5 x 19.99 = 99.95, not 109.95.",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 9,
+      "po_number": "4500012008",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "60.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7822",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Return of damaged chairs",
+          "quantity": "-3",
+          "unit_price": "20.00",
+          "amount": null,
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "lines[0].quantity",
+          "level": "error",
+          "code": "negative",
+          "message": "Line 1: quantity cannot be negative (-3).",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 10,
+      "po_number": "4500012009",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "240.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7830",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Printer toner, black",
+          "quantity": "2",
+          "unit_price": "120.00",
+          "amount": "240.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "error",
+          "code": "duplicate_in_feed",
+          "message": "PO number 4500012009 appears more than once in the feed; none of its copies is imported.",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 11,
+      "po_number": "4500012009",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "360.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7831",
+      "erp_status": "RELEASED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Printer toner, cyan",
+          "quantity": "3",
+          "unit_price": "120.00",
+          "amount": "360.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "po_number",
+          "level": "error",
+          "code": "duplicate_in_feed",
+          "message": "PO number 4500012009 appears more than once in the feed; none of its copies is imported.",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    },
+    {
+      "index": 12,
+      "po_number": "4500012010",
+      "class": "problem",
+      "vendor": {
+        "kind": "existing",
+        "id": 1,
+        "name": "SuperStore",
+        "status": "approved",
+        "matched_by": "name"
+      },
+      "currency": "USD",
+      "total": "75.00",
+      "issued_date": "2026-09-28",
+      "buyer_reference": "REQ-7840",
+      "erp_status": "CANCELLED",
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Desk fan, 30 cm",
+          "quantity": "3",
+          "unit_price": "25.00",
+          "amount": "75.00",
+          "unit_of_measure": "EA"
+        }
+      ],
+      "issues": [
+        {
+          "field": "erp_status",
+          "level": "error",
+          "code": "not_released",
+          "message": "The PO is CANCELLED in the ERP, not released: only RELEASED or APPROVED orders are imported.",
+          "blocks": true
+        }
+      ],
+      "existing_po": null
+    }
+  ]
+}

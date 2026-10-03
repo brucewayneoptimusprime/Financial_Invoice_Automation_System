@@ -17,7 +17,9 @@ from app.po.views import po_detail, po_list
 LEVELS = ("financial", "full")
 NOTE = "A read-only snapshot. Nothing was sent anywhere."
 _ENTERED_BY = {"manual": "Form", "text": "Typed text, drafted by the model, confirmed by a person",
-               "document": "Uploaded document, drafted by the model, confirmed by a person", "seed": "Demo dataset"}
+               "document": "Uploaded document, drafted by the model, confirmed by a person", "seed": "Demo dataset",
+               "erp": "Simulated ERP feed"}
+_LIST_ENTERED = {"erp": "Simulated ERP feed"}           # the list's Entered column: humanize(source) except these (as on the screen)
 _MATCHED_BY = {"auto": "automatic", "manual_reviewer": "reviewer", "legacy": "before line tracking"}
 
 
@@ -122,7 +124,7 @@ def summary_doc(conn: sqlite3.Connection, *, q: str | None, status: str | None, 
     human, compact = _stamp(generated)
     table = Table("Purchase orders", SUMMARY_COLUMNS, [
         [p["po_number"], p["vendor"], p["currency"], dec(p["total"]), dec(p["balance"]), humanize(p["status"]), p["invoice_count"],
-         humanize(p["source"]) if p["source"] else "—"] for p in rows])
+         (_LIST_ENTERED.get(p["source"]) or humanize(p["source"])) if p["source"] else "—"] for p in rows])
     meta = [("Exported from", "Invoice Agent"), ("Generated (UTC)", human), ("What", "Purchase orders (summary)"), ("Scope", scope),
             ("Purchase orders", str(len(rows))), ("Note", NOTE)]
     return ExportDoc("summary", "Purchase orders", f"purchase-orders-{compact}", meta, [table])
@@ -156,6 +158,13 @@ def provenance_items(p: dict) -> list[tuple[str, Any, str]]:
         items.append(("Entered", p["entered_at"], "text"))
     if isinstance(p.get("file_name"), str):
         items.append(("Document", p["file_name"], "text"))
+    if source == "erp":                                 # simulated ERP feed provenance (SPEC section 11 item 97)
+        for label, key in (("Feed", "feed_file"), ("Synced", "synced_at"), ("ERP status", "erp_status"), ("Buyer reference", "buyer_reference")):
+            if isinstance(p.get(key), str):
+                items.append((label, p[key], "text"))
+        uoms = [u for u in (p.get("line_uom") or []) if isinstance(u, str)]
+        if uoms:
+            items.append(("Units of measure", ", ".join(uoms), "text"))
     if isinstance(p.get("model"), str):
         cost = f" (${p['cost_usd']})" if p.get("cost_usd") else ""
         items.append(("Model", f"{p['model']}{cost}", "text"))

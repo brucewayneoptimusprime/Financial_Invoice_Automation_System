@@ -127,3 +127,8 @@ export function stageLine(stage: StageName, s: Record<string, unknown>): string 
     }
   }
 }
+
+// The PO list's Entered column (and its exports): the source key, except the simulated ERP feed, which always says so.
+export function enteredLabel(source: string): string {
+  return source === "erp" ? "Simulated ERP feed" : humanize(source);
+}

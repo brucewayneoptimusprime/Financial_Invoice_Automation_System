@@ -7,7 +7,8 @@ Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - Plan `ERP_PLAN.md` approved 2026-10-03 (decisions 1-5 and 7-9 as recommended; 6: a look-alike PO number is a PROBLEM with a link). No schema change, no model, no new dependency. Building R1-R4 without stopping; stop after R4.
 - **R1: source, adapter, preview.** `data/erp_feed_sample.json` (13 POs: 5 new, 1 existing, 7 problems incl. a look-alike), `app/erp/source.py` (bundled file via `ERP_FEED_PATH`, size cap, JSON with Decimal), `app/erp/adapters/` (simerp-v1 + registry), `app/erp/preview.py` (new / exists / problem with the PO form's own issues; read-only).
 - **R2: routes and import.** `GET /api/erp/preview`, `POST /api/erp/import` (re-classifies each pick against the current database, saves through `save_po`, never overwrites), six-invoice regression before and after importing the whole feed.
-- Done: R1, R2. Tests now: backend **2592 passed**, 0 failed, 4 deselected; frontend **160 passed**.
+- **R3: UI.** "Sync from ERP (simulated)" on the PO list, `/pos/erp-sync` preview (New / Already exists / Has problems), Entered and "Where this PO came from" show "Simulated ERP feed".
+- Done: R1, R2, R3. Tests now: backend **2594 passed**, 0 failed, 4 deselected; frontend **173 passed**.
 - No migration is needed for this feature (it adds no table).
 
 ---

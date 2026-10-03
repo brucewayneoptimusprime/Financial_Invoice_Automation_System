@@ -1,0 +1,45 @@
+{
+  "label": "Simulated ERP (demo)",
+  "synced_at": "2026-10-03T03:00:06Z",
+  "feed": {
+    "name": "erp_feed_sample.json",
+    "sha256": "295ef7f7fb60ea2b83c67f6ee4b943b190d2093ff806a6e56b384278f81cb531"
+  },
+  "imported": 2,
+  "skipped": 1,
+  "refused": 0,
+  "results": [
+    {
+      "po_number": "4500012001",
+      "outcome": "imported",
+      "po_id": 7,
+      "vendor_id": 1,
+      "new_vendor": false,
+      "warnings": []
+    },
+    {
+      "po_number": "4500012004",
+      "outcome": "imported",
+      "po_id": 8,
+      "vendor_id": 3,
+      "new_vendor": true,
+      "warnings": [
+        {
+          "field": "vendor",
+          "level": "warning",
+          "code": "new_vendor",
+          "message": "A new vendor 'Northwind Office Supplies Ltd' will be created with status new: its invoices go to review until someone approves the vendor.",
+          "blocks": false
+        }
+      ]
+    },
+    {
+      "po_number": "PO-SS-005",
+      "outcome": "skipped_exists",
+      "existing_po": {
+        "id": 5,
+        "po_number": "PO-SS-005"
+      }
+    }
+  ]
+}

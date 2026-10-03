@@ -1,0 +1,67 @@
+{
+  "po": {
+    "id": 7,
+    "po_number": "4500012001",
+    "vendor_id": 1,
+    "vendor": "SuperStore",
+    "vendor_status": "approved",
+    "vendor_tax_id": null,
+    "currency": "USD",
+    "issued_date": "2026-09-28",
+    "status": "open"
+  },
+  "amounts": {
+    "total": "486.00",
+    "committed": "0.00",
+    "balance": "486.00",
+    "awaiting_review": "0.00",
+    "over_billed": false,
+    "consumed_by_lines": "0.00",
+    "consumed_without_line": "0.00"
+  },
+  "lines": [
+    {
+      "id": 7,
+      "line_no": 1,
+      "description": "LED desk lamp, white, 40 cm",
+      "quantity": "12",
+      "unit_price": "40.50",
+      "amount": "486.00",
+      "consumed_quantity": "0",
+      "consumed_amount": "0.00",
+      "remaining_quantity": "12",
+      "remaining_amount": "486.00"
+    }
+  ],
+  "invoices": [],
+  "ledger": [],
+  "allocations": [],
+  "considered_in": [],
+  "provenance": {
+    "adapter": "simerp-v1",
+    "buyer_reference": "REQ-7781 / J. Rao",
+    "entered_at": "2026-10-03T03:00:06Z",
+    "erp_label": "Simulated ERP (demo)",
+    "erp_line_numbers": [
+      10
+    ],
+    "erp_status": "RELEASED",
+    "erp_vendor": {
+      "address": {
+        "city": "Henderson",
+        "country": "US",
+        "postal_code": "42420",
+        "street": "100 Commerce Way"
+      },
+      "name": "SuperStore",
+      "tax_id": null
+    },
+    "feed_file": "erp_feed_sample.json",
+    "feed_sha256": "295ef7f7fb60ea2b83c67f6ee4b943b190d2093ff806a6e56b384278f81cb531",
+    "line_uom": [
+      "EA"
+    ],
+    "source": "erp",
+    "synced_at": "2026-10-03T03:00:06Z"
+  }
+}

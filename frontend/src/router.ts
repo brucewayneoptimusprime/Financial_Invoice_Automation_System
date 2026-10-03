@@ -8,6 +8,7 @@ export type Route =
   | { name: "run"; id: string }
   | { name: "pos" }
   | { name: "poNew" }
+  | { name: "erpSync" }
   | { name: "po"; id: number }
   | { name: "review" }
   | { name: "reviewItem"; id: number }
@@ -23,6 +24,7 @@ export function parse(path: string): Route {
   if (m) return { name: "run", id: m[1] };
   if (p === "/pos") return { name: "pos" };
   if (p === "/pos/new") return { name: "poNew" };
+  if (p === "/pos/erp-sync") return { name: "erpSync" };
   m = /^\/pos\/(\d{1,12})$/.exec(p);
   if (m) return { name: "po", id: Number(m[1]) };
   if (p === "/review") return { name: "review" };

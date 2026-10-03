@@ -443,6 +443,14 @@ The UI is graded. Keep it clean, intentional and easy to demo.
 92. **Schema v4 and the settings change log (owner decision 1 A).** `python -m app.db.migrate` goes 3 → 4 (and older chains), with a backup per step; `init_db` creates v4; `serve`, the pipeline CLI and `/health` refuse v3; `reset` drops the new tables. Ranges are enforced again by DB CHECKs. Every settings change writes one `settings_events` row per changed value: scope, PO, key, old and new value (JSON), time, and `actor = "unauthenticated demo user"`. There are no user accounts, and **a production deployment must restrict who may change settings and record a real identity.**
 93. **Each run records the settings it was judged under.** One `audit_events` row, `stage = validate`, `event_type = settings_applied`, outcome info, written right after the match stage. Its message reads "Settings used: …". Its detail holds the scope, the PO, every effective value, its source (default | override), the rule switches and their sources. Audit rows are never updated, so a later settings change never rewrites or confuses an old decision; changes apply to future runs only.
 
+94. **The settings API (owner-approved SETTINGS_PLAN section 3).** All routes are behind `ACCESS_TOKEN`, GET and POST only (the CORS methods), with no model and no cost.
+   - **Global:** `GET /api/settings` returns the 6 values (value, built-in default, min / max / step, options), the 14 builtin rules (enabled, locked, reason, switchable) and the 2 floors. `POST /api/settings/global {values, rules, restore}` changes them.
+   - **Per PO:** `GET /api/settings/pos?q=&custom=` lists every PO with `custom` / `overrides` / `looser`. `GET /api/settings/pos/{id}` returns each value's effective value, `source` (inherits / overridden), the default it inherits and `looser`, and the same for each rule switch. `POST /api/settings/pos/{id} {values, rules}` changes them, where `null` = reset to the default.
+   - **History:** `GET /api/settings/history?scope=&po_id=&limit=`.
+   - **Validation is all or nothing:** any bad value or switch gives 422 `invalid` with `problems: {key: reason}` (the reason names the range), and nothing is written. That covers a value outside its range, at the wrong step or of the wrong type, an unknown key, switching a locked rule off, an engine floor, or an unknown rule.
+   - **What is stored:** a global change updates `rules.params` / `rules.enabled` / `settings.confidence_threshold`, exactly as a database edit would. A PO change upserts `po_settings` / `po_rule_switches`, and a PO row whose every value is back to NULL is deleted.
+   - **The log:** each changed value writes one `settings_events` row with a readable message ("Tolerance over the PO balance (percent) for PO-SS-001: inherits 2.00% → 5.00%."). Unchanged values write nothing.
+
 ## 12. Milestones (ordered by dependency, not by date)
 
 Each milestone must be runnable and verified before the next begins.

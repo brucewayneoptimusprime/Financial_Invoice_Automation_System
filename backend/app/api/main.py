@@ -37,6 +37,7 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     from app.api.routes_po import router as po_router
     from app.api.routes_gmail import router as gmail_router
     from app.api.routes_review import router as review_router
+    from app.api.routes_settings import router as settings_router
 
     db_path = Path(db_path or settings.db_path)
     state = ApiState(settings=settings, mode=mode, db_path=db_path, tracker=tracker, replay_dir=replay_dir,
@@ -73,4 +74,5 @@ def create_app(settings: Settings, *, mode: Mode, client: LLMClient, db_path: Pa
     app.include_router(po_router, prefix="/api")
     app.include_router(review_router, prefix="/api")
     app.include_router(gmail_router, prefix="/api")
+    app.include_router(settings_router, prefix="/api")
     return app

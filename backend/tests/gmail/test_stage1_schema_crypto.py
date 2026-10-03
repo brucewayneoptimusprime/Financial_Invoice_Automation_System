@@ -51,9 +51,9 @@ def test_a_v2_database_migrates_to_v3_with_a_byte_identical_backup_and_nothing_e
     message = migrate_mod.migrate(db)
     backups = list(tmp_path.glob("app.db.v2-*.bak"))
     assert len(backups) == 1 and backups[0].read_bytes() == before_bytes
-    assert "from schema version 2 to 3" in message and "Gmail import tables created" in message
+    assert f"from schema version 2 to {SCHEMA_VERSION}" in message and "Gmail import tables created" in message
     with closing(connect(db)) as c:
-        assert schema_version(c) == 3 == SCHEMA_VERSION and GMAIL_TABLES <= tables(c)
+        assert schema_version(c) == SCHEMA_VERSION and GMAIL_TABLES <= tables(c)
         assert c.execute("SELECT COUNT(*) FROM oauth_credentials").fetchone()[0] == 0
         assert c.execute("SELECT COUNT(*) FROM gmail_imports").fetchone()[0] == 0
         assert {po: get_po_balance_minor(c, po) for po in (1, 2)} == balances
@@ -66,11 +66,11 @@ def test_a_v1_database_goes_to_v3_in_one_command_with_one_backup_per_step(tmp_pa
     message = migrate_mod.migrate(db)
     v1_backups, v2_backups = list(tmp_path.glob("app.db.v1-*.bak")), list(tmp_path.glob("app.db.v2-*.bak"))
     assert len(v1_backups) == 1 and len(v2_backups) == 1 and v1_backups[0].read_bytes() == v1_bytes
-    assert "from schema version 1 to 3" in message and "3 existing ledger entries" in message and "Gmail import" in message
+    assert f"from schema version 1 to {SCHEMA_VERSION}" in message and "3 existing ledger entries" in message and "Gmail import" in message
     with closing(connect(v2_backups[0])) as c:
         assert schema_version(c) == 2 and not GMAIL_TABLES & tables(c)       # the v2 backup is the state between the two steps
     with closing(connect(db)) as c:
-        assert schema_version(c) == 3 and GMAIL_TABLES <= tables(c)
+        assert schema_version(c) == SCHEMA_VERSION and GMAIL_TABLES <= tables(c)
 
 
 def test_a_failure_in_the_2_to_3_step_rolls_that_step_back(tmp_path, monkeypatch, capsys):
@@ -89,7 +89,7 @@ def test_a_v3_database_is_left_alone(tmp_path):
     db = make_v2(tmp_path / "app.db")
     migrate_mod.migrate(db)
     assert "nothing to do" in migrate_mod.migrate(db)
-    assert len(list(tmp_path.glob("*.bak"))) == 1
+    assert len(list(tmp_path.glob("*.bak"))) == 2                          # one backup per step: v2 -> 3 and v3 -> 4 (schema v4)
 
 
 def test_migrate_2_to_3_refuses_any_other_version(tmp_path):
@@ -101,8 +101,8 @@ def test_migrate_2_to_3_refuses_any_other_version(tmp_path):
 
 # ------------------------------------------------------------------------------------------ fresh database, constraints, reset
 
-def test_a_fresh_database_is_v3_with_both_gmail_tables(conn):
-    assert schema_version(conn) == 3 and GMAIL_TABLES <= tables(conn)
+def test_a_fresh_database_is_current_with_both_gmail_tables(conn):
+    assert schema_version(conn) == SCHEMA_VERSION and GMAIL_TABLES <= tables(conn)
 
 
 def _credential(c, provider="google", email="a@example.com"):
@@ -167,7 +167,7 @@ def test_health_is_503_for_a_v2_database(tmp_path):
             conn.execute("PRAGMA user_version = 2")
             conn.commit()
         r = c.get("/health")
-    assert r.status_code == 503 and r.json()["reason"] == "schema version 2, expected 3"
+    assert r.status_code == 503 and r.json()["reason"] == f"schema version 2, expected {SCHEMA_VERSION}"
 
 
 # ------------------------------------------------------------------------------------------ the token cipher

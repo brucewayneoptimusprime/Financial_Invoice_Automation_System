@@ -10,6 +10,8 @@ Version 1 -> 2 (line-item PO consumption): create po_consumption and invoice_lin
   consumption row (po_line_id NULL, matched_by 'legacy') per existing ledger entry, verify that every entry is fully
   allocated, set user_version = 2. PO balances do not change (they are still total minus the ledger sum).
 Version 2 -> 3 (Gmail import): create oauth_credentials and gmail_imports (both empty), set user_version = 3.
+Version 3 -> 4 (rules settings): create po_settings, po_rule_switches and settings_events (all empty), set user_version = 4. The
+  global defaults stay in rules / settings, untouched, so every decision is the same until someone changes a setting.
 A database at the current version is left alone.
 
 Exit codes: 0 migrated or already current, 1 migration failed (rolled back), 2 usage / not a database.
@@ -24,7 +26,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.db.connection import connect
 from app.db.consumption import backfill_consumption, consumption_problems, schema_statements
-from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_V3_PATH, SCHEMA_VERSION, add_missing_builtin_rules, schema_version
+from app.db.init_db import SCHEMA_V2_PATH, SCHEMA_V3_PATH, SCHEMA_V4_PATH, SCHEMA_VERSION, add_missing_builtin_rules, schema_version
 
 _SQLITE_MAGIC = b"SQLite format 3\x00"
 
@@ -77,6 +79,23 @@ def migrate_2_to_3(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_3_to_4(conn: sqlite3.Connection) -> None:
+    """Version 3 -> 4 on an open connection, in one transaction: the rules-settings tables, empty."""
+    if conn.in_transaction:
+        raise MigrationFailed("a transaction is already open")
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if schema_version(conn) != 3:
+            raise MigrationFailed(f"expected schema version 3, found {schema_version(conn)}")
+        for statement in schema_statements(SCHEMA_V4_PATH.read_text(encoding="utf-8")):
+            conn.execute(statement)
+        conn.execute("PRAGMA user_version = 4")
+    except BaseException:
+        conn.rollback()
+        raise
+    conn.commit()
+
+
 def migrate(db_path: Path) -> str:
     db_path = Path(db_path)
     if not db_path.is_file():
@@ -89,8 +108,8 @@ def migrate(db_path: Path) -> str:
         version = start = schema_version(conn)
         if version == SCHEMA_VERSION:
             return f"{db_path} is already at schema version {SCHEMA_VERSION}; nothing to do."
-        if version not in (1, 2):
-            raise MigrationFailed(f"{db_path} is schema version {version}; only versions 1 and 2 can be migrated")
+        if version not in (1, 2, 3):
+            raise MigrationFailed(f"{db_path} is schema version {version}; only versions 1, 2 and 3 can be migrated")
         backups, notes = [], []
         while version < SCHEMA_VERSION:
             backup = backup_path(db_path, version)
@@ -102,9 +121,13 @@ def migrate(db_path: Path) -> str:
                 n = migrate_1_to_2(conn)
                 notes.append(f"{n} existing ledger entr{'y' if n == 1 else 'ies'} recorded as consumption against the PO total "
                              "(matched_by legacy).")
-            else:
+            elif version == 2:
                 migrate_2_to_3(conn)
                 notes.append("Gmail import tables created (oauth_credentials, gmail_imports; both empty).")
+            else:
+                migrate_3_to_4(conn)
+                notes.append("Rules-settings tables created (po_settings, po_rule_switches, settings_events; all empty; "
+                             "the global defaults are unchanged).")
             version = schema_version(conn)
         added = add_missing_builtin_rules(conn)
         return (f"Migrated {db_path} from schema version {start} to {SCHEMA_VERSION}. Backup{'s' if len(backups) > 1 else ''}: "

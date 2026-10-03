@@ -5,6 +5,7 @@ derived from the ledger here (SUM in integer minor units, converted once via app
 """
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -102,3 +103,50 @@ def load_facts(conn: sqlite3.Connection, current_run_id: str | None = None) -> R
         vendors=vendors, purchase_orders=purchase_orders, prior_invoices=prior_invoices,
         settings=RuntimeSettings(confidence_threshold=threshold),
     )
+
+
+# ------------------------------------------------------------------------------------------ effective settings (SPEC section 11 item 91)
+
+@dataclass(frozen=True)
+class Effective:
+    """The rules and runtime settings a run is judged under, and the record of them (written once per run as `settings_applied`)."""
+    rules: list[Rule]
+    runtime: RuntimeSettings
+    record: dict
+
+
+def load_effective(conn: sqlite3.Connection, po_id: int | None) -> Effective:
+    """Global defaults, then (when the invoice was confidently matched to `po_id`) that PO's overrides: the most specific wins.
+
+    With no override the rules and threshold are EXACTLY what `load_rules` / `load_facts` return today: parameters are only replaced
+    for keys the PO actually overrides. Locked rules stay on whatever is stored (the engine runs them regardless)."""
+    from app.rulesettings import catalog
+
+    rules = load_rules(conn)
+    globals_ = catalog.global_values(conn)
+    overrides = catalog.po_override_values(conn, po_id) if po_id is not None else {}
+    switches = catalog.po_override_switches(conn, po_id) if po_id is not None else {}
+    values = {**globals_, **overrides}
+    sources = {k: ("override" if k in overrides else "default") for k in globals_}
+
+    effective_rules: list[Rule] = []
+    for rule in rules:
+        params, enabled = dict(rule.params), rule.enabled
+        for d in catalog.DEFS:
+            if d.rule_id == rule.id and d.key in overrides:
+                params[d.param] = float(overrides[d.key]) if d.kind in ("money", "percent") else overrides[d.key]
+        if rule.id in switches and not catalog.is_locked(rule.id):
+            enabled = switches[rule.id]
+        effective_rules.append(rule if (params == rule.params and enabled == rule.enabled)
+                               else rule.model_copy(update={"params": params, "enabled": enabled}))
+
+    po_number = None
+    if po_id is not None:
+        row = conn.execute("SELECT po_number FROM purchase_orders WHERE id = ?", (po_id,)).fetchone()
+        po_number = row["po_number"] if row else None
+    rule_switches = {r.id: r.enabled for r in effective_rules}
+    record = {"scope": "po" if po_id is not None else "global", "po_id": po_id, "po_number": po_number, "values": values,
+              "sources": sources, "rules_enabled": rule_switches,
+              "rule_sources": {r: ("override" if r in switches and not catalog.is_locked(r) else "default") for r in rule_switches}}
+    return Effective(rules=effective_rules, runtime=RuntimeSettings(confidence_threshold=float(values["confidence_threshold"])),
+                     record=record)

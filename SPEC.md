@@ -113,6 +113,14 @@ gmail_imports               -- one row per imported email attachment: the dedupe
   id, account_email, message_id, attachment_sha256, part_id, filename(nullable), mime_type, size_bytes,
   sender(nullable), message_date(nullable), run_id, imported_at
   -- unique (account_email, message_id, attachment_sha256); run_id has no FK (the run row is created later by the worker)
+
+-- schema v4 (rules settings with layered defaults; owner-approved, section 11 items 91-93). Globals stay in rules / settings.
+po_settings                 -- per-PO overrides; NULL = inherits the global default
+  po_id(pk), tolerance_pct, tolerance_abs_minor, tolerance_mode, confidence_threshold, duplicate_days, duplicate_amount_minor, updated_at
+po_rule_switches            -- per-PO rule on/off; a locked rule can never be stored as off
+  po_id, rule_id, enabled, updated_at   -- primary key (po_id, rule_id)
+settings_events             -- the settings change log (audit_events needs a run; a settings change has none)
+  id, scope[global|po], po_id(nullable), key, old_value(json), new_value(json), actor, message, created_at
 ```
 
 Notes:
@@ -414,6 +422,26 @@ The UI is graded. Keep it clean, intentional and easy to demo.
    - **Dependencies:** reportlab moved from the dev extra to the main dependencies; python-docx added (it pulls in lxml; decision 7).
    - **Frontend:** one `POExportButton` serves the row and the PO page (level + format). The list adds tick-boxes ("select all shown"); a tick on a row the filter hides is dropped; ticks apply only to the summary export. Clicking a row's Export button or tick-box never navigates. The file is fetched with the token and saved under the server's `Content-Disposition` name; CORS exposes that header for a frontend on another origin.
    - **Unit prices** are shown like quantities (the stored decimal text) with the currency in the column header; money columns carry the PO's currency in Word and PDF headers.
+
+*Assumptions added during rules settings (branch `feature/settings`; owner-approved SETTINGS_PLAN, decisions 1 A, 2-7 yes, 8 no, 9-11 yes):*
+
+91. **Rules settings with layered defaults (owner-approved).** The global defaults stay where they always were (`rules.params`, `rules.enabled`, `settings.confidence_threshold`). A PO may override them (`po_settings`, `po_rule_switches`). The most specific wins, and NULL / no row means "inherits".
+   - **Editable values** (`app/rulesettings/catalog.py`, one definition for the loader, the API and the UI):
+     - tolerance percent 0-25 (step 0.01, default 2);
+     - tolerance amount 0-1,000,000 in whole cents (default 50.00; the global has no currency, a PO's is in its currency: decision 4);
+     - tolerance mode `lesser_of` ("both limits", default) | `greater_of` ("either limit"; decision 3);
+     - required-field confidence threshold 0.50-0.99 (default 0.80);
+     - near-duplicate window 0-90 days (default 7);
+     - near-duplicate amount tolerance 0-10,000.00 (default 0; decision 2: there is no duplicate "similarity" threshold);
+     - on/off for 12 rules.
+   - **Locked and not editable:** `r_duplicate_exact` and `r_vendor_status` are locked (shown, disabled, with the reason); both engine floors are always on. Severities and the line-price tolerance are not editable (decision 8).
+   - **Tolerance semantics, unchanged:** within BOTH limits, i.e. the smaller allowance applies (item 27).
+   - **"Looser than default":** a PO override may be looser than the global (decision 5): a higher tolerance or `greater_of`, a lower threshold, a shorter window, a smaller duplicate amount, or a rule switched off. The UI marks it "looser than default".
+   - **Where the engine reads it:** only through `engine.loader.load_effective(conn, po_id)`. The runner calls it after the match stage with the matched PO's id when `match_status == matched`, otherwise with none (the global defaults). It swaps the snapshot's runtime threshold and passes the effective rules to the unchanged validate stage; no evaluator, floor or `decide()` changed. With nothing stored, the rules and threshold are exactly today's (tested, including the six real invoices).
+   - **The review approve preview and allocation fit check** use the PO's effective tolerance (decision 7).
+   - **Next step, out of scope for v1:** vendor-level overrides (global → vendor → PO).
+92. **Schema v4 and the settings change log (owner decision 1 A).** `python -m app.db.migrate` goes 3 → 4 (and older chains), with a backup per step; `init_db` creates v4; `serve`, the pipeline CLI and `/health` refuse v3; `reset` drops the new tables. Ranges are enforced again by DB CHECKs. Every settings change writes one `settings_events` row per changed value: scope, PO, key, old and new value (JSON), time, and `actor = "unauthenticated demo user"`. There are no user accounts, and **a production deployment must restrict who may change settings and record a real identity.**
+93. **Each run records the settings it was judged under.** One `audit_events` row, `stage = validate`, `event_type = settings_applied`, outcome info, written right after the match stage. Its message reads "Settings used: …". Its detail holds the scope, the PO, every effective value, its source (default | override), the rule switches and their sources. Audit rows are never updated, so a later settings change never rewrites or confuses an old decision; changes apply to future runs only.
 
 ## 12. Milestones (ordered by dependency, not by date)
 

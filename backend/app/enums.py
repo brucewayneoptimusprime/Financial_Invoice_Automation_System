@@ -122,3 +122,15 @@ class LineMatchStatus(StrEnum):
 class OAuthProvider(StrEnum):
     """Who issued a stored OAuth credential (Gmail import, schema v3). Only Google in v1."""
     GOOGLE = "google"
+
+
+class ToleranceMode(StrEnum):
+    """How the two tolerance limits combine (SPEC section 11 item 27): lesser_of = both limits (stricter, the default)."""
+    LESSER_OF = "lesser_of"
+    GREATER_OF = "greater_of"
+
+
+class SettingsScope(StrEnum):
+    """Where a settings change applies (schema v4)."""
+    GLOBAL = "global"
+    PO = "po"

@@ -13,6 +13,7 @@ from typing import Any
 from app.config import Settings
 from app.db.consumption import po_consumption_summary
 from app.db.queries import get_po_balance_minor
+from app.engine.loader import load_effective
 from app.engine.tolerance import evaluate_tolerance
 from app.money import from_minor
 from app.pipeline.allocation import (REMAINDER_LABEL, AllocationPlan, Choice, InvoiceLineIn, POLineNow, StoredMatch, TolParams,
@@ -39,10 +40,11 @@ def _dec(text: str | None) -> Decimal | None:
     return None if text in (None, "") else Decimal(text)
 
 
-def tolerance_params(conn: sqlite3.Connection, settings: Settings) -> TolParams:
-    """r_tolerance_pct's CURRENT params from the database (the same rule, applied per line)."""
-    row = conn.execute("SELECT params FROM rules WHERE id = 'r_tolerance_pct'").fetchone()
-    p = json.loads(row["params"]) if row else {}
+def tolerance_params(conn: sqlite3.Connection, settings: Settings, po_id: int | None = None) -> TolParams:
+    """r_tolerance_pct's CURRENT effective params (the same rule, applied per line): the PO's override when it has one, else the
+    global default (owner decision 7: the reviewer sees the same allowance the engine uses for that PO)."""
+    rule = next((r for r in load_effective(conn, po_id).rules if r.id == "r_tolerance_pct"), None)
+    p = dict(rule.params) if rule else {}
     return TolParams(pct=float(p.get("pct", settings.tolerance_pct)), abs=Decimal(str(p.get("abs", settings.tolerance_abs))),
                      mode=p.get("mode", settings.tolerance_mode))
 
@@ -121,7 +123,7 @@ def state_token(conn: sqlite3.Connection, c: ItemContext) -> str:
 def plan_for(conn: sqlite3.Connection, c: ItemContext, settings: Settings, supplied: dict[int, Choice] | None = None) -> AllocationPlan | None:
     if c.invoice is None or c.po is None or c.invoice["total"] is None:
         return None
-    return plan_allocation(c.lines, c.matches, c.po_lines, c.invoice["total"], supplied or {}, tolerance_params(conn, settings))
+    return plan_allocation(c.lines, c.matches, c.po_lines, c.invoice["total"], supplied or {}, tolerance_params(conn, settings, c.po["id"] if c.po else None))
 
 
 def approve_preview(conn: sqlite3.Connection, c: ItemContext, settings: Settings) -> dict:
@@ -132,7 +134,7 @@ def approve_preview(conn: sqlite3.Connection, c: ItemContext, settings: Settings
     plan = plan_for(conn, c, settings)
     if plan is None:
         return out
-    tol = tolerance_params(conn, settings)
+    tol = tolerance_params(conn, settings, c.po["id"] if c.po else None)
     before = get_po_balance_minor(conn, c.po["id"])
     after = before - c.invoice["total"]
     out.update(po={"id": c.po["id"], "po_number": c.po["po_number"], "status": c.po["status"], "currency": c.po["currency"],

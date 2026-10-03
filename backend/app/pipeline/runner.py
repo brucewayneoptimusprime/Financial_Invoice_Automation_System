@@ -22,10 +22,11 @@ from typing import Callable
 
 from app.config import Settings, get_settings
 from app.engine.engine import run_decide_stage, run_validate_stage
-from app.engine.loader import load_facts, load_rules
+from app.engine.loader import load_effective, load_facts
 from app.engine.matching import run_match_stage
 from app.db.consumption import record_consumption
-from app.enums import Decision, MatchedBy, Outcome
+from app.engine.engine import VALIDATE_STAGE
+from app.enums import Decision, MatchedBy, MatchStatus, Outcome
 from app.extraction.stage import run_extract_stage
 from app.ingest.stage import run_ingest_stage
 from app.ingest.store import check_run_id, new_run_id
@@ -94,6 +95,19 @@ def _explanation_event(e: Explanation) -> AuditEvent:
                    "cost_usd": e.cost_usd})
 
 
+def settings_applied_event(record: dict) -> AuditEvent:
+    """The settings this run is judged under, recorded once (audit rows are never updated, so a later change cannot rewrite it)."""
+    overridden = [k for k, src in record["sources"].items() if src == "override"]
+    overridden += [f"{r} switched {'on' if record['rules_enabled'][r] else 'off'}" for r, src in record["rule_sources"].items()
+                   if src == "override"]
+    if record["scope"] == "po":
+        tail = f"{len(overridden)} overridden: {', '.join(overridden)}" if overridden else "all inherited from the global defaults"
+        message = f"Settings used: {record['po_number']}'s settings ({tail})."
+    else:
+        message = "Settings used: the global defaults (no confidently matched PO)."
+    return _event(VALIDATE_STAGE, "settings_applied", Outcome.INFO, message, record)
+
+
 def _elapsed_ms(started: float) -> int:
     return int((perf_counter() - started) * 1000)
 
@@ -158,9 +172,13 @@ def run_pipeline(path: Path, conn: sqlite3.Connection, *, client: LLMClient | No
         match = run_match_stage(ctx)
         persist_stage("match", match, _elapsed_ms(t), summarize_match(ctx))
         t = begin("validate")
-        rules = load_rules(conn)
+        # The rules attach to the PO: a confidently matched PO's effective settings, else the global defaults (SPEC 11 item 91).
+        matched_po_id = ctx.matched_po.po_id if ctx.match_status == MatchStatus.MATCHED and ctx.matched_po is not None else None
+        effective = load_effective(conn, matched_po_id)
+        ctx.facts = ctx.facts.model_copy(update={"settings": effective.runtime})
+        rules = effective.rules
         validate = run_validate_stage(ctx, rules)
-        persist_stage("validate", validate, _elapsed_ms(t), summarize_validate(ctx))
+        persist_stage("validate", validate, _elapsed_ms(t), summarize_validate(ctx), settings_applied_event(effective.record))
         t = begin("decide")
         decide = run_decide_stage(ctx)
         persist_stage("decide", decide, _elapsed_ms(t), summarize_decide(decide))

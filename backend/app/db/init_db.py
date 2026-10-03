@@ -1,7 +1,8 @@
 """Create the schema (idempotent) and seed builtin rules and default settings.
 
 PRAGMA user_version tracks SCHEMA_VERSION. A fresh DB gets schema.sql (version 1), schema_v2.sql (line-item PO consumption) and
-schema_v3.sql (Gmail import) applied; an up-to-date DB is left alone. An older DB (version 1 or 2) is NOT migrated silently:
+schema_v3.sql (Gmail import) and schema_v4.sql (rules settings) applied; an up-to-date DB is left alone. An older DB (version 1, 2
+or 3) is NOT migrated silently:
 `python -m app.db.migrate` does it, with a backup per step (owner decision 8). Any other version is an error.
 """
 import argparse
@@ -14,11 +15,13 @@ from app.config import Settings, get_settings
 from app.db.connection import connect
 from app.db.consumption import schema_statements
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 SCHEMA_V2_PATH = Path(__file__).with_name("schema_v2.sql")
 SCHEMA_V3_PATH = Path(__file__).with_name("schema_v3.sql")
-MIGRATABLE_VERSIONS = {1: "line-item PO consumption and Gmail import", 2: "Gmail import"}   # older version -> what it lacks
+SCHEMA_V4_PATH = Path(__file__).with_name("schema_v4.sql")
+MIGRATABLE_VERSIONS = {1: "line-item PO consumption, Gmail import and rules settings", 2: "Gmail import and rules settings",
+                       3: "rules settings"}                              # older version -> what it lacks
 MIGRATE_HINT = "python -m app.db.migrate"
 
 
@@ -58,7 +61,7 @@ def init_db(conn: sqlite3.Connection, settings: Settings | None = None) -> None:
     if version == 0:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         with conn:
-            for path in (SCHEMA_V2_PATH, SCHEMA_V3_PATH):
+            for path in (SCHEMA_V2_PATH, SCHEMA_V3_PATH, SCHEMA_V4_PATH):
                 for statement in schema_statements(path.read_text(encoding="utf-8")):
                     conn.execute(statement)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

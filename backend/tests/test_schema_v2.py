@@ -70,7 +70,7 @@ def test_migrating_twice_is_a_no_op(tmp_path):
     db = make_v1(tmp_path / "app.db")
     migrate_mod.migrate(db)
     assert "nothing to do" in migrate_mod.migrate(db)
-    assert len(list(tmp_path.glob("*.bak"))) == 2                         # one backup per step: v1 -> 2 and v2 -> 3 (schema v3)
+    assert len(list(tmp_path.glob("*.bak"))) == 3                         # one backup per step: v1 -> 2, v2 -> 3, v3 -> 4 (schema v4)
     with closing(connect(db)) as c:
         assert c.execute("SELECT COUNT(*) FROM po_consumption").fetchone()[0] == 3
 

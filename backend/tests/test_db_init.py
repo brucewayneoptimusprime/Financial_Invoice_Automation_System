@@ -12,6 +12,7 @@ EXPECTED_TABLES = {
     "runs", "audit_events", "rules", "review_queue", "drafts", "settings",
     "po_consumption", "invoice_line_matches",          # schema v2 (line-item PO consumption)
     "oauth_credentials", "gmail_imports",              # schema v3 (Gmail import)
+    "po_settings", "po_rule_switches", "settings_events",   # schema v4 (rules settings)
 }
 
 

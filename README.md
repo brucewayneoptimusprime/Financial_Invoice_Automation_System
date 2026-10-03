@@ -60,6 +60,7 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 - [Running it locally](#running-it-locally)
 - [Testing](#testing)
 - [Deployment](#deployment)
+- [Rules settings and staged uploads](#rules-settings-and-staged-uploads-branch-featuresettings)
 - [Known limitations / scope gaps](#known-limitations--scope-gaps)
 - [Project documents](#project-documents)
 
@@ -564,12 +565,37 @@ Purchase orders can be saved as **PDF, Word (.docx), Excel (.xlsx) or CSV**. The
   - File names are sanitised. Responses are `Cache-Control: no-store`.
 - **API.** `GET /api/pos/export?format=pdf|docx|xlsx|csv[&q=&status=&currency=][&ids=]` and `GET /api/pos/{id}/export?format=…&level=financial|full`. See `EXPORT_PLAN.md`, `EXPORT_REPORT.md` and `SPEC.md` §11 item 90.
 
+## Rules settings and staged uploads (branch `feature/settings`)
+
+The rules engine's tolerances and switches can be changed from the UI, globally and per purchase order. There is no model call and no cost, and every route sits behind `ACCESS_TOKEN`.
+
+- **Where.** The **gear** at the top right of the header opens **Settings**. It is not shown on the upload screen.
+- **Global defaults.** Six values, each shown with its range and built-in default (**Restore** puts the built-in back):
+
+  | Value | Range |
+  |---|---|
+  | Tolerance (percent) | 0–25 |
+  | Tolerance (amount) | 0–1,000,000 |
+  | How the two limits combine | both = stricter; either |
+  | Extraction confidence threshold | 0.50–0.99 |
+  | Duplicate window (days) | 0–90 |
+  | Duplicate amount allowance | 0–10,000 |
+
+  Twelve rules can be switched on or off. `r_duplicate_exact`, `r_vendor_status` and both engine floors are shown switched on and disabled, with the reason. Severities and the line-price tolerance are not editable.
+- **Per purchase order.** The PO list in Settings is searchable and marks each PO **default** or **custom**. The PO editor (also reached from **Rules for this PO** on a PO page) shows each value as "inherits default (2.00%)" or "overridden: 5.00%", with **Reset to default**. Rules are "inherits / on / off".
+- **"Looser than default".** A small marker shows wherever a PO override is looser than the global default: a higher tolerance, the "either limit" mode, a lower confidence threshold, a shorter duplicate window, a lower duplicate amount, or a rule switched off. It appears in the editor, the PO list and Rules for this PO.
+- **How it applies.** The most specific setting wins: global, then PO. After the match stage the engine uses the matched PO's effective settings. With no confident match (none, ambiguous or a low score), the global defaults apply. The escalate-only guardrail still holds (property-tested). With nothing stored, behaviour is identical to before (a six-invoice regression test).
+- **Audit.** Every run records the settings it was judged under: one `settings_applied` event, shown as **Settings used** on the validate stage of the live timeline and as a section on the result. Every change writes one `settings_events` row per value, with actor "unauthenticated demo user" (shown under Recent changes). A production deployment must restrict who may change settings. Changes apply to future runs only.
+- **Staged uploads.** On `/invoices`, choosing or dropping files only lists them under **Ready to process**: name, size, type and **Remove**. Files over 20 MB or that are not a PDF or image are marked and never sent, and at most 20 can be listed. **Process N invoices** sends the acceptable ones, in order, and **Clear** empties the list. A single file still opens its live run view. The Gmail panel is unchanged.
+- **Database.** Schema v4 adds `po_settings`, `po_rule_switches` and `settings_events`. Upgrade an existing database with `python -m app.db.migrate` from `backend\`, which takes a backup first and keeps your Gmail connection. Do **not** use `--reset-demo` for this: it rebuilds the demo database and deletes the stored Gmail connection.
+- **API.** `GET /api/settings`, `POST /api/settings/global`, `GET /api/settings/pos`, `GET|POST /api/settings/pos/{id}` (`null` = reset), `GET /api/settings/history`. See `SETTINGS_PLAN.md`, `SETTINGS_REPORT.md` and `SPEC.md` §11 items 91–96.
+
 ## Known limitations / scope gaps
 
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.
 
 - **No vendor-status management UI.** Vendor status (`approved` / `new` / `blocked`) is real data and `r_vendor_status` enforces it (a blocked vendor is rejected and gets no vendor email), but there is no screen to change a vendor's status. It is set through the seed or directly in the database. Vendors created through the PO form are always `new`.
-- **No rules / tolerance-editing UI.** The `rules` table is real and is what the engine runs. Tolerances, severities and required fields are rule params stored as data, and the locked-rule and escalate-only guardrails are enforced in the engine. There is no settings screen to view, toggle or edit rules; changes currently mean editing the database or config.
+- **Rules settings (branch `feature/settings`) cover tolerances, the confidence threshold, the duplicate window and rule switches, globally and per PO.** Severities, required fields and the line-price tolerance are still edited in the database. There are no vendor-level overrides (the recorded next step: global → vendor → PO), and there are no user accounts, so any user of the UI can change settings.
 - **No natural-language policy input and no LLM reviewer.** The rule schema supports `source = nl` with `original_text`, and the engine already guarantees such rules could only add flags, but the translator and the escalate-only reviewer role (SPEC milestone M7) are not built.
 - **No LLM "match assistant".** PO matching is entirely deterministic. The optional model role that ranks candidate POs is not used.
 - **Drafts have no "mark as sent" action and no dedicated Drafts screen.** Drafts are shown on each run's result view ("Nothing is sent"), and the `draft → marked_sent` status exists in the schema, but no endpoint or button changes it.

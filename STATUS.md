@@ -9,7 +9,8 @@ Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - **S2: settings API and audit.** `GET/POST /api/settings`, `/api/settings/pos`, `/api/settings/pos/{id}`, `/api/settings/history`; ranges, locked rules, "looser than default", one `settings_events` row per changed value (actor: unauthenticated demo user).
 - **S3: settings UI.** Header gear (not on `/invoices`), `/settings` (global defaults, rules, recent changes, PO list with default / custom / looser), `/settings/pos/:id` editor, "Rules for this PO" on the PO page, "Settings used" in the run timeline and run view.
 - **S4: staged upload.** Chosen or dropped files are staged (name, size, type, Remove); nothing is processed until "Process N invoices".
-- Done: S1, S2, S3, S4. Tests now: backend **2536 passed**, 0 failed, 4 deselected; frontend **160 passed**.
+- **S5: docs.** README, SPEC section 11 final, `SETTINGS_REPORT.md`.
+- Done: S1, S2, S3, S4, S5. Tests now: backend **2537 passed**, 0 failed, 4 deselected; frontend **160 passed**.
 - **Your `data\app.db` must be migrated to v4** (keeps your Gmail connection): `python -m app.db.migrate` from `backend\`. Do NOT use `--reset-demo` (it deletes the stored Gmail connection).
 
 ---

@@ -46,6 +46,24 @@ def test_a_v3_database_migrates_to_v4_with_a_backup_and_nothing_else_changed(tmp
         assert {t: c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in counts} == counts
 
 
+
+def test_the_3_to_4_migration_keeps_a_stored_gmail_connection_and_its_imports(tmp_path):
+    """The owner migrates a database that holds a Gmail connection: `migrate` must keep both Gmail tables row for row
+    (unlike `--reset-demo`, which rebuilds the database). The token blob here is a dummy, never a real token."""
+    db = make_v3(tmp_path / "app.db")
+    with closing(connect(db)) as c, c:
+        c.execute("INSERT INTO oauth_credentials (provider, account_email, scopes, refresh_token_enc, key_fingerprint) "
+                  "VALUES ('google', 'owner@example.com', 'https://www.googleapis.com/auth/gmail.readonly', ?, 'fp')", (b"dummy-ciphertext",))
+        c.execute("INSERT INTO gmail_imports (account_email, message_id, attachment_sha256, part_id, filename, mime_type, size_bytes, "
+                  "run_id) VALUES ('owner@example.com', 'm1', 'abc', '1', 'a.pdf', 'application/pdf', 10, 'r1')")
+    rows = lambda c: ([tuple(r) for r in c.execute("SELECT * FROM oauth_credentials")],
+                      [tuple(r) for r in c.execute("SELECT * FROM gmail_imports")])
+    with closing(connect(db)) as c:
+        before = rows(c)
+    migrate_mod.migrate(db)
+    with closing(connect(db)) as c:
+        assert schema_version(c) == 4 and rows(c) == before and before[0][0][4] == b"dummy-ciphertext"
+
 def test_a_v1_database_goes_to_v4_with_one_backup_per_step(tmp_path):
     db = make_v1(tmp_path / "app.db")
     migrate_mod.migrate(db)

@@ -4,7 +4,7 @@
 
 Each step first copies the database file to <name>.v<N>-<UTC timestamp>.bak (byte-identical), then runs in ONE transaction;
 any problem rolls that step back (the file stays at the version it had before the step) and the backup is kept.
-A version-1 database goes 1 -> 2 -> 3 in one command, with one backup per step.
+A version-1 database goes 1 -> 2 -> 3 -> 4 in one command, with one backup per step.
 
 Version 1 -> 2 (line-item PO consumption): create po_consumption and invoice_line_matches, backfill one total-only
   consumption row (po_line_id NULL, matched_by 'legacy') per existing ledger entry, verify that every entry is fully

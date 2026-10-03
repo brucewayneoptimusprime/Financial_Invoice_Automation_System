@@ -1,0 +1,379 @@
+{
+  "_SIMULATED": "Simulated ERP (demo): a hand-written sample feed standing in for an ERP export (SAP / Coupa / Oracle style). It is NOT a real ERP export. Valid POs use items and amounts unlike the six sample invoices so they never compete for those matches; the last entries are deliberately problematic.",
+  "format": "simerp.po-feed/v1",
+  "system": "SIMERP",
+  "exported_at": "2026-10-03T09:00:00Z",
+  "purchase_orders": [
+    {
+      "po_number": "4500012001",
+      "buyer_reference": "REQ-7781 / J. Rao",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "486.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "LED desk lamp, white, 40 cm",
+          "quantity": "12",
+          "unit_price": "40.50",
+          "unit_of_measure": "EA",
+          "line_amount": "486.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012002",
+      "buyer_reference": "REQ-7790 / Facilities",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "312.00",
+      "vendor": {
+        "name": "Super Store",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Whiteboard markers, assorted, box of 12",
+          "quantity": "24",
+          "unit_price": "8.50",
+          "unit_of_measure": "BOX",
+          "line_amount": "204.00"
+        },
+        {
+          "line_number": 20,
+          "description": "Cork notice board 60 x 90 cm",
+          "quantity": "4",
+          "unit_price": "27.00",
+          "unit_of_measure": "EA",
+          "line_amount": "108.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012003",
+      "buyer_reference": "REQ-IN-221 / IT",
+      "erp_status": "RELEASED",
+      "currency": "INR",
+      "issued_date": "2026-09-28",
+      "total_amount": "1840.00",
+      "vendor": {
+        "name": "Electronics Mart India Ltd",
+        "tax_id": "36AAFCE1683D1ZT",
+        "address": {
+          "street": "Survey No. 1, Kondapur",
+          "city": "Hyderabad",
+          "postal_code": "500084",
+          "country": "IN"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "USB-C charging cable, 1 m, braided",
+          "quantity": "8",
+          "unit_price": "230.00",
+          "unit_of_measure": "EA",
+          "line_amount": "1840.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012004",
+      "buyer_reference": "REQ-7802 / Office",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "2150.00",
+      "vendor": {
+        "name": "Northwind Office Supplies Ltd",
+        "tax_id": "GB123456789",
+        "address": {
+          "street": "12 Harbour Street",
+          "city": "Bristol",
+          "postal_code": "BS1 4ST",
+          "country": "GB"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "A4 copier paper, 80 gsm, 5-ream carton",
+          "quantity": "50",
+          "unit_price": "43.00",
+          "unit_of_measure": "CTN",
+          "line_amount": "2150.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012005",
+      "buyer_reference": "REQ-EU-014 / Office",
+      "erp_status": "RELEASED",
+      "currency": "EUR",
+      "issued_date": "2026-09-28",
+      "total_amount": "980.00",
+      "vendor": {
+        "name": "Northwind Office Supplies Ltd",
+        "tax_id": "GB123456789",
+        "address": {
+          "street": "12 Harbour Street",
+          "city": "Bristol",
+          "postal_code": "BS1 4ST",
+          "country": "GB"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Archive storage box, A4, pack of 10",
+          "quantity": "28",
+          "unit_price": "35.00",
+          "unit_of_measure": "PK",
+          "line_amount": "980.00"
+        }
+      ]
+    },
+    {
+      "po_number": "PO-SS-005",
+      "buyer_reference": "REQ-0001",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "1.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Changed in the ERP: must never overwrite the stored PO",
+          "quantity": "1",
+          "unit_price": "1.00",
+          "unit_of_measure": "EA",
+          "line_amount": "1.00"
+        }
+      ]
+    },
+    {
+      "po_number": "po-ss-002",
+      "buyer_reference": "REQ-7811",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "95.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Stapler, heavy duty",
+          "quantity": "5",
+          "unit_price": "19.00",
+          "unit_of_measure": "EA",
+          "line_amount": "95.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012006",
+      "buyer_reference": "REQ-7815",
+      "erp_status": "RELEASED",
+      "issued_date": "2026-09-28",
+      "total_amount": "150.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Desk organiser, mesh",
+          "quantity": "10",
+          "unit_price": "15.00",
+          "unit_of_measure": "EA",
+          "line_amount": "150.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012007",
+      "buyer_reference": "REQ-7820",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "109.95",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Ballpoint pens, blue, box of 50",
+          "quantity": "5",
+          "unit_price": "19.99",
+          "unit_of_measure": "BOX",
+          "line_amount": "109.95"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012008",
+      "buyer_reference": "REQ-7822",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "60.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Return of damaged chairs",
+          "quantity": "-3",
+          "unit_price": "20.00",
+          "unit_of_measure": "EA",
+          "line_amount": null
+        }
+      ]
+    },
+    {
+      "po_number": "4500012009",
+      "buyer_reference": "REQ-7830",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "240.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Printer toner, black",
+          "quantity": "2",
+          "unit_price": "120.00",
+          "unit_of_measure": "EA",
+          "line_amount": "240.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012009",
+      "buyer_reference": "REQ-7831",
+      "erp_status": "RELEASED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "360.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Printer toner, cyan",
+          "quantity": "3",
+          "unit_price": "120.00",
+          "unit_of_measure": "EA",
+          "line_amount": "360.00"
+        }
+      ]
+    },
+    {
+      "po_number": "4500012010",
+      "buyer_reference": "REQ-7840",
+      "erp_status": "CANCELLED",
+      "currency": "USD",
+      "issued_date": "2026-09-28",
+      "total_amount": "75.00",
+      "vendor": {
+        "name": "SuperStore",
+        "tax_id": null,
+        "address": {
+          "street": "100 Commerce Way",
+          "city": "Henderson",
+          "postal_code": "42420",
+          "country": "US"
+        }
+      },
+      "lines": [
+        {
+          "line_number": 10,
+          "description": "Desk fan, 30 cm",
+          "quantity": "3",
+          "unit_price": "25.00",
+          "unit_of_measure": "EA",
+          "line_amount": "75.00"
+        }
+      ]
+    }
+  ]
+}

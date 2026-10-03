@@ -306,6 +306,13 @@ class Settings(BaseSettings):
     po_max_lines: int = Field(default=200, ge=1)
     po_total_warning_above: Decimal = Field(default=Decimal("10000000.00"), ge=0)
     po_drafts_dir: Path = ROOT_DIR / "data" / "po_drafts"
+    # Simulated ERP purchase-order feed (ERP_PLAN; SPEC section 11 item 97). A bundled, read-only sample file: deliberately NOT moved
+    # under DATA_DIR (that is for writable state), so a deployed build reads it from its checkout. No model, no cost.
+    erp_feed_enabled: bool = True
+    erp_feed_path: Path = ROOT_DIR / "data" / "erp_feed_sample.json"
+    erp_feed_max_bytes: int = Field(default=1024 * 1024, ge=1024)
+    erp_max_pos_per_sync: int = Field(default=100, ge=1)
+    erp_max_import_per_action: int = Field(default=100, ge=1)
     # Currencies whose minor unit is not 2 decimals cannot be stored exactly (SPEC section 11 item 9).
     unsupported_currencies: frozenset[str] = frozenset({
         "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF", "UGX", "UYI", "VND", "VUV", "XAF", "XOF", "XPF",

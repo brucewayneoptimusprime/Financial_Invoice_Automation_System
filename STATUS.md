@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
 
+# Simulated ERP PO feed (branch `feature/erp-feed`; master, feature/gmail-integration, feature/po-export, feature/settings untouched)
+
+- Plan `ERP_PLAN.md` approved 2026-10-03 (decisions 1-5 and 7-9 as recommended; 6: a look-alike PO number is a PROBLEM with a link). No schema change, no model, no new dependency. Building R1-R4 without stopping; stop after R4.
+- **R1: source, adapter, preview.** `data/erp_feed_sample.json` (13 POs: 5 new, 1 existing, 7 problems incl. a look-alike), `app/erp/source.py` (bundled file via `ERP_FEED_PATH`, size cap, JSON with Decimal), `app/erp/adapters/` (simerp-v1 + registry), `app/erp/preview.py` (new / exists / problem with the PO form's own issues; read-only).
+- Done: R1. Tests now: backend **2569 passed**, 0 failed, 4 deselected; frontend **160 passed**.
+- No migration is needed for this feature (it adds no table).
+
+---
+
 # Rules settings + staged uploads (branch `feature/settings`; master, feature/gmail-integration, feature/po-export untouched)
 
 - Plan `SETTINGS_PLAN.md` approved 2026-10-03 (decisions 1 A, 2-7 yes, 8 no (line-price tolerance not editable), 9-11 yes; plus: a "looser than default" marker; "Settings used" shown in the run view). Building S1-S5 without stopping; stop after S5.

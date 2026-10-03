@@ -540,3 +540,9 @@ tr.ticked td, tr.ticked th { background: var(--accent-soft); }
 .settings-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .settings-used { color: var(--accent-text); }
 input[type="search"] { width: 100%; max-width: 360px; margin-bottom: 10px; }
+
+/* Staged upload */
+.staged { margin-top: 16px; }
+.staged-list .run-link { cursor: default; grid-template-columns: 1fr auto auto auto; }
+.staged-list .run-link:hover { background: none; }
+.staged-bad .run-file { text-decoration: line-through; color: var(--muted); }

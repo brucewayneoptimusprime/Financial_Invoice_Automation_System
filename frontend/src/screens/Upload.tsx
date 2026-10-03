@@ -8,6 +8,14 @@ import type { Decision, GmailImportOutcome, Health, RunRow } from "../types";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
 const POLL_MS = 1500;
+const OK_EXT = /\.(pdf|png|jpe?g)$/i;
+const OK_MIME = ["application/pdf", "image/png", "image/jpeg"];
+
+// A chosen or dropped file waits here until "Process N invoices"; a file that breaks a limit is marked and never sent.
+export interface StagedFile { key: string; file: File; problem: string | null }
+
+export const fileSize = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const fileType = (f: File) => f.type || (f.name.includes(".") ? f.name.split(".").pop()!.toUpperCase() : "unknown");
 
 // One row per file of a multi-file upload. Each file is its OWN run with its own decision; nothing is shared between them.
 export interface BatchItem {
@@ -59,6 +67,7 @@ export function UploadScreen({ health }: { health: Health | null }) {
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   const [batch, setBatch] = useState<BatchItem[]>([]);
   const [sending, setSending] = useState(false);
+  const [staged, setStaged] = useState<StagedFile[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const po = usePoContext();
   const [decision] = useState(() => {
@@ -112,6 +121,23 @@ export function UploadScreen({ health }: { health: Health | null }) {
     setBatch((b) => [...items, ...b]);
   }, []);
 
+  // Choosing or dropping files only stages them (no request). The limits are checked here, and again by the server.
+  const stage = useCallback((list: FileList | File[] | null | undefined) => {
+    const files = Array.from(list ?? []);
+    if (files.length === 0) return;
+    setError(null);
+    const maxBytes = health?.max_file_bytes ?? 20 * 1024 * 1024;
+    setStaged((cur) => {
+      const room = Math.max(0, maxFiles - cur.length);
+      if (files.length > room) setError(`At most ${maxFiles} files per upload: ${files.length - room} not added.`);
+      const stamp = Date.now();
+      return [...cur, ...files.slice(0, room).map((f, i) => ({
+        key: `s${stamp}-${cur.length + i}`, file: f,
+        problem: !(OK_EXT.test(f.name) || OK_MIME.includes(f.type)) ? "not a PDF or image" : f.size > maxBytes ? "too large" : null,
+      }))];
+    });
+  }, [health, maxFiles]);
+
   const send = useCallback(async (list: FileList | File[] | null | undefined) => {
     const files = Array.from(list ?? []);
     if (files.length === 0 || sending) return;
@@ -158,6 +184,8 @@ export function UploadScreen({ health }: { health: Health | null }) {
     setSending(false);
   }, [sending, maxFiles, health, maxMb, po]);
 
+  const accepted = staged.filter((s) => !s.problem);
+
   return (
     <div className="upload">
       <div className="intro">
@@ -181,16 +209,44 @@ export function UploadScreen({ health }: { health: Health | null }) {
         className={`dropzone ${drag ? "drag" : ""} ${sending ? "busy" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); send(e.dataTransfer.files); }}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); stage(e.dataTransfer.files); }}
       >
         <div className="drop-icon" aria-hidden="true" />
         <p className="drop-title">{sending ? "Uploading…" : "Drop invoices here"}</p>
+        <p className="drop-sub">Files wait in the list below until you press Process.</p>
         <p className="drop-sub">PDF, PNG or JPG · up to {maxMb} MB each · up to {maxFiles} files at once</p>
-        <button type="button" className="btn" onClick={() => input.current?.click()} disabled={sending}>Choose files</button>
-        <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { send(e.target.files); e.target.value = ""; }}
+        <button type="button" className="btn-ghost" onClick={() => input.current?.click()} disabled={sending}>Choose files</button>
+        <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { stage(e.target.files); e.target.value = ""; }}
                aria-label="Invoice files" data-testid="file-input" />
       </div>
       {error && <p className="error" role="alert">{error}</p>}
+
+      {staged.length > 0 && (
+        <section className="staged" aria-labelledby="staged-h">
+          <h2 id="staged-h">Ready to process</h2>
+          <ul className="run-list staged-list">
+            {staged.map((s) => (
+              <li key={s.key} className={s.problem ? "staged-bad" : undefined}>
+                <div className="run-link">
+                  <span className="run-file">{s.file.name}</span>
+                  <span className="run-meta">{fileSize(s.file.size)} · {fileType(s.file)}</span>
+                  {s.problem ? <Chip tone="fail">{s.problem}</Chip> : <Chip tone="muted">ready</Chip>}
+                  <button type="button" className="linkish" aria-label={`Remove ${s.file.name}`} disabled={sending}
+                          onClick={() => setStaged((cur) => cur.filter((x) => x.key !== s.key))}>Remove</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <div className="settings-actions">
+        <button type="button" className="btn" disabled={sending || accepted.length === 0}
+                onClick={() => { const list = accepted.map((s) => s.file); setStaged([]); send(list); }}>
+          {sending ? "Uploading…" : `Process ${accepted.length} invoice${accepted.length === 1 ? "" : "s"}`}
+        </button>
+        {staged.length > 0 && <button type="button" className="btn-ghost" disabled={sending} onClick={() => { setStaged([]); setError(null); }}>Clear</button>}
+        {staged.some((s) => s.problem) && <span className="dim small">Marked files are not sent.</span>}
+      </div>
       {health?.mode === "live" && <p className="warn">Live mode: each invoice calls the paid API (about $0.03).</p>}
 
       {batch.length > 0 && (

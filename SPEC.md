@@ -458,6 +458,11 @@ The UI is graded. Keep it clean, intentional and easy to demo.
    - **Client checks:** the client checks the range and step before saving and keeps Save disabled while a value is invalid. The server checks again and is the authority; its `problems` are shown per field.
    - **"Settings used":** the run view's `settings_used` (from the `settings_applied` event, item 93) is shown as a line on the validate stage card of the live timeline and as a "Settings used" section in the result. Runs from before v4 have no such event and render as before. The reducer, the live rule list and the dashboard do not depend on event types beyond the ones they already used; tests cover a stream with and without the event.
 
+96. **Staged uploads on `/invoices` (SETTINGS_PLAN feature 2, stage S4).** Choosing or dropping files no longer uploads them; it makes no request.
+   - **The staged list ("Ready to process"):** one row per file with its name, size, type and **Remove**. The limits are checked as files are added: over `max_file_bytes` (20 MB) is marked "too large"; neither a .pdf/.png/.jpg/.jpeg name nor a PDF/PNG/JPEG MIME type is marked "not a PDF or image". Marked files stay listed and are never sent. At most `max_files_per_upload` (20) rows: extras are not added, with "At most 20 files per upload: n not added." Marked rows count towards the cap, and Remove frees a place.
+   - **"Process N invoices":** N counts the acceptable files. It is disabled at 0. It sends them one request per file, in the order staged, through the unchanged batch logic, and empties the list. **"Clear"** empties the list without sending.
+   - **Unchanged:** one file without a PO context still opens its live run view after Process (decision 10); with `?po=` the batch view stays. The server still checks every file (magic bytes, size). The Gmail panel and its imports are unchanged, and the gear is not shown on this screen.
+
 ## 12. Milestones (ordered by dependency, not by date)
 
 Each milestone must be runnable and verified before the next begins.

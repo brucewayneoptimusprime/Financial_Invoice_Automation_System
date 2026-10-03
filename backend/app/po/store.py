@@ -1,4 +1,5 @@
-"""The ONLY writer of purchase_orders / po_lines (and of vendors created while entering a PO). Called only by the Save endpoint.
+"""The ONLY writer of purchase_orders / po_lines (and of vendors created while entering a PO). Called only by the Save endpoint
+and by the simulated ERP importer (app/erp/importer.py), which saves the POs a person ticked in the feed preview.
 
 One transaction: a new vendor (always status `new`), the PO (always status `open`; afterwards derived from the ledger, `closed`
 only by a person) and its lines. Provenance goes in `purchase_orders.meta` (owner decision 1: no schema change).

@@ -211,9 +211,10 @@ def test_an_unknown_draft_is_refused(tmp_path):
 
 def test_save_po_is_called_from_exactly_one_route_and_only_store_writes_pos():
     callers = [p for p in API_DIR.rglob("*.py") if "save_po(" in p.read_text(encoding="utf-8") and p.name != "store.py"]
-    assert [p.name for p in callers] == ["routes_po.py"]
-    src = (API_DIR / "api" / "routes_po.py").read_text(encoding="utf-8")
-    assert src.count("save_po(") == 1
+    # the PO form's Save route, and the simulated ERP importer (ERP_PLAN; SPEC section 11 item 97), each exactly once
+    assert sorted(p.relative_to(API_DIR).as_posix() for p in callers) == ["api/routes_po.py", "erp/importer.py"]
+    for rel in ("api/routes_po.py", "erp/importer.py"):
+        assert (API_DIR / rel).read_text(encoding="utf-8").count("save_po(") == 1, rel
     writers = [p for p in API_DIR.rglob("*.py")
                if any(k in p.read_text(encoding="utf-8") for k in ("INSERT INTO purchase_orders", "INSERT INTO po_lines"))]
     assert sorted(p.relative_to(API_DIR).as_posix() for p in writers) == ["db/seed.py", "po/store.py"]

@@ -280,7 +280,9 @@ def test_the_default_callback_is_localhost_8000():
     (DEFAULT_URI, "localhost", 8000, set(), None),
     (DEFAULT_URI, "127.0.0.1", 8001, {"127.0.0.1"}, "Start with --port 8000"),
     (DEFAULT_URI, "127.0.0.1", 8000, {"::1"}, "Start with --host ::1"),
-    ("https://example.com/api/gmail/oauth/callback", "127.0.0.1", 8000, {"127.0.0.1"}, "local callback only"),
+    ("https://example.com/api/gmail/oauth/callback", "127.0.0.1", 8000, {"127.0.0.1"}, None),     # deployed, behind the Vercel proxy
+    ("https://example.com/callback", "0.0.0.0", 10000, set(), "must end with /api/gmail/oauth/callback"),
+    ("http://example.com/api/gmail/oauth/callback", "127.0.0.1", 8000, {"127.0.0.1"}, "neither an http://localhost address"),
     ("http://localhost:8000/callback", "127.0.0.1", 8000, {"127.0.0.1"}, "must end with /api/gmail/oauth/callback"),
 ])
 def test_callback_problems(uri, host, port, resolved, expect):

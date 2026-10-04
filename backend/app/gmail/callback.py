@@ -1,5 +1,8 @@
 """Checks that the OAuth redirect URI registered with Google reaches THIS server process.
 
+Deployed, the redirect URI is the frontend's https address (Vercel proxies /api/gmail/* to this server; DEPLOY_GMAIL_FIX.md), so
+for an https URI only the path is checked: the host and port are the proxy's, not this process's.
+
 The Google OAuth client allows exactly http://localhost:8000/api/gmail/oauth/callback. `serve` binds 127.0.0.1:8000 by default;
 a browser sends "localhost" to the loopback interface, which works as long as "localhost" resolves to the address the server is
 bound to (or the server listens on every interface). `serve` prints these problems at start-up and does not refuse to start,
@@ -22,8 +25,10 @@ def localhost_addresses() -> set[str]:
 
 def callback_problems(redirect_uri: str, bind_host: str, bind_port: int, resolve=localhost_addresses) -> list[str]:
     parts = urlsplit(redirect_uri)
+    if parts.scheme == "https" and parts.hostname:
+        return [] if parts.path == CALLBACK_PATH else [f"GMAIL_REDIRECT_URI must end with {CALLBACK_PATH} (got {parts.path or '/'})."]
     if parts.scheme != "http" or (parts.hostname or "") not in _LOOPBACK_NAMES:
-        return [f"GMAIL_REDIRECT_URI {redirect_uri} is not an http://localhost address; v1 supports a local callback only."]
+        return [f"GMAIL_REDIRECT_URI {redirect_uri} is neither an http://localhost address nor an https address."]
     problems: list[str] = []
     if parts.path != CALLBACK_PATH:
         problems.append(f"GMAIL_REDIRECT_URI must end with {CALLBACK_PATH} (got {parts.path or '/'}).")

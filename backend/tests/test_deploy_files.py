@@ -45,7 +45,7 @@ def test_the_approved_settings():
     assert env("COST_CEILING_PER_SESSION_USD") == ("value", "1.00")
     assert env("PYTHON_VERSION") == ("value", "3.12.7")
     assert re.search(r"healthCheckPath: /health\b", RENDER)
-    assert re.search(r"^\s+plan: free\s*$", RENDER, re.M)
+    assert re.search(r"^\s+plan: starter\s*$", RENDER, re.M)          # owner, 2026-10-04: the $7 starter instance (no spin-down)
 
 
 def test_there_is_no_disk_on_the_free_tier():
@@ -59,7 +59,8 @@ def test_the_local_equivalent_of_the_data_dir_is_gitignored():
 def test_vercel_json():
     cfg = json.loads((ROOT_DIR / "frontend" / "vercel.json").read_text(encoding="utf-8"))
     assert cfg == {"buildCommand": "npm run build", "outputDirectory": "dist", "framework": "vite",
-                   "rewrites": [{"source": "/((?!assets/).*)", "destination": "/index.html"}]}
+                   "rewrites": [{"source": "/api/gmail/:path*", "destination": "https://invoice-agent-api.onrender.com/api/gmail/:path*"},
+                                {"source": "/((?!assets/).*)", "destination": "/index.html"}]}     # Gmail first: same-origin OAuth
 
 
 def test_deploy_md_names_every_variable_and_the_free_tier_facts():

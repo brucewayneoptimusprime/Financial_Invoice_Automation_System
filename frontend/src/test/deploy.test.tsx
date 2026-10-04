@@ -89,6 +89,8 @@ describe("vercel.json", () => {
     const cfg = vercelConfig;
     expect(cfg.buildCommand).toBe("npm run build");
     expect(cfg.outputDirectory).toBe("dist");
-    expect(cfg.rewrites).toEqual([{ source: "/((?!assets/).*)", destination: "/index.html" }]);
+    // first: /api/gmail/* proxied to Render, so the Gmail OAuth cookie is first-party (DEPLOY_GMAIL_FIX.md); then the SPA fallback
+    expect(cfg.rewrites).toEqual([{ source: "/api/gmail/:path*", destination: "https://invoice-agent-api.onrender.com/api/gmail/:path*" },
+                                  { source: "/((?!assets/).*)", destination: "/index.html" }]);
   });
 });

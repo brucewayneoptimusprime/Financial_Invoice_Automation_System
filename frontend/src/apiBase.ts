@@ -3,6 +3,10 @@
 //
 //   VITE_API_BASE   build-time: the backend's URL on Render, e.g. https://invoice-agent-api.onrender.com (no trailing slash needed)
 //   access token    asked for once per browser tab when the backend answers 401; kept in sessionStorage, never in the bundle
+//
+// Gmail endpoints are the exception: they always use RELATIVE URLs. Deployed, Vercel proxies /api/gmail/* to Render (vercel.json), so
+// the OAuth binding cookie set by /api/gmail/oauth/start is first-party on the site's own domain and comes back with Google's
+// redirect to /api/gmail/oauth/callback (DEPLOY_GMAIL_FIX.md). The event stream, uploads and every other call go to Render directly.
 
 const TOKEN_KEY = "invoice-agent-access-token";
 export const AUTH_REQUIRED = "invoice-agent:auth-required";
@@ -10,6 +14,12 @@ export const AUTH_REQUIRED = "invoice-agent:auth-required";
 export function apiBase(): string {
   const raw = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
   return raw.trim().replace(/\/+$/, "");
+}
+
+const SAME_ORIGIN_PREFIX = "/api/gmail/";
+
+function baseFor(path: string): string {
+  return path.startsWith(SAME_ORIGIN_PREFIX) ? "" : apiBase();
 }
 
 export function getToken(): string | null {
@@ -39,7 +49,8 @@ export function apiUrl(path: string, withToken = false): string {
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
   const opts = token ? { ...(init ?? {}), headers: { ...((init?.headers as Record<string, string>) ?? {}), Authorization: `Bearer ${token}` } } : init;
-  const res = opts === undefined ? await fetch(apiBase() + path) : await fetch(apiBase() + path, opts);
+  const url = baseFor(path) + path;
+  const res = opts === undefined ? await fetch(url) : await fetch(url, opts);
   if (res.status === 401) window.dispatchEvent(new Event(AUTH_REQUIRED));
   return res;
 }

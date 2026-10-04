@@ -92,8 +92,13 @@ def oauth_start(request: Request):
         return _gmail_error(exc)
     response = JSONResponse({"authorization_url": url})
     response.set_cookie(BINDING_COOKIE, binding, max_age=st.settings.gmail_oauth_state_ttl_s, path=COOKIE_PATH, httponly=True,
-                        samesite="lax")
+                        samesite="lax", secure=_secure_cookie(st))
     return response
+
+
+def _secure_cookie(st: ApiState) -> bool:
+    """Secure when the callback is https (deployed); local http://localhost keeps working without it."""
+    return st.settings.gmail_redirect_uri.strip().lower().startswith("https://")
 
 
 def _return_url(base: str, query: str) -> str:
@@ -112,7 +117,7 @@ def oauth_callback(request: Request, code: str | None = None, state: str | None 
     except GmailError as exc:
         result = f"gmail=error&code={'not_set_up' if exc.code == 'not_set_up' else 'exchange_failed'}"
     response = RedirectResponse(_return_url(st.settings.gmail_ui_return_url, result), status_code=303)
-    response.delete_cookie(BINDING_COOKIE, path=COOKIE_PATH)
+    response.delete_cookie(BINDING_COOKIE, path=COOKIE_PATH, httponly=True, samesite="lax", secure=_secure_cookie(st))
     return response
 
 

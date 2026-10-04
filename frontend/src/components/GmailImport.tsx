@@ -12,7 +12,7 @@ import gmailIcon from "../assets/gmail-icon.png";
 const RETURN_MESSAGES: Record<string, string> = {
   state_invalid: "The connection could not be confirmed (the sign-in link was not one this page started). Try again.",
   state_expired: "The sign-in took too long and expired. Try again.",
-  binding_mismatch: "The sign-in came back to a different browser session. Open this page at http://localhost:5173 and try again.",
+  binding_mismatch: "The sign-in came back without this browser's connection check (a cookie from the start of the sign-in). Start again from this page, in the same browser, with cookies allowed for this site.",
   denied: "Gmail access was not granted.",
   exchange_failed: "Google did not complete the connection. Try again.",
   scope_mismatch: "Google granted a different permission than read-only Gmail, so the connection was refused.",

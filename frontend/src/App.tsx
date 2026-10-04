@@ -23,6 +23,15 @@ function ModeBadge({ health, error }: { health: Health | null; error: boolean })
   return <span className={`mode mode-${health.mode}`} title={`Model ${health.model}`}>{text}</span>;
 }
 
+// The upload screen is remounted when its filters (?decision=, ?po=) change. The Gmail return parameters (?gmail=, ?code=) are NOT
+// part of that key: the Gmail panel reads them once and removes them from the address bar, and a remount would lose its message.
+function uploadKey(): string {
+  const params = new URLSearchParams(window.location.search);
+  params.delete("gmail");
+  params.delete("code");
+  return params.toString();
+}
+
 export function App() {
   const route = useRoute();
   const [health, setHealth] = useState<Health | null>(null);
@@ -80,7 +89,7 @@ export function App() {
       </header>
       <main className="page">
         {route.name === "dashboard" && <DashboardScreen />}
-        {route.name === "upload" && <UploadScreen key={window.location.search} health={health} />}
+        {route.name === "upload" && <UploadScreen key={uploadKey()} health={health} />}
         {route.name === "run" && <RunScreen key={route.id} runId={route.id} />}
         {route.name === "pos" && <POListScreen key={window.location.search} />}
         {route.name === "poNew" && <PONewScreen health={health} />}

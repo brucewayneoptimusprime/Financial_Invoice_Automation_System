@@ -334,3 +334,50 @@ def test_the_access_log_never_shows_the_callback_code_or_state(tmp_path):
     with google_api(tmp_path, FakeGoogle()) as (c, app):
         installed = [f for f in logging.getLogger("uvicorn.access").filters if isinstance(f, RedactCallbackQuery)]
     assert len(installed) == 1                                                 # installed once when the app starts
+
+
+# ------------------------------------------------------------------------------------------ deployed behind the Vercel proxy
+
+VERCEL = "https://financial-invoice-automation-system-mauve.vercel.app"
+
+
+def test_locally_the_binding_cookie_is_not_secure_so_http_localhost_keeps_working(tmp_path):
+    with google_api(tmp_path, FakeGoogle()) as (c, app):
+        cookie = c.post("/api/gmail/oauth/start").headers["set-cookie"].lower()
+    assert "secure" not in cookie and "samesite=lax" in cookie and "httponly" in cookie
+
+
+def test_deployed_the_cookie_is_secure_and_the_whole_flow_works_on_the_frontend_origin(tmp_path):
+    """GMAIL_REDIRECT_URI on the Vercel domain (Vercel proxies /api/gmail/* here): the binding cookie becomes Secure, keeps
+    HttpOnly / SameSite=Lax / its path, and a browser on that https origin completes the flow. Without the cookie the callback still
+    refuses (binding_mismatch) and makes no token request."""
+    from fastapi.testclient import TestClient
+    google = FakeGoogle()
+    with google_api(tmp_path, google, gmail_redirect_uri=f"{VERCEL}/api/gmail/oauth/callback",
+                    gmail_ui_return_url=f"{VERCEL}/invoices") as (_, app):
+        browser = TestClient(app, base_url=VERCEL)                     # same origin as the redirect URI, like the proxied site
+        start = browser.post("/api/gmail/oauth/start")
+        cookie = start.headers["set-cookie"].lower()
+        for part in ("gmail_oauth_binding=", "httponly", "samesite=lax", "path=/api/gmail/oauth", "secure"):
+            assert part in cookie
+        q = {k: v[0] for k, v in parse_qs(urlsplit(start.json()["authorization_url"]).query).items()}
+        assert q["redirect_uri"] == f"{VERCEL}/api/gmail/oauth/callback" and q["scope"] == GMAIL_READONLY_SCOPE
+        r = browser.get("/api/gmail/oauth/callback", params={"code": "c", "state": q["state"]}, follow_redirects=False)
+        assert location(r) == f"{VERCEL}/invoices?gmail=connected"
+        assert "secure" in r.headers["set-cookie"].lower()                # the deletion matches the cookie's attributes
+        assert google.token_posts("authorization_code")[0]["redirect_uri"] == f"{VERCEL}/api/gmail/oauth/callback"
+
+        stranger = TestClient(app, base_url=VERCEL)                    # no binding cookie (what the cross-site setup produced)
+        q2 = {k: v[0] for k, v in parse_qs(urlsplit(browser.post("/api/gmail/oauth/start").json()["authorization_url"]).query).items()}
+        before = len(google.token_posts("authorization_code"))
+        r2 = stranger.get("/api/gmail/oauth/callback", params={"code": "c", "state": q2["state"]}, follow_redirects=False)
+        assert location(r2) == f"{VERCEL}/invoices?gmail=error&code=binding_mismatch"
+        assert len(google.token_posts("authorization_code")) == before
+
+
+def test_the_access_token_still_gates_every_gmail_route_except_the_callback(tmp_path):
+    token = "a" * 32
+    with google_api(tmp_path, FakeGoogle(), access_token=token, gmail_redirect_uri=f"{VERCEL}/api/gmail/oauth/callback") as (c, _):
+        assert c.post("/api/gmail/oauth/start").status_code == 401
+        assert c.get("/api/gmail/status").status_code == 401
+        assert c.get("/api/gmail/oauth/callback", params={"state": "x"}, follow_redirects=False).status_code == 303

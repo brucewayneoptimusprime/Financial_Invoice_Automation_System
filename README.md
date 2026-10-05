@@ -2,7 +2,7 @@
 
 ## Demo Video
 
-Watch a full walkthrough of the application below:
+Watch a full walkthrough of the application below. **The video shows the first version** (the invoice pipeline, review queue, purchase orders and dashboard). The features added since (Gmail import, PO export, rules settings, staged uploads and the simulated ERP feed) are described in this README but are not in the video.
 
 [![Watch the demo](https://img.youtube.com/vi/sU14-t2UchY/maxresdefault.jpg)](https://www.youtube.com/watch?v=sU14-t2UchY)
 
@@ -12,7 +12,7 @@ Watch a full walkthrough of the application below:
 
 **An automated invoice-processing agent: drop in one vendor invoice, get back a reasoned decision with every step visible.**
 
-<!-- TODO: add live deployment URL here (Vercel frontend / Render backend, see DEPLOY.md) -->
+**Live deployment:** frontend **https://financial-invoice-automation-system-mauve.vercel.app** · backend API **https://invoice-agent-api.onrender.com** (health check: `/health`). The site asks for an **access token** once per browser tab; it is given on request. See [Deployment](#deployment) for what the live site can and cannot keep.
 
 ---
 
@@ -30,6 +30,13 @@ This project does that work for **one invoice at a time**:
 6. The system **acts**: it writes a ledger commit against the PO, opens a review-queue item, or saves a draft email.
 
 Every intermediate step goes to an audit log. The UI streams that log live while the invoice is processed, and the dashboard reads from it afterwards.
+
+Around that pipeline:
+
+- **Invoices come in two ways.** Files are chosen or dropped into a staged list and sent with **Process N invoices**. Or they are picked from a connected Gmail account (read-only): you describe what you want in plain English, Claude writes the Gmail search, labels the attachments as hints, and **you tick** which ones to import.
+- **Purchase orders come in four ways.** Seeded, typed into a form, drafted by the model from text or a document (confirmed by a person), or imported from a **simulated ERP feed** as structured data (preview first, nothing saved until you confirm).
+- **POs can be exported** as PDF, Word, Excel or CSV.
+- **Rules settings.** Tolerances, the confidence threshold, the duplicate window and rule switches are set as global defaults with optional per-PO overrides. Every run records the settings it was judged under.
 
 The guiding principle, taken from the spec:
 
@@ -60,8 +67,10 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 - [Running it locally](#running-it-locally)
 - [Testing](#testing)
 - [Deployment](#deployment)
-- [Rules settings and staged uploads](#rules-settings-and-staged-uploads-branch-featuresettings)
-- [Simulated ERP purchase-order feed](#simulated-erp-purchase-order-feed-branch-featureerp-feed)
+- [Gmail import](#gmail-import)
+- [Export purchase orders](#export-purchase-orders)
+- [Rules settings and staged uploads](#rules-settings-and-staged-uploads)
+- [Simulated ERP purchase-order feed](#simulated-erp-purchase-order-feed)
 - [Known limitations / scope gaps](#known-limitations--scope-gaps)
 - [Project documents](#project-documents)
 
@@ -71,7 +80,8 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 
 ```mermaid
 flowchart TD
-    U["Invoice upload<br/>PDF / PNG / JPG"] --> I
+    U["Invoice upload: staged list + Process<br/>PDF / PNG / JPG"] --> I
+    GM["Gmail import (read-only)<br/>search, labels as hints, human ticks"] --> I
 
     subgraph PIPE["Pipeline: one run per invoice, every stage writes to audit_events"]
         direction TB
@@ -97,17 +107,18 @@ flowchart TD
     A --> RV
     A --> RI
 
-    DB[("SQLite<br/>vendors, POs, invoices, rules,<br/>ledger_entries, po_consumption,<br/>audit_events, review_queue, drafts")]
+    DB[("SQLite<br/>vendors, POs, invoices, rules,<br/>ledger_entries, po_consumption,<br/>audit_events, review_queue, drafts,<br/>po_settings, settings_events, Gmail tables")]
 
     AP --> DB
     RV --> DB
     RI --> DB
     PIPE -. "audit events" .-> DB
     DB -. "facts snapshot: vendors, POs,<br/>ledger balances, prior invoices, rules" .-> M
-    DB -. "facts snapshot" .-> V
+    DB -. "facts snapshot + effective settings<br/>(global defaults, then the matched PO's overrides)" .-> V
 
     DB --> SSE["Server-Sent Events<br/>live run view"]
-    DB --> UI["React UI: dashboard, invoices,<br/>purchase orders, review queue"]
+    DB --> UI["React UI: dashboard, invoices,<br/>purchase orders (export, ERP sync),<br/>review queue, settings"]
+    ERP["Simulated ERP feed<br/>preview, tick, confirm"] --> DB
     RV --> H["Human reviewer<br/>approve (with line allocation) / reject"]
     H --> DB
 ```
@@ -124,7 +135,10 @@ flowchart TD
 | Rules engine, matching, tolerance, floors | `backend/app/engine/` |
 | Pipeline runner, digest, explainer, drafter, act stage, allocation | `backend/app/pipeline/` |
 | Review actions (approve / reject) | `backend/app/review/` |
-| PO entry and PO drafting | `backend/app/po/` |
+| PO entry, PO drafting and PO export | `backend/app/po/` (export in `backend/app/po/export/`) |
+| Gmail import (OAuth, search allowlist, labels, import) | `backend/app/gmail/` |
+| Rules settings (catalog, global / per-PO service) | `backend/app/rulesettings/` |
+| Simulated ERP feed (source, adapters, preview, import) | `backend/app/erp/` |
 | Schema, migrations, seed, reset | `backend/app/db/` |
 | HTTP API and SSE | `backend/app/api/` |
 | All thresholds, weights, prices, ceilings | `backend/app/config.py` |
@@ -254,6 +268,8 @@ Every rule returns one of four outcomes:
 
 A check whose essential input is missing returns `info`, **never** `pass`. Per-outcome severities live in `params.severity_by_outcome`.
 
+The values quoted below (tolerance 2% / 50.00, confidence threshold 0.8, duplicate window 7 days) are the **built-in defaults**. They can be changed in [Rules settings](#rules-settings-and-staged-uploads), globally or per PO, and each run records the values it used.
+
 #### The 14 builtin rules
 
 | Rule | What it checks | Severity by outcome |
@@ -379,7 +395,7 @@ Every run that reaches extraction also saves an `invoices` row, whatever the dec
 
 ## Purchase orders
 
-POs are preloaded state that invoices are matched against. They can be seeded, or entered through the UI in three ways, all of which end in the **same validated form**:
+POs are preloaded state that invoices are matched against. They can be seeded, imported from the [simulated ERP feed](#simulated-erp-purchase-order-feed), or entered through the UI in three ways, all of which end in the **same validated form**:
 
 1. **Form:** typed in by hand.
 2. **Describe in text:** free text is drafted into a PO by the model.
@@ -389,7 +405,7 @@ A model draft **saves nothing**. It pre-fills the form, and each field shows "fr
 
 ![Purchase orders list with ledger-derived balances](Images_for_readme/Purchase_order_Window.png)
 
-*The PO list. Balances and statuses are derived from the ledger, and "Entered" shows the provenance (seed, form, text or document).*
+*The PO list. Balances and statuses are derived from the ledger, and "Entered" shows the provenance (seed, form, text, document, or simulated ERP feed).*
 
 ![A PO drafted from an uploaded document, with evidence per field and arithmetic warnings](Images_for_readme/Purchase_Order_being_processed_window.png)
 
@@ -402,10 +418,11 @@ A model draft **saves nothing**. It pre-fills the form, and each field shows "fr
 | Screen | Route | What it shows |
 |---|---|---|
 | **Dashboard** | `/` | Invoices processed, system decisions vs. outcomes after review, review-queue count, LLM spend, PO totals / consumed / balance **per currency** (never summed across currencies), recent runs, items waiting for review. Every chip and card links to a filtered list. |
-| **Invoices** | `/invoices` | Drag-and-drop upload (up to 20 files, each its own run) and run history, filterable by decision. |
+| **Invoices** | `/invoices` | Import from Gmail (read-only), a staged upload list ("Ready to process", up to 20 files, each its own run) with **Process N invoices**, and run history, filterable by decision. |
 | **Live run view** | `/runs/:id` | The seven-stage timeline streamed over SSE, the decision and "Why", extracted fields with evidence and a page viewer, all 16 checks, line matches, drafts, what was written, and cost. |
-| **Purchase orders** | `/pos`, `/pos/:id`, `/pos/new` | PO list, PO detail (matched invoices, lines with consumed/remaining, ledger, allocations, provenance), and new PO (form / text / document). |
+| **Purchase orders** | `/pos`, `/pos/:id`, `/pos/new`, `/pos/erp-sync` | PO list with **Export** (PDF / Word / Excel / CSV), PO detail (matched invoices, lines with consumed/remaining, ledger, allocations, provenance, rules for this PO), new PO (form / text / document), and **Sync from ERP (simulated)**. |
 | **Review queue** | `/review`, `/review/:id` | Open and resolved items, the approve preview with line allocation, and reject. |
+| **Settings** | `/settings`, `/settings/pos/:id` | Global rule defaults and switches, the PO list (default / custom / looser than default), the per-PO editor and the change log. Opened from the gear at the top right (not shown on the upload screen). |
 
 The header shows the running LLM spend and whether the server is in **live** (paid API calls), **replay** or **offline** mode.
 
@@ -413,7 +430,7 @@ The header shows the running LLM spend and whether the server is in **live** (pa
 
 ## Data model
 
-SQLite, schema version 2. The full schema is in `SPEC.md` §5 and `backend/app/db/schema*.sql`.
+SQLite, schema version 4. The full schema is in `SPEC.md` §5 and `backend/app/db/schema*.sql`. `python -m app.db.migrate` upgrades an older database step by step, with a backup before each step.
 
 | Table | Purpose |
 |---|---|
@@ -429,6 +446,10 @@ SQLite, schema version 2. The full schema is in `SPEC.md` §5 and `backend/app/d
 | `review_queue` | open and resolved review items |
 | `drafts` | vendor emails / internal notifications (always drafts) |
 | `settings` | non-rule values: confidence threshold, model override |
+| `po_settings`, `po_rule_switches` | per-PO overrides of the rule defaults (NULL / no row = inherits) |
+| `settings_events` | the settings change log: who, what, old and new value |
+| `oauth_credentials` | the one connected Gmail account; the refresh token is stored only encrypted |
+| `gmail_imports` | one row per imported Gmail attachment (dedupe key and provenance) |
 
 The demo seed (`data/seed_demo.json`) holds vendors SuperStore and Electronics Mart India Limited, five USD POs and one INR PO built around the sample invoices in `data/invoices/`, and one historic approved invoice, so the demo starts "mid-story" with a partially consumed PO.
 
@@ -466,7 +487,7 @@ cd frontend
 npm run dev        # http://localhost:5173
 ```
 
-`--reset-demo` resets the database to the known demo seed. On its own: `python -m app.db.reset --demo`.
+`--reset-demo` resets the database to the known demo seed. On its own: `python -m app.db.reset --demo`. A reset deletes everything, including a stored Gmail connection. To bring an existing database up to date instead, run `python -m app.db.migrate` from `backend\`.
 
 **Command-line pipeline** (no UI), which prints every stage, the full rule table, the decision, the explanation, any draft and what was written:
 
@@ -493,7 +514,7 @@ cd frontend; npm test            # vitest
 npm run typecheck
 ```
 
-As of the last `STATUS.md` update: **2,172 backend tests** and **85 frontend tests** pass. The suite runs offline with the API key blanked, using fakes and recorded replies. Tests marked `live` call the real API and only run with `pytest -m live`.
+As of the latest run on the `deploy` branch: **2,599 backend tests** and **179 frontend tests** pass, and `tsc` and the production build are clean. The suite runs offline with the API key blanked, using fakes and recorded replies. Tests marked `live` call the real API and only run with `pytest -m live`.
 
 The sample invoices are real public samples: five native-PDF SuperStore invoices and one photographed Indian GST invoice. Scenarios that don't occur naturally in them (a clean approve, ambiguous lines, bundled lines, an over-priced line) are **controlled synthetic variants**, labelled as such in the tests and never counted as real samples.
 
@@ -503,13 +524,17 @@ The sample invoices are real public samples: five native-PDF SuperStore invoices
 
 The backend targets **Render** (`render.yaml`) and the frontend targets **Vercel** (`frontend/vercel.json`). Step-by-step instructions, including the access token, CORS and cost-ceiling settings, are in **[DEPLOY.md](DEPLOY.md)**.
 
-The current `render.yaml` uses Render's **free** tier. It has no persistent disk, so the demo database is rebuilt from the seed at every build, and **all data is lost** when the service spins down (after 15 minutes without traffic), restarts or redeploys. `DEPLOY.md` covers what to do before a demo.
+**Live:** frontend **https://financial-invoice-automation-system-mauve.vercel.app**, backend **https://invoice-agent-api.onrender.com**. Both are built from the `deploy` branch. The site asks for an access token once per browser tab; it is given on request and is not published anywhere.
 
-<!-- TODO: add live deployment URL here -->
+- **Render Starter plan, no disk.** The service no longer spins down when idle. But there is no persistent disk: the demo database is rebuilt from the seed by the build, and **every redeploy or restart starts again from the fresh demo data**. Runs, review decisions, settings, imported POs and the Gmail connection are all lost then. Saving an environment variable on Render also redeploys.
+- **Gmail on the live site.** Vercel proxies only `/api/gmail/*` to Render, so the OAuth connection-check cookie is first-party. Every other call, including the live event stream and uploads, goes to Render directly. The redirect URI registered with Google is the Vercel address. Setup and test steps: **[DEPLOY_GMAIL_FIX.md](DEPLOY_GMAIL_FIX.md)**.
+- **Gmail needs reconnecting** after every Render redeploy or restart (the stored connection goes with the database). While the Google OAuth consent screen is in *Testing* mode, Google also expires the connection after about **7 days**.
+- **Cost:** live extraction is paid. The server enforces a per-run ceiling and a per-process session ceiling (`COST_CEILING_PER_SESSION_USD`, 1.00 on Render), which resets on every restart.
+- `DEPLOY.md` was written for the earlier free-tier setup. Its steps still apply, but where it mentions spin-down after 15 minutes, read "redeploy or restart".
 
 ---
 
-## Gmail import (branch `feature/gmail-integration`)
+## Gmail import
 
 On **Invoices** (`/invoices`), above the drop zone, the **Import from Gmail** panel pulls invoice attachments straight from one Gmail account. Only the attachments you tick enter the normal pipeline, through the same queue and the same file checks as a drag-and-drop upload. Each one gets its own run and decision. Its audit trail records where it came from (email, sender, date, file name), and the run page and the dashboard mark it **From Gmail**.
 
@@ -541,9 +566,10 @@ On **Invoices** (`/invoices`), above the drop zone, the **Import from Gmail** pa
 - The OAuth redirect is `http://localhost:8000/api/gmail/oauth/callback`. Open the UI at **`http://localhost:5173`**, not `127.0.0.1`; the panel warns if you do.
 - Plain-English search and labels need a model: start the server with `--live`, or with `--replay` from a recording.
 - `GMAIL_BACKEND=fake` runs everything on a labelled fake inbox, with no Google account.
-- The plans and reports are `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are `SPEC.md` §11 items 81-89.
+- On the live site, the redirect URI is the Vercel address and the Gmail calls go through Vercel (see [Deployment](#deployment)).
+- The plans and reports are `GMAIL_PLAN.md`, `GMAIL_PLAN_2.md` and `GMAIL_STAGE_REPORT*.md`. The assumptions are `SPEC.md` §11 items 81-89 and 98.
 
-## Export purchase orders (branch `feature/po-export`)
+## Export purchase orders
 
 Purchase orders can be saved as **PDF, Word (.docx), Excel (.xlsx) or CSV**. The buttons say **Export** with a download icon, because the system never sends anything: the browser saves a file. Files are built on the backend from the same data the screens show, so every exported number equals the displayed one. There is no model call, no cost and no database write.
 
@@ -566,7 +592,7 @@ Purchase orders can be saved as **PDF, Word (.docx), Excel (.xlsx) or CSV**. The
   - File names are sanitised. Responses are `Cache-Control: no-store`.
 - **API.** `GET /api/pos/export?format=pdf|docx|xlsx|csv[&q=&status=&currency=][&ids=]` and `GET /api/pos/{id}/export?format=…&level=financial|full`. See `EXPORT_PLAN.md`, `EXPORT_REPORT.md` and `SPEC.md` §11 item 90.
 
-## Rules settings and staged uploads (branch `feature/settings`)
+## Rules settings and staged uploads
 
 The rules engine's tolerances and switches can be changed from the UI, globally and per purchase order. There is no model call and no cost, and every route sits behind `ACCESS_TOKEN`.
 
@@ -591,7 +617,7 @@ The rules engine's tolerances and switches can be changed from the UI, globally 
 - **Database.** Schema v4 adds `po_settings`, `po_rule_switches` and `settings_events`. Upgrade an existing database with `python -m app.db.migrate` from `backend\`, which takes a backup first and keeps your Gmail connection. Do **not** use `--reset-demo` for this: it rebuilds the demo database and deletes the stored Gmail connection.
 - **API.** `GET /api/settings`, `POST /api/settings/global`, `GET /api/settings/pos`, `GET|POST /api/settings/pos/{id}` (`null` = reset), `GET /api/settings/history`. See `SETTINGS_PLAN.md`, `SETTINGS_REPORT.md` and `SPEC.md` §11 items 91–96.
 
-## Simulated ERP purchase-order feed (branch `feature/erp-feed`)
+## Simulated ERP purchase-order feed
 
 Mid-size and large companies send purchase orders from their ERP (SAP, Coupa, Oracle) as structured data, so nothing needs extracting. This feature shows that flow with a **Simulated ERP (demo)**: a bundled sample file stands in for the ERP connection. There is no model call, no cost and no extra service, so it works on a deployed backend as well as locally.
 
@@ -621,21 +647,22 @@ Mid-size and large companies send purchase orders from their ERP (SAP, Coupa, Or
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.
 
 - **No vendor-status management UI.** Vendor status (`approved` / `new` / `blocked`) is real data and `r_vendor_status` enforces it (a blocked vendor is rejected and gets no vendor email), but there is no screen to change a vendor's status. It is set through the seed or directly in the database. Vendors created through the PO form are always `new`.
-- **Rules settings (branch `feature/settings`) cover tolerances, the confidence threshold, the duplicate window and rule switches, globally and per PO.** Severities, required fields and the line-price tolerance are still edited in the database. There are no vendor-level overrides (the recorded next step: global → vendor → PO), and there are no user accounts, so any user of the UI can change settings.
+- **Rules settings cover tolerances, the confidence threshold, the duplicate window and rule switches, globally and per PO.** Severities, required fields and the line-price tolerance are still edited in the database. There are no vendor-level overrides (the recorded next step: global → vendor → PO), and there are no user accounts, so any user of the UI can change settings.
 - **No natural-language policy input and no LLM reviewer.** The rule schema supports `source = nl` with `original_text`, and the engine already guarantees such rules could only add flags, but the translator and the escalate-only reviewer role (SPEC milestone M7) are not built.
 - **No LLM "match assistant".** PO matching is entirely deterministic. The optional model role that ranks candidate POs is not used.
 - **Drafts have no "mark as sent" action and no dedicated Drafts screen.** Drafts are shown on each run's result view ("Nothing is sent"), and the `draft → marked_sent` status exists in the schema, but no endpoint or button changes it.
 - **No reset button in the UI.** Resetting the demo data is a command (`python -m app.db.reset --demo` or `--reset-demo` on `serve`).
 - **Hardening milestone (M6) not done.** Failure handling for LLM errors and unreadable files is built into extraction, but the 2–4 named edge cases planned for M6 have not been chosen and added.
-- **Single-user, local-first.** Locally there is no authentication, and the reviewer is recorded as "reviewer (local UI)". The deployed build has only an optional shared access token.
+- **Single-user, no accounts.** Locally there is no authentication, and the reviewer is recorded as "reviewer (local UI)" (settings changes as "unauthenticated demo user"). The deployed site has only one shared access token, so anyone with it can review, change settings and connect Gmail.
+- **The live site does not keep data.** With no disk on Render, every redeploy or restart returns it to the demo data and drops the Gmail connection (see [Deployment](#deployment)).
 - **Scope assumptions** (from `SPEC.md` §11): 2-way match only (no goods receipt / 3-way match); one PO per invoice; a single currency per run with no FX; 2-decimal currencies only; credit notes are flagged, not processed; PO totals are treated as tax-inclusive.
 - **Demo-scale data loading.** The facts snapshot loads whole tables per run. That is fine at demo scale, but an indexed pre-filter would be needed for large volumes.
-- **Gmail import (branch `feature/gmail-integration`): a rejected import keeps its dedupe row.** The import records the attachment just before queueing it. If the worker's ingest then rejected the file (unlikely, since the same file check already passed), importing that attachment from that email again reports "already imported" pointing at a run that never started; uploading the file by hand still works. Recorded in `SPEC.md` §11 item 86, deliberately not fixed yet.
+- **Gmail import: a rejected import keeps its dedupe row.** The import records the attachment just before queueing it. If the worker's ingest then rejected the file (unlikely, since the same file check already passed), importing that attachment from that email again reports "already imported" pointing at a run that never started; uploading the file by hand still works. Recorded in `SPEC.md` §11 item 86, deliberately not fixed yet.
 - **Gmail import: replay recordings are date-bound for sentence searches.** The plain-English search sends today's date to the model, and a replay recording is keyed on the exact request. A recorded sentence search therefore replays only on the day it was recorded, and its labels only while the inbox returns the same emails. Otherwise the panel falls back to the editable query box and shows no labels. Typed searches need no recording.
 - **Gmail import: the Google connection lasts about 7 days in Testing mode.** While the OAuth consent screen is in Google's *Testing* status, Google expires the refresh token after about 7 days. The panel then asks you to connect again (one click). Publishing the consent screen would remove this.
 - **Gmail import: no "From Gmail" filter.** Gmail-sourced runs are marked on the run page and the dashboard, but the run lists cannot be filtered by source yet.
 - **PO export: PDFs draw Latin characters only.** The built-in Helvetica font has no rupee sign or CJK characters; those become "?" in the PDF, with a footer note. Use the Word, Excel or CSV export when that matters. Bundling a Unicode font (for example DejaVu Sans) would remove this.
-- **Simulated ERP feed: a demo stand-in, not a connector.** POs come from a bundled sample file, not a live ERP; there is no scheduled sync, no update of an existing PO (by design), and no ERP-side acknowledgement. On Render's free instance imported POs vanish with the database on every spin-down.
+- **Simulated ERP feed: a demo stand-in, not a connector.** POs come from a bundled sample file, not a live ERP; there is no scheduled sync, no update of an existing PO (by design), and no ERP-side acknowledgement. On the live site, imported POs vanish with the database on every Render redeploy or restart.
 - **Line-match edge case.** Short PO line descriptions one letter apart ("Widget A" / "Widget B") with identical prices come out `ambiguous`. That is the safe side, but it means more reviewer choices.
 
 ---
@@ -648,6 +675,8 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 | [`PLAN.md`](PLAN.md) | The approved plan for each milestone and feature, with the owner's decisions |
 | [`STATUS.md`](STATUS.md) | Current state, test counts, what changed per stage, known risks |
 | [`DEPLOY.md`](DEPLOY.md) | Render + Vercel deployment steps |
+| [`DEPLOY_GMAIL_FIX.md`](DEPLOY_GMAIL_FIX.md) | Gmail sign-in on the deployed site: the Vercel proxy, Google redirect URI and Render variables |
+| `GMAIL_PLAN*.md`, `EXPORT_PLAN.md`, `SETTINGS_PLAN.md`, `ERP_PLAN.md` | The approved plan for each feature added after the first version |
+| `GMAIL_STAGE_REPORT*.md`, `EXPORT_REPORT.md`, `SETTINGS_REPORT.md`, `ERP_REPORT.md` | Build reports: commits, test counts, changed assertions, deviations, browser checks |
 | [`data/manifest.md`](data/manifest.md) | The sample invoices and the verified extraction answer key |
 
-<!-- TODO: add author / license section here -->

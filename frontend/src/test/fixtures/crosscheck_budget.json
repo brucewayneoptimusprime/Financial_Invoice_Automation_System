@@ -1,0 +1,6 @@
+{
+  "error": "budget",
+  "message": "The model budget left for this server session ($0.05) does not cover this analysis (it could cost up to $0.08). Nothing was sent.",
+  "projected_usd": "0.08",
+  "remaining_usd": "0.05"
+}

@@ -1,0 +1,592 @@
+{
+  "analysis": {
+    "po_id": 7,
+    "po_number": "PO-7001",
+    "mode": "live",
+    "documents": 5,
+    "analysed": 3,
+    "cost_usd": "0.042000",
+    "tokens_in": 10500,
+    "tokens_out": 2100,
+    "model": "claude-sonnet-5",
+    "prompt_version": "crosscheck-v1",
+    "estimated_before_usd": "0.10"
+  },
+  "label": "Report only: nothing here changes the PO, its invoices, the ledger or any decision.",
+  "documents": [
+    {
+      "file_name": "delivery-note.pdf",
+      "status": "analysed",
+      "failure": null,
+      "facts": {
+        "document_kind": "delivery_note",
+        "fields": {
+          "document_type": {
+            "value": "DELIVERY NOTE",
+            "page": 1,
+            "source_text": "Northwind Trading Co    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "vendor_name": {
+            "value": "Northwind Trading Co",
+            "page": 1,
+            "source_text": "Northwind Trading Co    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "currency": {
+            "value": "USD",
+            "page": 1,
+            "source_text": "Amounts in USD",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          "total": {
+            "value": "1000.00",
+            "page": 1,
+            "source_text": "Total: 1,000.00",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        },
+        "mentions": [
+          {
+            "kind": "date",
+            "label": "Delivery date",
+            "value": "2026-03-14",
+            "page": 1,
+            "source_text": "Delivery date: 2026-03-14",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          {
+            "kind": "po_number",
+            "label": "Purchase Order",
+            "value": "PO-7001",
+            "page": 1,
+            "source_text": "Purchase Order: PO-7001",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        ],
+        "lines": [
+          {
+            "description": "Widget A",
+            "item_code": null,
+            "quantity": "10",
+            "unit": "pcs",
+            "unit_price": "60.00",
+            "amount": "600.00",
+            "page": 1,
+            "source_text": "Widget A 10 pcs 60.00 600.00",
+            "grounding": "exact",
+            "confirmed": true,
+            "tie": {
+              "document_line": 1,
+              "status": "tied",
+              "po_line_no": 1,
+              "score": 1.0,
+              "candidates": [
+                {
+                  "po_line_no": 1,
+                  "score": 1.0,
+                  "reasons": [
+                    "description:1.00"
+                  ]
+                },
+                {
+                  "po_line_no": 2,
+                  "score": 0.875,
+                  "reasons": [
+                    "description:0.88"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "description": "Widget B",
+            "item_code": null,
+            "quantity": "5",
+            "unit": "pcs",
+            "unit_price": "80.00",
+            "amount": "400.00",
+            "page": 1,
+            "source_text": "Widget B 5 pcs 80.00 400.00",
+            "grounding": "exact",
+            "confirmed": true,
+            "tie": {
+              "document_line": 2,
+              "status": "tied",
+              "po_line_no": 2,
+              "score": 1.0,
+              "candidates": [
+                {
+                  "po_line_no": 2,
+                  "score": 1.0,
+                  "reasons": [
+                    "description:1.00"
+                  ]
+                },
+                {
+                  "po_line_no": 1,
+                  "score": 0.875,
+                  "reasons": [
+                    "description:0.88"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "model_notes": null
+      },
+      "relevance": {
+        "related": true,
+        "vendor_only": false,
+        "signals": [
+          {
+            "signal": "po_number",
+            "holds": true,
+            "document_value": "PO-7001",
+            "po_value": "PO-7001",
+            "explanation": "The document mentions this PO's number."
+          },
+          {
+            "signal": "invoice_number",
+            "holds": false,
+            "po_value": null,
+            "document_value": null,
+            "explanation": "The document mentions no invoice number."
+          },
+          {
+            "signal": "vendor",
+            "holds": true,
+            "document_value": "Northwind Trading Co",
+            "po_value": "Northwind Trading Co",
+            "explanation": "The vendor on the document is the same name once case, punctuation and legal suffixes are ignored."
+          },
+          {
+            "signal": "lines",
+            "holds": true,
+            "document_value": "2 of 2",
+            "po_value": "2 line(s)",
+            "explanation": "2 of the document's 2 described line(s) match a line of this PO (at least 50% is needed)."
+          }
+        ]
+      },
+      "differences": [],
+      "absent_po_lines": [],
+      "not_compared": [
+        {
+          "what": "Quantity on PO line 1 against invoices",
+          "reason": "no invoice is matched to this PO"
+        },
+        {
+          "what": "Quantity on PO line 2 against invoices",
+          "reason": "no invoice is matched to this PO"
+        }
+      ],
+      "unconfirmed": [],
+      "notices": [],
+      "cost_usd": "0.014000",
+      "pages": 1
+    },
+    {
+      "file_name": "goods-receipt.pdf",
+      "status": "analysed",
+      "failure": null,
+      "facts": {
+        "document_kind": "delivery_note",
+        "fields": {
+          "document_type": {
+            "value": "DELIVERY NOTE",
+            "page": 1,
+            "source_text": "Northwind Trading Co    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "vendor_name": {
+            "value": "Northwind Trading Co",
+            "page": 1,
+            "source_text": "Northwind Trading Co    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "currency": {
+            "value": "USD",
+            "page": 1,
+            "source_text": "Amounts in USD",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          "total": {
+            "value": "1050.00",
+            "page": 1,
+            "source_text": "Total: 1,050.00",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        },
+        "mentions": [
+          {
+            "kind": "date",
+            "label": "Delivery date",
+            "value": "2026-03-14",
+            "page": 1,
+            "source_text": "Delivery date: 2026-03-14",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          {
+            "kind": "po_number",
+            "label": "Purchase Order",
+            "value": "PO-7001",
+            "page": 1,
+            "source_text": "Purchase Order: PO-7001",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        ],
+        "lines": [
+          {
+            "description": "Widget A",
+            "item_code": null,
+            "quantity": "8",
+            "unit": "pcs",
+            "unit_price": "62.50",
+            "amount": "500.00",
+            "page": 1,
+            "source_text": "Widget A 8 pcs 62.50 500.00",
+            "grounding": "exact",
+            "confirmed": true,
+            "tie": {
+              "document_line": 1,
+              "status": "tied",
+              "po_line_no": 1,
+              "score": 1.0,
+              "candidates": [
+                {
+                  "po_line_no": 1,
+                  "score": 1.0,
+                  "reasons": [
+                    "description:1.00"
+                  ]
+                },
+                {
+                  "po_line_no": 2,
+                  "score": 0.875,
+                  "reasons": [
+                    "description:0.88"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "description": "Widget B",
+            "item_code": null,
+            "quantity": "50",
+            "unit": "pcs",
+            "unit_price": "80.00",
+            "amount": "400.00",
+            "page": 1,
+            "source_text": "Widget B 5 pcs 80.00 400.00",
+            "grounding": "value_mismatch",
+            "confirmed": false,
+            "tie": {
+              "document_line": 2,
+              "status": "unconfirmed",
+              "po_line_no": null,
+              "score": null,
+              "candidates": []
+            }
+          },
+          {
+            "description": "Laminating pouches A4",
+            "item_code": null,
+            "quantity": "3",
+            "unit": "pcs",
+            "unit_price": "12.00",
+            "amount": "36.00",
+            "page": 1,
+            "source_text": "Laminating pouches A4 3 pcs 12.00 36.00",
+            "grounding": "exact",
+            "confirmed": true,
+            "tie": {
+              "document_line": 3,
+              "status": "not_on_po",
+              "po_line_no": null,
+              "score": null,
+              "candidates": []
+            }
+          }
+        ],
+        "model_notes": null
+      },
+      "relevance": {
+        "related": true,
+        "vendor_only": false,
+        "signals": [
+          {
+            "signal": "po_number",
+            "holds": true,
+            "document_value": "PO-7001",
+            "po_value": "PO-7001",
+            "explanation": "The document mentions this PO's number."
+          },
+          {
+            "signal": "invoice_number",
+            "holds": false,
+            "po_value": null,
+            "document_value": null,
+            "explanation": "The document mentions no invoice number."
+          },
+          {
+            "signal": "vendor",
+            "holds": true,
+            "document_value": "Northwind Trading Co",
+            "po_value": "Northwind Trading Co",
+            "explanation": "The vendor on the document is the same name once case, punctuation and legal suffixes are ignored."
+          },
+          {
+            "signal": "lines",
+            "holds": true,
+            "document_value": "1 of 2",
+            "po_value": "2 line(s)",
+            "explanation": "1 of the document's 2 described line(s) match a line of this PO (at least 50% is needed)."
+          }
+        ]
+      },
+      "differences": [
+        {
+          "type": "item_not_on_po",
+          "document": {
+            "value": "Laminating pouches A4, quantity 3, unit price 12.00, amount 36.00",
+            "page": 1,
+            "source_text": "Laminating pouches A4 3 pcs 12.00 36.00"
+          },
+          "compared_with": {
+            "value": "No PO line has a similar description",
+            "source": "This PO's 2 line(s)"
+          },
+          "po_line_no": null,
+          "po_line_description": null
+        },
+        {
+          "type": "quantity_vs_po",
+          "document": {
+            "value": "8",
+            "page": 1,
+            "source_text": "Widget A 8 pcs 62.50 500.00"
+          },
+          "compared_with": {
+            "value": "10",
+            "source": "PO line 1, ordered quantity"
+          },
+          "po_line_no": 1,
+          "po_line_description": "Widget A"
+        },
+        {
+          "type": "unit_price",
+          "document": {
+            "value": "62.50",
+            "page": 1,
+            "source_text": "Widget A 8 pcs 62.50 500.00"
+          },
+          "compared_with": {
+            "value": "60.00",
+            "source": "PO line 1, unit price"
+          },
+          "po_line_no": 1,
+          "po_line_description": "Widget A"
+        },
+        {
+          "type": "amount",
+          "document": {
+            "value": "500.00",
+            "page": 1,
+            "source_text": "Widget A 8 pcs 62.50 500.00"
+          },
+          "compared_with": {
+            "value": "480.00",
+            "source": "Expected for 8 at the PO price 60.00 (PO line 1)"
+          },
+          "po_line_no": 1,
+          "po_line_description": "Widget A"
+        }
+      ],
+      "absent_po_lines": [
+        {
+          "po_line_no": 2,
+          "description": "Widget B",
+          "quantity": "5"
+        }
+      ],
+      "not_compared": [
+        {
+          "what": "Quantity on PO line 1 against invoices",
+          "reason": "no invoice is matched to this PO"
+        },
+        {
+          "what": "Document total",
+          "reason": "not every line of the document is tied to a PO line"
+        }
+      ],
+      "unconfirmed": [
+        {
+          "what": "line 2",
+          "value": "Widget B",
+          "grounding": "value_mismatch",
+          "source_text": "Widget B 5 pcs 80.00 400.00"
+        }
+      ],
+      "notices": [
+        "This document contains text addressed to an AI reader. It was treated as data and changed nothing."
+      ],
+      "cost_usd": "0.014000",
+      "pages": 1
+    },
+    {
+      "file_name": "other-vendor.pdf",
+      "status": "analysed",
+      "failure": null,
+      "facts": {
+        "document_kind": "delivery_note",
+        "fields": {
+          "document_type": {
+            "value": "DELIVERY NOTE",
+            "page": 1,
+            "source_text": "Acme Trading    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "vendor_name": {
+            "value": "Acme Trading",
+            "page": 1,
+            "source_text": "Acme Trading    DELIVERY NOTE",
+            "grounding": "normalized",
+            "confirmed": true
+          },
+          "currency": {
+            "value": "USD",
+            "page": 1,
+            "source_text": "Amounts in USD",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          "total": {
+            "value": "25.00",
+            "page": 1,
+            "source_text": "Total: 25.00",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        },
+        "mentions": [
+          {
+            "kind": "date",
+            "label": "Delivery date",
+            "value": "2026-03-14",
+            "page": 1,
+            "source_text": "Delivery date: 2026-03-14",
+            "grounding": "exact",
+            "confirmed": true
+          },
+          {
+            "kind": "po_number",
+            "label": "Purchase Order",
+            "value": "PO-2001",
+            "page": 1,
+            "source_text": "Purchase Order: PO-2001",
+            "grounding": "exact",
+            "confirmed": true
+          }
+        ],
+        "lines": [
+          {
+            "description": "Stapler, heavy duty",
+            "item_code": null,
+            "quantity": "1",
+            "unit": "pcs",
+            "unit_price": "25.00",
+            "amount": "25.00",
+            "page": 1,
+            "source_text": "Stapler, heavy duty 1 pcs 25.00 25.00",
+            "grounding": "exact",
+            "confirmed": true,
+            "tie": {
+              "document_line": 1,
+              "status": "not_on_po",
+              "po_line_no": null,
+              "score": null,
+              "candidates": []
+            }
+          }
+        ],
+        "model_notes": null
+      },
+      "relevance": {
+        "related": false,
+        "vendor_only": false,
+        "signals": [
+          {
+            "signal": "po_number",
+            "holds": false,
+            "document_value": "PO-2001",
+            "po_value": "PO-7001",
+            "explanation": "The document mentions a purchase-order number, but not this PO's."
+          },
+          {
+            "signal": "invoice_number",
+            "holds": false,
+            "po_value": null,
+            "document_value": null,
+            "explanation": "The document mentions no invoice number."
+          },
+          {
+            "signal": "vendor",
+            "holds": false,
+            "document_value": "Acme Trading",
+            "po_value": "Northwind Trading Co",
+            "explanation": "The vendor on the document is a different name (similarity 0.55, at least 0.85 is needed)."
+          },
+          {
+            "signal": "lines",
+            "holds": false,
+            "document_value": "0 of 1",
+            "po_value": "2 line(s)",
+            "explanation": "0 of the document's 1 described line(s) match a line of this PO (at least 50% is needed)."
+          }
+        ]
+      },
+      "differences": [],
+      "absent_po_lines": [],
+      "not_compared": [],
+      "unconfirmed": [],
+      "notices": [],
+      "cost_usd": "0.014000",
+      "pages": 1
+    },
+    {
+      "file_name": "empty.pdf",
+      "status": "failed",
+      "failure": {
+        "code": "empty_file",
+        "message": "empty.pdf is empty (0 bytes)."
+      },
+      "cost_usd": "0.000000"
+    },
+    {
+      "file_name": "unrecorded.pdf",
+      "status": "failed",
+      "failure": {
+        "code": "replay_miss",
+        "message": "Replay mode: no recorded answer exists for this document."
+      },
+      "cost_usd": "0.000000",
+      "pages": 1
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "mode": "live",
+  "available": true,
+  "message": null,
+  "label": "Report only: nothing here changes the PO, its invoices, the ledger or any decision.",
+  "max_documents": 5,
+  "max_file_mb": 20.0,
+  "accepted": [
+    "PDF",
+    "PNG",
+    "JPG"
+  ],
+  "typical_cost_per_document_usd": "0.02",
+  "ceiling_per_document_usd": "0.25",
+  "budget_remaining_usd": "5.00"
+}

@@ -404,3 +404,38 @@ export type ERPImportResult =
   | { po_number: string; outcome: "refused"; issues: ERPIssue[] };
 export interface ERPImport { label: string; synced_at: string; feed: { name: string; sha256: string }; imported: number; skipped: number;
                              refused: number; results: ERPImportResult[] }
+
+// ------------------------------------------------------------------------------------- cross-check documents (report only)
+export interface CrossCheckInfo {
+  enabled: boolean; mode: string; available: boolean; message: string | null; label: string; max_documents: number;
+  max_file_mb: number; accepted: string[]; typical_cost_per_document_usd: string; ceiling_per_document_usd: string;
+  budget_remaining_usd: string | null;
+}
+export interface CrossCheckEvidence { value: string; page: number | null; source_text: string | null; grounding?: string; confirmed?: boolean }
+export interface CrossCheckSignal { signal: string; holds: boolean; document_value: string | null; po_value: string | null; explanation: string }
+export interface CrossCheckDifference {
+  type: string; document: { value: string; page: number | null; source_text: string | null };
+  compared_with: { value: string; source: string }; po_line_no: number | null; po_line_description: string | null;
+}
+export interface CrossCheckLine {
+  description: string | null; item_code: string | null; quantity: string | null; unit: string | null; unit_price: string | null;
+  amount: string | null; page: number | null; source_text: string | null; grounding: string; confirmed: boolean;
+  tie: { document_line: number; status: string; po_line_no: number | null; score: number | null };
+}
+export interface CrossCheckDocument {
+  file_name: string; status: "analysed" | "failed"; failure: { code: string; message: string } | null; cost_usd: string; pages?: number;
+  facts?: { document_kind: string; fields: Record<string, CrossCheckEvidence | null>;
+            mentions: (CrossCheckEvidence & { kind: string; label: string | null })[]; lines: CrossCheckLine[]; model_notes: string | null };
+  relevance?: { related: boolean; vendor_only: boolean; signals: CrossCheckSignal[] };
+  differences?: CrossCheckDifference[];
+  absent_po_lines?: { po_line_no: number; description: string | null; quantity: string | null }[];
+  not_compared?: { what: string; reason: string }[];
+  unconfirmed?: { what: string; value: string; grounding: string; source_text: string | null }[];
+  notices?: string[];
+}
+export interface CrossCheckReport {
+  analysis: { po_id: number; po_number: string; mode: string; documents: number; analysed: number; cost_usd: string; tokens_in: number;
+              tokens_out: number; model: string; prompt_version: string; estimated_before_usd: string };
+  label: string;
+  documents: CrossCheckDocument[];
+}

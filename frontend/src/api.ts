@@ -1,7 +1,7 @@
 // Thin, typed wrappers over the API. Every request goes through apiFetch / apiUrl (apiBase.ts): relative paths locally (the Vite
 // proxy), the Render URL and the access token when deployed.
 import { apiFetch, apiUrl } from "./apiBase";
-import type { ApprovePreview, ApproveResult, AuditEvent, Dashboard, ERPImport, ERPPreview, GlobalSettings, POSettings, SettingsEvent, SettingsPORow, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
+import type { ApprovePreview, ApproveResult, AuditEvent, CrossCheckInfo, CrossCheckReport, Dashboard, ERPImport, ERPPreview, GlobalSettings, POSettings, SettingsEvent, SettingsPORow, GmailImportOutcome, GmailLabelsResult, GmailSearchCost, GmailSearchResult, GmailStatus, Health, LineChoice, NeedsInput, NewVendorInput, PendingView, PODetail, PODraftView,
               POInput, POIssue, POListRow, ReviewDetail, ReviewListItem, RunRow, RunView, ValidateResult, Vendor } from "./types";
 
 export class ApiError extends Error {
@@ -189,3 +189,12 @@ export const savePOSettings = (id: number, body: { values?: Record<string, unkno
 export const settingsHistory = (params: { scope?: string; po_id?: number; limit?: number } = {}) =>
   apiFetch(`/api/settings/history?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`)
     .then((r) => json<{ events: SettingsEvent[] }>(r));
+
+// ---------------------------------------------------------------------------------------------- cross-check documents (report only)
+// crossCheckInfo() calls no model and sends no file. Only crossCheckAnalyse() does, when the person clicks Analyze; it writes nothing.
+export const crossCheckInfo = (poId: number) => apiFetch(`/api/pos/${poId}/crosscheck`).then((r) => json<CrossCheckInfo>(r));
+export async function crossCheckAnalyse(poId: number, files: File[]): Promise<CrossCheckReport> {
+  const form = new FormData();
+  for (const f of files) form.append("files", f, f.name);
+  return apiFetch(`/api/pos/${poId}/crosscheck`, { method: "POST", body: form }).then((r) => json<CrossCheckReport>(r));
+}

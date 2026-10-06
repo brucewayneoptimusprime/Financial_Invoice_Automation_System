@@ -557,3 +557,18 @@ input[type="search"] { width: 100%; max-width: 360px; margin-bottom: 10px; }
 .erp-results { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .erp-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .erp-warn { color: var(--flag); }
+
+/* Cross-check documents (report only): neutral on purpose, no pass/fail colours */
+.cc-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 8px; }
+.cost-line { color: var(--text-2); margin: 10px 0; }
+.cc-report { margin-top: 18px; }
+.cc-doc { border-top: 1px solid var(--border); padding: 16px 0 6px; }
+.cc-doc h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-doc h4 { font-size: 13px; margin: 14px 0 6px; }
+.cc-signals, .cc-list { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+.cc-list { padding-left: 18px; list-style: disc; }
+.cc-table th[scope="row"] { font-weight: 600; min-width: 190px; }
+.cc-table td { vertical-align: top; }
+.cc-where { margin-top: 2px; }
+.cc-facts { margin-top: 14px; }
+.cc-facts summary { cursor: pointer; color: var(--text-2); font-size: 13px; }

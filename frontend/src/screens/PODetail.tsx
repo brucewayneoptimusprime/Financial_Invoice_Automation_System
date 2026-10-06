@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, getPO } from "../api";
 import { Chip, Disclosure, Section, Stat } from "../components/common";
+import { CrossCheck } from "../components/CrossCheck";
 import { POExportButton } from "../components/POExportButton";
 import { DECISION, FIELD_LABEL, humanize, money, score, usd, when } from "../format";
 import { linkProps } from "../router";
@@ -202,6 +203,8 @@ export function PODetailScreen({ id }: { id: number }) {
       <RulesForThisPO poId={id} />
 
       <Section title="Where this PO came from" id="po-provenance"><Provenance p={d.provenance} /></Section>
+
+      <CrossCheck poId={id} />
     </div>
   );
 }

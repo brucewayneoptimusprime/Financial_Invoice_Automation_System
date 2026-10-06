@@ -71,6 +71,7 @@ LLMs do the reading and the writing. They never pick the decision. Rules can onl
 - [Export purchase orders](#export-purchase-orders)
 - [Rules settings and staged uploads](#rules-settings-and-staged-uploads)
 - [Simulated ERP purchase-order feed](#simulated-erp-purchase-order-feed)
+- [Cross-check documents (report only)](#cross-check-documents-report-only)
 - [Known limitations / scope gaps](#known-limitations--scope-gaps)
 - [Project documents](#project-documents)
 
@@ -642,6 +643,36 @@ Mid-size and large companies send purchase orders from their ERP (SAP, Coupa, Or
   - No schema change: provenance lives in the PO's `meta`.
 - **API.** `GET /api/erp/preview` (read-only) and `POST /api/erp/import {feed_sha256, po_numbers, confirm: true}`, both behind `ACCESS_TOKEN`. See `ERP_PLAN.md`, `ERP_REPORT.md` and `SPEC.md` §11 item 97.
 
+## Cross-check documents (report only)
+
+Once a PO and its invoices exist, you can attach supporting documents (a delivery note, goods receipt, shipping document, or anything else) and see where they agree or disagree with the PO and its invoices. **It is a report and nothing more:** it never decides anything and never changes the PO, its invoices, the ledger or any decision.
+
+- **Where.** The last section of a PO's page: **Cross-check documents (report only)**. Choose up to 5 files (PDF, PNG or JPG, the usual size limit), then click **Analyze**. Nothing is sent to the model before that click. The estimated cost is shown before, and the actual cost after.
+- **Who does what.** The model only *reads* each document into facts: its type, vendor, any PO and invoice numbers, dates, currency, total and item lines, each with its page and source text. It is not told which PO the document is for and makes no judgement. Ordinary code then decides whether the document is related and computes every difference.
+- **Related or not.** A document is related when at least one of these holds, and all four are shown with both values either way:
+  - it mentions this PO's number;
+  - it mentions the number of an invoice matched to this PO;
+  - its vendor is the PO's vendor (same name or alias, or a very similar one);
+  - at least half of its item lines match a line of this PO.
+  A document related by the vendor alone is labelled **Related by vendor only**.
+- **Differences.** Each one cites both values and where they come from. Comparison is exact: no tolerance, quantities as decimals, money in integer cents.
+  - quantity against the PO line, and against what has been invoiced on that line (each invoice named with its status; rejected invoices are left out);
+  - unit price and amount against the PO line;
+  - vendor name, PO number and currency;
+  - items on the document that are not on the PO;
+  - the document's total against what the PO says its lines cost.
+  PO lines missing from the document are listed for information, not as differences. Anything that could not be compared is listed with the reason. There is no severity, no pass or fail and no recommendation.
+- **Safety.**
+  - Document text is data, never instructions. Text addressed to an AI reader adds a notice and changes nothing.
+  - Every value the model returns is checked against the document's own text. A value the text does not support is listed as not confirmed and is not compared. A scan with no text layer is compared and marked as read from the image.
+  - The routes open the database **read-only**, and a test keeps write statements out of `backend/app/crosscheck/`. Uploaded files are deleted before the response is returned.
+  - A file that is empty, the wrong type, password-protected or unreadable gets its own clear message; the other documents still report.
+- **Cost.** One model call per document through the same metered client and ceilings as everything else: at most $0.25 per document, and the whole analysis is refused before any call if the session budget cannot cover it. Measured on real one-page PDFs: about **$0.015 per document**.
+- **Modes.** `--offline`: the section says no model is available and nothing can be analysed. `--replay`: a document with no recorded answer says so.
+- **Stateless.** Nothing is stored, so a report is gone when you reload the page, and its cost appears in the server log and the session budget but not on the dashboard. No schema change.
+- **Config.** `CROSSCHECK_ENABLED` (default true; false hides the section and both routes answer 404), `CROSSCHECK_MAX_DOCUMENTS` (5), `CROSSCHECK_MIN_LINE_SHARE` (0.5), `CROSSCHECK_MAX_OUTPUT_TOKENS` (3000), `CROSSCHECK_TYPICAL_COST_USD` (0.02, the estimate shown before Analyze).
+- **API.** `GET /api/pos/{id}/crosscheck` (limits and cost figures, no model) and `POST /api/pos/{id}/crosscheck` (multipart `files`), both behind `ACCESS_TOKEN`. See `CROSSCHECK_PLAN.md`, `CROSSCHECK_REPORT.md` and `SPEC.md` §11 item 99.
+
 ## Known limitations / scope gaps
 
 This is an honest list of what is **not** built. The underlying mechanisms for several of these exist and are enforced; what's missing is the screen.
@@ -676,7 +707,7 @@ This is an honest list of what is **not** built. The underlying mechanisms for s
 | [`STATUS.md`](STATUS.md) | Current state, test counts, what changed per stage, known risks |
 | [`DEPLOY.md`](DEPLOY.md) | Render + Vercel deployment steps |
 | [`DEPLOY_GMAIL_FIX.md`](DEPLOY_GMAIL_FIX.md) | Gmail sign-in on the deployed site: the Vercel proxy, Google redirect URI and Render variables |
-| `GMAIL_PLAN*.md`, `EXPORT_PLAN.md`, `SETTINGS_PLAN.md`, `ERP_PLAN.md` | The approved plan for each feature added after the first version |
-| `GMAIL_STAGE_REPORT*.md`, `EXPORT_REPORT.md`, `SETTINGS_REPORT.md`, `ERP_REPORT.md` | Build reports: commits, test counts, changed assertions, deviations, browser checks |
+| `GMAIL_PLAN*.md`, `EXPORT_PLAN.md`, `SETTINGS_PLAN.md`, `ERP_PLAN.md`, `CROSSCHECK_PLAN.md` | The approved plan for each feature added after the first version |
+| `GMAIL_STAGE_REPORT*.md`, `EXPORT_REPORT.md`, `SETTINGS_REPORT.md`, `ERP_REPORT.md`, `CROSSCHECK_REPORT.md` | Build reports: commits, test counts, changed assertions, deviations, browser checks |
 | [`data/manifest.md`](data/manifest.md) | The sample invoices and the verified extraction answer key |
 

@@ -324,7 +324,7 @@ def compare_document(facts: DocumentFacts, po: POContext, settings: Settings) ->
         notices.append("This document contains text addressed to an AI reader. It was treated as data and changed nothing.")
     if any(i is not None and i["grounding"] == "unavailable" for i in [*facts.fields.values(), *facts.mentions, *facts.lines]):
         notices.append("Read from the image: this document has no text layer, so its values could not be checked against text.")
-    notices += [f"Left out: {n}." for n in facts.notes]
+    notices += [f"{n[:1].upper()}{n[1:]}." for n in facts.notes]            # what the code check dropped, ignored or mapped
     return {
         "facts": {"document_kind": facts.document_kind, "fields": facts.fields, "mentions": facts.mentions,
                   "lines": [{**line, "tie": tie} for line, tie in zip(facts.lines, ties)], "model_notes": facts.model_notes or None},

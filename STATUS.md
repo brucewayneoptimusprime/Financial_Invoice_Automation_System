@@ -7,9 +7,10 @@ Last updated: 2026-10-07. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - Plan `CROSSCHECK_PLAN.md` approved 2026-10-07 (1 yes, 2 yes, 3 every non-rejected invoice with its status named, 4 exact, 5 each document alone, 6 option A, 7 none, 8 yes, 9 PDF/PNG/JPG only, 10 yes). Building C0-C5 without stopping; the live schema check runs right after C1 (live budget for this feature: $0.10).
 - **C0: baseline.** On this branch before any code: backend **2599 passed**, 4 deselected (`pytest -W error`); frontend **179 passed**; `tsc --noEmit` clean. `tests/crosscheck/test_crosscheck_regression.py` pins the six real invoices' decision, matched PO and triggered rules.
 - **C1: wire, prompt, reader.** `app/crosscheck/wire.py` (4 objects, 24 properties, no unions or nulls), `prompts.py` (`crosscheck-v1`, fingerprint-pinned), `reader.py` (one repair retry, normalising, grounding: unconfirmed values are marked, reader-instruction scan; never raises), six `crosscheck_*` settings. 26 tests with scripted doubles.
-- **Live schema check: BLOCKED.** Both authorized calls were refused by the API with an authentication error (HTTP 401/403) before any tokens were used: cost $0.00. The key in `.env` may be expired. Stopped here as instructed.
-- **State check 2026-10-07 (at 91aeece):** backend **2626 passed**, 6 deselected; frontend **179 passed**; `tsc` clean; `vite build` ok. The live check was re-run and refused again (auth), cost $0.00. `CROSSCHECK_REPORT.md` written as an interim report.
-- Done: C0, C1. NOT built: C2, C3, C4, C5 (waiting for a working API key).
+- Live schema check: first refused twice with an authentication error (cost $0.00); the key was then replaced.
+- **Live schema check: PASSED** (2026-10-07, new key). `crosscheck-v1` accepted by the API as a strict schema on the first attempt. Measured: typed delivery note (text only) 2,703 in / 548 out = **$0.0109**; real one-page PDF (text + image) 5,275 in / 475 out = **$0.0153**. Live spend so far: $0.0262 of $0.10.
+- **C2: facts and comparison.** `app/crosscheck/facts.py` (read-only connection, the PO, its lines, vendor and aliases, invoiced quantity per line from every non-rejected invoice) and `compare.py` (pure: line ties by description only, four relevance signals, difference rows 1-9, absent PO lines as information, not-compared reasons, unconfirmed values). 26 tests.
+- Done: C0, C1, live check, C2.
 
 ---
 

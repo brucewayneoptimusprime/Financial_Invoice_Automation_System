@@ -6,7 +6,9 @@ Last updated: 2026-10-07. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 
 - Plan `CROSSCHECK_PLAN.md` approved 2026-10-07 (1 yes, 2 yes, 3 every non-rejected invoice with its status named, 4 exact, 5 each document alone, 6 option A, 7 none, 8 yes, 9 PDF/PNG/JPG only, 10 yes). Building C0-C5 without stopping; the live schema check runs right after C1 (live budget for this feature: $0.10).
 - **C0: baseline.** On this branch before any code: backend **2599 passed**, 4 deselected (`pytest -W error`); frontend **179 passed**; `tsc --noEmit` clean. `tests/crosscheck/test_crosscheck_regression.py` pins the six real invoices' decision, matched PO and triggered rules.
-- Done: C0.
+- **C1: wire, prompt, reader.** `app/crosscheck/wire.py` (4 objects, 24 properties, no unions or nulls), `prompts.py` (`crosscheck-v1`, fingerprint-pinned), `reader.py` (one repair retry, normalising, grounding: unconfirmed values are marked, reader-instruction scan; never raises), six `crosscheck_*` settings. 26 tests with scripted doubles.
+- **Live schema check: BLOCKED.** Both authorized calls were refused by the API with an authentication error (HTTP 401/403) before any tokens were used: cost $0.00. The key in `.env` may be expired. Stopped here as instructed.
+- Done: C0, C1 (the live check after C1 is outstanding).
 
 ---
 

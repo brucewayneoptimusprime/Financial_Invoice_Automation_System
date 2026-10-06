@@ -313,6 +313,13 @@ class Settings(BaseSettings):
     erp_feed_max_bytes: int = Field(default=1024 * 1024, ge=1024)
     erp_max_pos_per_sync: int = Field(default=100, ge=1)
     erp_max_import_per_action: int = Field(default=100, ge=1)
+    # Cross-check documents (CROSSCHECK_PLAN; SPEC section 11 item 99). Report only: it reads the database and writes nothing.
+    crosscheck_enabled: bool = True
+    crosscheck_max_documents: int = Field(default=5, ge=1, le=20)
+    crosscheck_max_output_tokens: int = Field(default=3000, ge=256)
+    crosscheck_min_line_share: float = Field(default=0.5, gt=0.0, le=1.0)   # share of a document's described lines tied to a PO line
+    crosscheck_typical_cost_usd: Decimal = Field(default=Decimal("0.02"), ge=0)  # the figure shown BEFORE Analyze (per document)
+    crosscheck_tmp_dir: Path | None = None       # parent of the per-analysis temp folders; None = the system temp directory
     # Currencies whose minor unit is not 2 decimals cannot be stored exactly (SPEC section 11 item 9).
     unsupported_currencies: frozenset[str] = frozenset({
         "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF", "UGX", "UYI", "VND", "VUV", "XAF", "XOF", "XPF",

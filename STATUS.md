@@ -8,7 +8,8 @@ Last updated: 2026-10-07. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - **C0: baseline.** On this branch before any code: backend **2599 passed**, 4 deselected (`pytest -W error`); frontend **179 passed**; `tsc --noEmit` clean. `tests/crosscheck/test_crosscheck_regression.py` pins the six real invoices' decision, matched PO and triggered rules.
 - **C1: wire, prompt, reader.** `app/crosscheck/wire.py` (4 objects, 24 properties, no unions or nulls), `prompts.py` (`crosscheck-v1`, fingerprint-pinned), `reader.py` (one repair retry, normalising, grounding: unconfirmed values are marked, reader-instruction scan; never raises), six `crosscheck_*` settings. 26 tests with scripted doubles.
 - **Live schema check: BLOCKED.** Both authorized calls were refused by the API with an authentication error (HTTP 401/403) before any tokens were used: cost $0.00. The key in `.env` may be expired. Stopped here as instructed.
-- Done: C0, C1 (the live check after C1 is outstanding).
+- **State check 2026-10-07 (at 91aeece):** backend **2626 passed**, 6 deselected; frontend **179 passed**; `tsc` clean; `vite build` ok. The live check was re-run and refused again (auth), cost $0.00. `CROSSCHECK_REPORT.md` written as an interim report.
+- Done: C0, C1. NOT built: C2, C3, C4, C5 (waiting for a working API key).
 
 ---
 

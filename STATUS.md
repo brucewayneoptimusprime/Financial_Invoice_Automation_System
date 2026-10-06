@@ -1,6 +1,14 @@
 # STATUS
 
-Last updated: 2026-10-03. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
+Last updated: 2026-10-07. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `PLAN.md` / `GMAIL_PLAN.md`).
+
+# Cross-check documents, report only (branch `feature/cross-check`, from `deploy` at 60ae234; nothing pushed)
+
+- Plan `CROSSCHECK_PLAN.md` approved 2026-10-07 (1 yes, 2 yes, 3 every non-rejected invoice with its status named, 4 exact, 5 each document alone, 6 option A, 7 none, 8 yes, 9 PDF/PNG/JPG only, 10 yes). Building C0-C5 without stopping; the live schema check runs right after C1 (live budget for this feature: $0.10).
+- **C0: baseline.** On this branch before any code: backend **2599 passed**, 4 deselected (`pytest -W error`); frontend **179 passed**; `tsc --noEmit` clean. `tests/crosscheck/test_crosscheck_regression.py` pins the six real invoices' decision, matched PO and triggered rules.
+- Done: C0.
+
+---
 
 # Simulated ERP PO feed (branch `feature/erp-feed`; master, feature/gmail-integration, feature/po-export, feature/settings untouched)
 

@@ -10,7 +10,8 @@ Last updated: 2026-10-07. Repo: `C:\Zamp_ai_Automation` (spec `SPEC.md`, plan `P
 - Live schema check: first refused twice with an authentication error (cost $0.00); the key was then replaced.
 - **Live schema check: PASSED** (2026-10-07, new key). `crosscheck-v1` accepted by the API as a strict schema on the first attempt. Measured: typed delivery note (text only) 2,703 in / 548 out = **$0.0109**; real one-page PDF (text + image) 5,275 in / 475 out = **$0.0153**. Live spend so far: $0.0262 of $0.10.
 - **C2: facts and comparison.** `app/crosscheck/facts.py` (read-only connection, the PO, its lines, vendor and aliases, invoiced quantity per line from every non-rejected invoice) and `compare.py` (pure: line ties by description only, four relevance signals, difference rows 1-9, absent PO lines as information, not-compared reasons, unconfirmed values). 26 tests.
-- Done: C0, C1, live check, C2.
+- **C3: service and routes.** `app/crosscheck/service.py` (per-document failures, the all-or-nothing budget pre-check, cost totals) and `app/api/routes_crosscheck.py` (`GET` and `POST /api/pos/{id}/crosscheck`, read-only database connection, temp folder removed in a `finally`). 18 API tests (no writes: every table's row count and the database file's SHA-256; structural test; access gate; caps; empty / unreadable files; model failures; offline / replay / switched off) and the second half of the six-invoice regression. SPEC section 7 (Document reader) and section 11 item 99. Full backend: **2671 passed**, 6 deselected.
+- Done: C0, C1, live check, C2, C3.
 
 ---
 
